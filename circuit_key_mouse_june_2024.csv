@@ -1,0 +1,88 @@
+﻿Acronym,Full Name,Type,Primary Identifier,Secondary Identifier,Tertiary Identifier
+A10,dopaminergic cell group A10,cell_type,UBERON:0036005,,
+A11,dopaminergic cell group A11,cell_type,UBERON:0036006,,
+A12,dopaminergic cell group A12,cell_type,UBERON:0036009,,
+A14,dopaminergic cell group A14,cell_type,UBERON:0036001,,
+A15,dopaminergic cell group A15,cell_type,UBERON:0036002,,
+A16,dopaminergic cell group A16,cell_type,UBERON:0036008,,
+A8,dopaminergic cell group A8,cell_type,UBERON:0036000,,
+A9,dopaminergic cell group A9,cell_type,UBERON:0036003,,
+ABC,arachnoid barrier cell,cell_type,CL:4023097,,
+Astro,astrocyte,cell_type,CL:0000127,,
+Astroependymal,astroependymal cell,cell_type,,,
+B-cells,B cell,cell_type,CL:0000236,,
+BAM,border-associated macrophage,cell_type,CL:4042003,,
+Bergmann,Bergmann glial cell,cell_type,CL:0000644,,
+chandelier,chandelier cell,cell_type,CL:4023083,,
+CHOR,choroid plexus epithelial cell,cell_type,CL:0000706,,
+COP,committed oligodendrocyte precursor,cell_type,CL:4023059,,
+CR,Cajal-Retzius cell,cell_type,CL:0000695,,
+D1,D1 medium spiny neuron,cell_type,CL:4023026,,
+D2,D2 medium spiny neuron,cell_type,CL:4023029,,
+D3,D3 dopamine receptor expressing cell,cell_type,,,
+DC,dendritic cell,cell_type,CL:0000451,,
+Endo,endothelial cell,cell_type,CL:0000115,,
+Epen,ependymal cell,cell_type,CL:0000065,,
+Ependymal,ependymal cell,cell_type,CL:0000065,,
+Ex,excitatory neuron,cell_type,,,
+Golgi,cerebellar Golgi cell,cell_type,CL:0000119,,
+Granule,granule cell,cell_type,CL:0000120,,
+Hypendymal,hypendymal ,cell_type,CL:4023181,,
+ILC,innate lymphoid cell,cell_type,CL:0001065,,
+Immune,leukocyte,cell_type,CL:0000738,,
+IMN,immature neuron,cell_type,,,
+Inh,inhibitory interneuron,cell_type,CL:0000498,,
+Lymphoid,lymphocyte,cell_type,CL:0000542,,
+MFOL,myelin-forming oligodendrocyte,cell_type,,,
+Microglia,microglial cell,cell_type,CL:0000129,,
+MOL,mature oligodendrocyte,cell_type,,,
+Monocytes,monocyte,cell_type,CL:0000576,,
+NFOL,newly formed oligodendrocyte,cell_type,,,
+NK-cells,natural killer cell,cell_type,CL:0000623,,
+NN,non-neuronal cell,cell_type,,,
+OEC,olfactory ensheathing cell,cell_type,CL:0011028,,
+Oligo,oligodendrocyte,cell_type,CL:0000128,,
+OPC,oligodendrocyte precursor cell,cell_type,CL:0002453,,
+Peri,pericyte,cell_type,CL:0000669,,
+PLI,Purkinje layer interneuron,cell_type,,,
+Purkinje,Purkinje cell,cell_type,CL:0000121,,
+SMC,smooth muscle cell,cell_type,CL:0000192,,
+T-cells,T cell,cell_type,CL:0000084,,
+Tanycyte,tanycyte,cell_type,CL:0002085,,
+UBC,unipolar brush cell,cell_type,CL:4023161,,
+VLMC,vascular leptomeningeal cell,cell_type,CL:4023051,,
+Chol,cholinergic neuron,neurotransmission,CL:0000108,,
+Dopa,dopaminergic neuron,neurotransmission,CL:0000700,,
+GABA,GABAergic neuron,neurotransmission,CL:0000617,,
+Glut,glutamatergic neuron,neurotransmission,CL:0000679,,
+Gly,glycinergic neuron,neurotransmission,CL:1001509,,
+Glyc,glycinergic neuron,neurotransmission,CL:1001509,,
+Hist,histaminergic neuron,neurotransmission,CL:0011110,,
+Sero,serotonergic neuron,neurotransmission,CL:0000850,,
+CT,corticothalamic-projecting glutamatergic cortical neuron,projection_type,CL:4023013,,
+ET,extratelencephalic-projecting glutamatergic cortical neuron,projection_type,CL:4023009,,
+IT,intratelencephalic-projecting glutamatergic cortical neuron,projection_type,CL:4023008,,
+NP,near-projecting glutamatergic cortical neuron,projection_type,,,
+Pvalb,parvalbumin,gene,ENSEMBL:ENSMUSG00000005716,NCBIGene:19293,ABAGene:19056
+Slc17a7,"solute carrier family 17 (sodium-dependent inorganic phosphate cotransporter), member 7",gene,ENSEMBL:ENSMUSG00000070570,NCBIGene:72961,ABAGene:48802
+Slc22a3,"solute carrier family 22 (organic cation transporter), member 3",gene,ENSEMBL:ENSMUSG00000023828,NCBIGene:20519,ABAGene:20281
+Slc6a2,"solute carrier family 6 (neurotransmitter transporter, noradrenalin), member 2",gene,ENSEMBL:ENSMUSG00000055368,NCBIGene:20538,ABAGene:20300
+Slc6a5,"solute carrier family 6 (neurotransmitter transporter, glycine), member 5",gene,ENSEMBL:ENSMUSG00000039728,NCBIGene:104245,ABAGene:68410
+Sst,somatostatin,gene,ENSEMBL:ENSMUSG00000004366,NCBIGene:20604,ABAGene:20366
+Vip,vasoactive intestinal polypeptide,gene,ENSEMBL:ENSMUSG00000019772,NCBIGene:22353,ABAGene:22110
+Mtnr1a,melatonin receptor 1A,gene,ENSEMBL:ENSMUSG00000054764,NCBIGene:17773,ABAGene:17540
+Nmu,neuromedin U,gene,ENSEMBL:ENSMUSG00000029236,NCBIGene:56183,ABAGene:35466
+Nox4,NADPH oxidase 4,gene,ENSEMBL:ENSMUSG00000030562,NCBIGene:50490,ABAGene:29980
+Npas1,neuronal PAS domain protein 1,gene,ENSEMBL:ENSMUSG00000001988,NCBIGene:18142,ABAGene:17909
+Nr2e1,"nuclear receptor subfamily 2, group E, member 1",gene,ENSEMBL:ENSMUSG00000019803,NCBIGene:21907,ABAGene:21664
+Nr4a2,"nuclear receptor subfamily 4, group A, member 2",gene,ENSEMBL:ENSMUSG00000026826,NCBIGene:18227,ABAGene:17994
+Nr5a1,"nuclear receptor subfamily 5, group A, member 1",gene,ENSEMBL:ENSMUSG00000026751,NCBIGene:26423,ABAGene:26171
+Nrgn,neurogranin,gene,ENSEMBL:ENSMUSG00000053310,NCBIGene:64011,ABAGene:40644
+Ntrk1,"neurotrophic tyrosine kinase, receptor, type 1",gene,ENSEMBL:ENSMUSG00000028072,NCBIGene:18211,ABAGene:17978
+Nts,neurotensin,gene,ENSEMBL:ENSMUSG00000019890,NCBIGene:67405,ABAGene:43248
+Chrnb3,"cholinergic receptor, nicotinic, beta polypeptide 3",gene,ENSEMBL:ENSMUSG00000031492,NCBIGene:108043,ABAGene:72205
+Crh,corticotropin releasing hormone,gene,ENSEMBL:ENSMUSG00000049796,NCBIGene:12918,ABAGene:12701
+Dbh,dopamine beta hydroxylase,gene,ENSEMBL:ENSMUSG00000000889,NCBIGene:13166,ABAGene:12946
+Gabrr2,"gamma-aminobutyric acid (GABA) C receptor, subunit rho 2",gene,ENSEMBL:ENSMUSG00000023267,NCBIGene:14409,ABAGene:14185
+Grin2c,"glutamate receptor, ionotropic, NMDA2C (epsilon 3)",gene,ENSEMBL:ENSMUSG00000020734,NCBIGene:14813,ABAGene:14589
+Grxcr2,"glutaredoxin, cysteine rich 2",gene,ENSEMBL:ENSMUSG00000073574,NCBIGene:332309,ABAGene:109118

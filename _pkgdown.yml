@@ -1,0 +1,88 @@
+url: https://michaelbarkasi.github.io/neurons/
+template:
+  bootstrap: 5
+  light-switch: true
+  math-rendering: katex
+
+navbar:
+  structure:
+    left:  [intro, reference, articles, tutorials, news]
+    right: [search, github, lightswitch]
+  components:
+    intro:
+      text: Introduction
+      href: index.html
+    reference:
+      text: Package Functions
+      href: reference/index.html
+    github:
+      icon: fab fa-github
+      href: https://github.com/michaelbarkasi/neurons
+
+articles:
+- title: Installation
+  navbar: Installation
+  contents:
+  - install
+
+- title: Tutorials
+  navbar: Tutorials
+  contents: 
+  - starts_with("tutorial_")
+
+- title: Legal
+  navbar: Legal
+  contents:
+  - license
+
+reference:
+- title: Initialization functions
+  navbar: Initialization functions
+  contents:
+  - starts_with("new.")
+  - load.rasters.as.neurons
+  
+- title: Neuron method wrappers
+  navbar: Neuron method wrappers
+  contents:
+  - fit.edf.autocorr
+  - compute.autocorr
+  - estimate.autocorr.params
+  - process.autocorr
+  - plot.raster
+  - plot.autocorrelation
+  
+- title: Motif method wrappers 
+  navbar: Motif method wrappers 
+  contents:
+  - load.projection.into.motif
+  
+- title: Network method wrappers 
+  navbar: Network method wrappers 
+  contents:
+  - set.network.structure
+  - apply.circuit.motif
+  - run.SGT
+  - plot.network
+  - plot.network.traces
+  
+- title: Network cell type functions 
+  navbar: Network cell type functions 
+  contents:
+  - print.known.celltypes
+  - fetch.cell.type.params
+  - add.cell.type
+  - modify.cell.type
+  
+- title: Analysis functions
+  navbar: Analysis functions
+  contents:
+  - starts_with("analyze.")
+  - test.sigma.assumption
+  
+- title: Preprocessing functions 
+  navbar: Preprocessing functions 
+  contents:
+  - import.kilo4
+  - preprocess.kilo4
+  - summarize.cluster.key

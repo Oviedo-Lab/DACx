@@ -1,0 +1,3 @@
+CXX_STD = CXX14
+PKG_CXXFLAGS = $(shell pkg-config --cflags nlopt)
+PKG_LIBS = $(shell pkg-config --libs nlopt)
