@@ -29,8 +29,8 @@ rm(list = ls())
 # Set seed for reproducibility
 set.seed(12345) 
 
-# Load neurons package
-library(neurons, quiet = TRUE) 
+# Load DACx package
+library(DACx, quietly = TRUE) 
 ```
 
 Network topologies are held in a special class of objects, <span class = "code_variable">network</span>, from the neurons package. A new network object can be created with the <span class = "function">new.network</span> function. 

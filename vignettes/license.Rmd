@@ -1,5 +1,7 @@
 ---
 title: "Dependency licenses"
+author: "Michael Barkasi"
+date: "`r Sys.Date()`"
 ---
 
 This package uses code from the following packages, which are distributed under the licenses listed below.

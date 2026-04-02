@@ -13,7 +13,7 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 
 // init_known_celltypes
 void init_known_celltypes();
-RcppExport SEXP _neurons_init_known_celltypes() {
+RcppExport SEXP _DACx_init_known_celltypes() {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     init_known_celltypes();
@@ -22,7 +22,7 @@ END_RCPP
 }
 // print_known_celltypes
 void print_known_celltypes();
-RcppExport SEXP _neurons_print_known_celltypes() {
+RcppExport SEXP _DACx_print_known_celltypes() {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     print_known_celltypes();
@@ -31,7 +31,7 @@ END_RCPP
 }
 // fetch_cell_type_params
 List fetch_cell_type_params(const std::string& type_name);
-RcppExport SEXP _neurons_fetch_cell_type_params(SEXP type_nameSEXP) {
+RcppExport SEXP _DACx_fetch_cell_type_params(SEXP type_nameSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -42,7 +42,7 @@ END_RCPP
 }
 // add_cell_type
 void add_cell_type(const std::string& type_name, const int& valence, const double& temporal_modulation_bias, const double& temporal_modulation_timeconstant, const double& temporal_modulation_amplitude, const double& transmission_velocity, const double& v_bound, const double& dHdv_bound, const double& I_spike, const double& coupling_scaling_factor, const double& spike_potential, const double& resting_potential, const double& threshold, const int& process_node_count, const int& axon_branch_count, const int& dendrite_branch_count);
-RcppExport SEXP _neurons_add_cell_type(SEXP type_nameSEXP, SEXP valenceSEXP, SEXP temporal_modulation_biasSEXP, SEXP temporal_modulation_timeconstantSEXP, SEXP temporal_modulation_amplitudeSEXP, SEXP transmission_velocitySEXP, SEXP v_boundSEXP, SEXP dHdv_boundSEXP, SEXP I_spikeSEXP, SEXP coupling_scaling_factorSEXP, SEXP spike_potentialSEXP, SEXP resting_potentialSEXP, SEXP thresholdSEXP, SEXP process_node_countSEXP, SEXP axon_branch_countSEXP, SEXP dendrite_branch_countSEXP) {
+RcppExport SEXP _DACx_add_cell_type(SEXP type_nameSEXP, SEXP valenceSEXP, SEXP temporal_modulation_biasSEXP, SEXP temporal_modulation_timeconstantSEXP, SEXP temporal_modulation_amplitudeSEXP, SEXP transmission_velocitySEXP, SEXP v_boundSEXP, SEXP dHdv_boundSEXP, SEXP I_spikeSEXP, SEXP coupling_scaling_factorSEXP, SEXP spike_potentialSEXP, SEXP resting_potentialSEXP, SEXP thresholdSEXP, SEXP process_node_countSEXP, SEXP axon_branch_countSEXP, SEXP dendrite_branch_countSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string& >::type type_name(type_nameSEXP);
@@ -67,7 +67,7 @@ END_RCPP
 }
 // modify_cell_type
 void modify_cell_type(const std::string& type_name, const int& valence, const double& temporal_modulation_bias, const double& temporal_modulation_timeconstant, const double& temporal_modulation_amplitude, const double& transmission_velocity, const double& v_bound, const double& dHdv_bound, const double& I_spike, const double& coupling_scaling_factor, const double& spike_potential, const double& resting_potential, const double& threshold, const int& process_node_count, const int& axon_branch_count, const int& dendrite_branch_count);
-RcppExport SEXP _neurons_modify_cell_type(SEXP type_nameSEXP, SEXP valenceSEXP, SEXP temporal_modulation_biasSEXP, SEXP temporal_modulation_timeconstantSEXP, SEXP temporal_modulation_amplitudeSEXP, SEXP transmission_velocitySEXP, SEXP v_boundSEXP, SEXP dHdv_boundSEXP, SEXP I_spikeSEXP, SEXP coupling_scaling_factorSEXP, SEXP spike_potentialSEXP, SEXP resting_potentialSEXP, SEXP thresholdSEXP, SEXP process_node_countSEXP, SEXP axon_branch_countSEXP, SEXP dendrite_branch_countSEXP) {
+RcppExport SEXP _DACx_modify_cell_type(SEXP type_nameSEXP, SEXP valenceSEXP, SEXP temporal_modulation_biasSEXP, SEXP temporal_modulation_timeconstantSEXP, SEXP temporal_modulation_amplitudeSEXP, SEXP transmission_velocitySEXP, SEXP v_boundSEXP, SEXP dHdv_boundSEXP, SEXP I_spikeSEXP, SEXP coupling_scaling_factorSEXP, SEXP spike_potentialSEXP, SEXP resting_potentialSEXP, SEXP thresholdSEXP, SEXP process_node_countSEXP, SEXP axon_branch_countSEXP, SEXP dendrite_branch_countSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string& >::type type_name(type_nameSEXP);
@@ -91,25 +91,23 @@ BEGIN_RCPP
 END_RCPP
 }
 
-RcppExport SEXP _rcpp_module_boot_neuron();
 RcppExport SEXP _rcpp_module_boot_motif();
 RcppExport SEXP _rcpp_module_boot_network();
 RcppExport SEXP _rcpp_module_boot_Projection();
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_neurons_init_known_celltypes", (DL_FUNC) &_neurons_init_known_celltypes, 0},
-    {"_neurons_print_known_celltypes", (DL_FUNC) &_neurons_print_known_celltypes, 0},
-    {"_neurons_fetch_cell_type_params", (DL_FUNC) &_neurons_fetch_cell_type_params, 1},
-    {"_neurons_add_cell_type", (DL_FUNC) &_neurons_add_cell_type, 16},
-    {"_neurons_modify_cell_type", (DL_FUNC) &_neurons_modify_cell_type, 16},
-    {"_rcpp_module_boot_neuron", (DL_FUNC) &_rcpp_module_boot_neuron, 0},
+    {"_DACx_init_known_celltypes", (DL_FUNC) &_DACx_init_known_celltypes, 0},
+    {"_DACx_print_known_celltypes", (DL_FUNC) &_DACx_print_known_celltypes, 0},
+    {"_DACx_fetch_cell_type_params", (DL_FUNC) &_DACx_fetch_cell_type_params, 1},
+    {"_DACx_add_cell_type", (DL_FUNC) &_DACx_add_cell_type, 16},
+    {"_DACx_modify_cell_type", (DL_FUNC) &_DACx_modify_cell_type, 16},
     {"_rcpp_module_boot_motif", (DL_FUNC) &_rcpp_module_boot_motif, 0},
     {"_rcpp_module_boot_network", (DL_FUNC) &_rcpp_module_boot_network, 0},
     {"_rcpp_module_boot_Projection", (DL_FUNC) &_rcpp_module_boot_Projection, 0},
     {NULL, NULL, 0}
 };
 
-RcppExport void R_init_neurons(DllInfo *dll) {
+RcppExport void R_init_DACx(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
 }

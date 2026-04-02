@@ -225,3 +225,145 @@ plt <- plt |>
 
 plt
 
+
+
+
+
+
+
+
+
+
+
+
+
+# Scale, microns over pixels
+sc <- 500/1220
+
+# sizes, pixels
+cell_diameter <- 34 
+lam <- 2700
+col_to_lam <- 1470/1220
+col <- col_to_lam * lam
+coluster_radius <- 150
+n_cols <- col / (2.5 * coluster_radius)
+
+# Convert to microns
+cell_diameter <- cell_diameter * sc
+lam <- lam * sc # height of patch (laminar axis)
+col <- col * sc # width of patch (columnar axis)
+coluster_radius <- coluster_radius * sc
+
+cluster_density <- 0.4
+cells_per_cluster <- (pi * (coluster_radius)^2) * cluster_density / (pi * (cell_diameter/2)^2) 
+total_cells <- cells_per_cluster * n_cols * 5 # five layers
+
+# print results 
+cat("cell_diameter (microns) =", cell_diameter,
+    "\nlam (microns) =", lam,
+    "\ncol (microns) =", col,
+    "\ncoluster_radius (microns) =", coluster_radius,
+    "\nn_cols =", n_cols,
+    "\ncells_per_cluster =", cells_per_cluster,
+    "\ntotal_cells =", total_cells)
+
+# At 30e3 microns/ms, will take 0.05 ms to cross a 1500 micron patch
+# By default, run growth-transform sim at 1e-3 ms (1 microsecond) time-step
+
+
+
+
+
+# Clear the R workspace to start fresh
+rm(list = ls())
+# Set seed for reproducibility
+set.seed(12345) 
+# Load neurons package
+library(neurons) 
+
+cortical.patch <- new.network()
+
+init_known_celltypes()
+
+cortical.patch <- set.network.structure(
+  cortical.patch,
+  neuron_types = c("principal", "PV", "SST"),
+  neurons_per_node = c(10, 5, 5),
+  recurrence_factors = 0.75,
+  pruning_threshold_factor = 0.1
+)
+
+plot.network(cortical.patch)
+
+cortical.patch.comps <- cortical.patch$fetch_network_components()
+n_neurons <- cortical.patch.comps$n_neurons
+
+
+stim_time_ms <- 50
+dt <- 1e-3
+n_steps <- stim_time_ms/dt
+
+stim_length_ms <- 20
+stim_start_ms <- 10
+stim_length <- stim_length_ms / dt
+stim_start <- stim_start_ms / dt 
+stim_end <- stim_start + stim_length - 1
+
+rest_current <- 0.001e-7 # 0.1 pico amp
+principal_mask <- cortical.patch.comps$neuron_type_name == "principal"
+stimulus_current_matrix <- matrix(rest_current, nrow = n_neurons, ncol = n_steps)
+stimulus_current_matrix[principal_mask, stim_start:stim_end] <- 0.001e-6 # one pico amp
+
+spike_traces <- run.GTsim(
+  cortical.patch, 
+  stimulus_current_matrix,    # matrix of input currents (rows: neurons, columns: time bins)
+  dt = dt                     # time step length, in ms
+)
+
+spike_traces_long <- data.frame()
+samples <- n_steps
+end <- n_steps
+#end <- samples*10
+start <- end - samples + 1
+for (i in 1:nrow(spike_traces)) { # 
+  neuron_trace <- data.frame(
+    time = seq(start, by=dt, length.out=samples),
+    potential = spike_traces[i,c(start:end)],
+    id = i,
+    type = cortical.patch.comps[["neuron_type_name"]][i]
+  )
+  spike_traces_long <- rbind(spike_traces_long, neuron_trace)
+}
+spike_traces_long$id <- as.character(spike_traces_long$id)
+
+ggplot2::ggplot(spike_traces_long, ggplot2::aes(x=time, y=potential, group = id, color=id)) +
+  ggplot2::geom_line() +
+  ggplot2::geom_vline(xintercept=stim_end * dt, linetype="dashed", color="black") +
+  ggplot2::geom_vline(xintercept=stim_start * dt, linetype="dashed", color="black") +
+  ggplot2::facet_wrap(~ type, ncol=1) +
+  ggplot2::theme_minimal() +
+  ggplot2::theme(legend.position="none") +
+  ggplot2::labs(
+    title = "Neuron Spike Traces",
+    x = "Time (ms)",
+    y = "Membrane Potential (unit_potential)"
+  )
+
+# print all individually
+for (neuron_id in unique(spike_traces_long$id)) {
+  neuron_trace <- spike_traces_long[spike_traces_long$id == neuron_id, ]
+  p <- ggplot2::ggplot(neuron_trace, ggplot2::aes(x=time, y=potential)) +
+    ggplot2::geom_line(color="blue") +
+    ggplot2::geom_vline(xintercept=stim_end * dt, linetype="dashed", color="black") +
+    ggplot2::geom_vline(xintercept=stim_start * dt, linetype="dashed", color="black") +
+    ggplot2::theme_minimal() +
+    ggplot2::labs(
+      title = paste("Neuron Spike Trace - ID:", neuron_id, "Type:", unique(neuron_trace$type)),
+      x = "Time (ms)",
+      y = "Membrane Potential (unit_potential)"
+    )
+  print(p)
+}
+
+
+

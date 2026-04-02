@@ -32,8 +32,8 @@ rm(list = ls())
 # Set seed for reproducibility
 set.seed(12345) 
 
-# Load neurons package
-library(neurons, quietly = TRUE) 
+# Load DACx package
+library(DACx, quietly = TRUE) 
 ```
 
 Next, we create a new network object with the <span class = "function">new.network</span> function. 

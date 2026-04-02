@@ -1,5 +1,7 @@
 ---
 title: "Installation instructions"
+author: "Michael Barkasi"
+date: "`r Sys.Date()`"
 ---
 
 1. Clone and `cd` into this git repo
