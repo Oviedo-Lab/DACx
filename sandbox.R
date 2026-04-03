@@ -6,7 +6,7 @@ rm(list = ls())
 set.seed(12345) 
 
 # Load neurons package
-library(neurons, quietly = TRUE) 
+library(DACx, quietly = TRUE) 
 
 cortical.patch <- new.network()
 cortical.patch <- set.network.structure(
@@ -64,11 +64,13 @@ cell_size_factor <- 5.0
 edges <- matrix(0, nrow = 0, ncol = 7)
 edges <- as.data.frame(edges)
 colnames(edges) <- c("is_axon", "z_start", "y_start", "x_start", "z_end", "y_end", "x_end")
+synapse_coordinates <- matrix(0, nrow = 0, ncol = 3)
+colnames(synapse_coordinates) <- c("z", "y", "x")
 for (a in ntw[["arbor_list"]]) {
   
-  for (b in unique(a[,"is_axon"])) {
+  for (b in unique(a[,"arbor_id"])) {
     
-    ab <- a[a[,"is_axon"] == b,]
+    ab <- a[a[,"arbor_id"] == b,]
     
     # parent rows
     p <- ab[, "parent_idx"]
@@ -92,10 +94,17 @@ for (a in ntw[["arbor_list"]]) {
     
   }
   
+  # Grab synapses 
+  synapse_mask <- a[,"is_synapse"] == 1
+  synapse_coordinates <- rbind(
+    synapse_coordinates,
+    a[synapse_mask, c("z", "y", "x")]
+  )
   
 }
 edges$is_axon[edges$is_axon == 1] <- "axon"
 edges$is_axon[edges$is_axon == 0] <- "dendrite"
+synapse_coordinates <- as.data.frame(synapse_coordinates)
 
 # Create cells dataframe
 cells <- data.frame(
@@ -167,6 +176,7 @@ for (cl in seq_along(colored_labels)) {
     label_colors[cl] <- sample(unknown_label_colors, 1)
   }
 }
+label_colors <- c(label_colors, "orange")
 
 library(plotly)
 
@@ -174,14 +184,20 @@ hex <- rgb(t(col2rgb(label_colors)), maxColorValue = 255)
 
 cells$layer <- factor(
   cells$layer,
-  levels = c("axon", "dendrite", "L6", "L5", "L4", "L2/3"),
-  labels = c("axon", "dendrite", "L6", "L5", "L4", "L2/3")
+  levels = c("axon", "dendrite", "L6", "L5", "L4", "L2/3", "syn"),
+  labels = c("axon", "dendrite", "L6", "L5", "L4", "L2/3", "syn")
 )
 edges[,edge_color] <- factor(
   edges[,edge_color],
-  levels = c("axon", "dendrite", "L6", "L5", "L4", "L2/3"),
-  labels = c("axon", "dendrite", "L6", "L5", "L4", "L2/3")
+  levels = c("axon", "dendrite", "L6", "L5", "L4", "L2/3", "syn"),
+  labels = c("axon", "dendrite", "L6", "L5", "L4", "L2/3", "syn")
 ) 
+synapse_coordinates$syn <- "syn" 
+synapse_coordinates$syn <- factor(
+  synapse_coordinates$syn,
+  levels = c("axon", "dendrite", "L6", "L5", "L4", "L2/3", "syn"),
+  labels = c("axon", "dendrite", "L6", "L5", "L4", "L2/3", "syn")
+)
 
 edges_long <- data.frame(
   x = c(rbind(edges$x_start, edges$x_end, NA)),
@@ -211,6 +227,19 @@ plt <- plt |>
     type = "scatter3d",
     mode = "markers",
     color = ~factor(layer),
+    colors = hex
+  ) 
+
+plt <- plt |> 
+  add_trace(
+    data = synapse_coordinates,
+    x = ~x,
+    y = ~z,
+    z = ~y,
+    type = "scatter3d",
+    mode = "markers",
+    marker = list(size = 5),
+    color = ~syn,
     colors = hex
   )
 

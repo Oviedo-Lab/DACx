@@ -99,14 +99,21 @@ NumericMatrix makePositiveDefinite(
     const NumericMatrix& NumX
   );
 
+// Find first neighbor 
+std::vector<int> find_first_neighbor(
+    const std::vector<Vector3d>& b_active,     // Branch searching for neighbor
+    const std::vector<Vector3d>& b_all,        // Branch being searched
+    const double& neighborhood_radius
+  );
+
 // Find pairwise Euclidean distances for a set of points
 MatrixXd pairwise_distances(
-    const MatrixXd& points   // Rows as points, columns as dimensions
+    const MatrixXd& points                     // Rows as points, columns as dimensions
   );
 
 // Find pairwise Euclidean distances for a set of points and convert directly into integer lags
-MatrixXi pairwise_lags(
-    const MatrixXd& coordinates_spatial,      // N x 3 (rows = neurons), columns z (patch), y (layer), x (column)
+MatrixXi pairwise_lags_by_edges(
+    const MatrixXd& coordinates_spatial,       // N x 3 (rows = neurons), columns z (patch), y (layer), x (column)
     const VectorXd& neuron_transmission_velocity,
     double dt
   ); 
@@ -147,10 +154,12 @@ struct Projection {
   };
 
 struct cell_arbors {
+    std::vector<int> arbor_id;                         // arbor_id[i] = unique id for arbor i
     std::vector<bool> axon;                            // axon[i] = whether arbor i is axon (true) or dendrite (false)
     std::vector<std::vector<Vector3d>> coordinates;    // Rows as process nodes (including soma coordinates); Columns z, y, x
     std::vector<std::vector<int>> parents;             // parents[i] = the idx in coordinates of the parent of node i in coordinates, with -1 for the soma
-    std::vector<std::vector<int>> leafs;               // leafs[i] = coordinates idx of leaf i in coordinates matrix
+    std::vector<std::vector<int>> leafs;               // leafs[i] = 1 if node i in coordinates is a leaf, 0 otherwise
+    std::vector<std::vector<int>> synapses;            // synapses[i] = 1 if node i in coordinates is a synapse, 0 otherwise
   };
 
 class motif {
@@ -263,12 +272,13 @@ class network {
     double patch_separation_factor = 1.5;         // factor to multiply column diameter by to get the distance between patches (rows of columns)
     MatrixXi neurons_per_node;                    // mean number of neurons in each layer (rows) by type (columns)
     std::vector<MatrixXd> recurrence_factors;     // Vector of matrices of sd of the normal distribution for local transconductances between neurons of each type, one matrix per layer
-    double pruning_threshold_factor = 0.1;        // transconductances below this fraction of the recurrence factor set to zero
+    double synaptic_neighborhood = 10.0;          // radius of synapse-forming neighborhood; axon-dendrite node pairs within this distance initialize as synapses
     
     // Network components 
     int n_neurons;                                // Total number of neurons in the network
     int n_neuron_types;                           // Number of different neuron types in the network
-    std::vector<cell_arbors> arbors;
+    MatrixXi synapse_idx;                         // n_neuron x n_neuron matrix of synapse indexes, with -1 for no synapse and otherwise the index in arbors[i][0].coordinates of the synapse from neuron i to neuron j
+    std::vector<cell_arbors> arbors;              // Vector of length n_neurons
     std::vector<MatrixXd> transconductances;      // Vector of square matrices, each giving the transconductance between each neuron in the network, rows are post-synaptic, columns are pre-synaptic
     MatrixXd node_coordinates_spatial;            // Mx3 matrix giving the (z,y,x) spatial coordinates of each node in the network
     MatrixXd coordinates_spatial;                 // Nx3 matrix giving the (z,y,x) spatial coordinates of each neuron in the network
@@ -332,7 +342,7 @@ class network {
       double pch_separation_factor,
       IntegerMatrix nrn_per_node,
       List recur_factors,
-      double pruning_thresh_factor
+      double synaptic_neighborhood_radius
     );
     
     // Member functions for building network
@@ -362,9 +372,12 @@ class network {
     NumericVector fetch_spike_counts_R() const;
     
     // Member functions for analysis and simulation 
+    MatrixXi find_pairwise_lags_by_axon(
+      const double& dt                      // time step length, in unit_time
+    );
     void SGT(
-      const NumericMatrix& stimulus_current,     // matrix of stimulus currents, in unit_current, n_neurons x n_steps
-      const double& dt                           // time step length, in unit_time
+      const NumericMatrix& stimulus_current,  // matrix of stimulus currents, in unit_current, n_neurons x n_steps
+      const double& dt                        // time step length, in unit_time
     );
     
   };

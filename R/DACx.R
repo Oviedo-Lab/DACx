@@ -348,7 +348,7 @@ load.projection.into.motif <- function(
 #' @param patch_separation_factor Numeric giving mean distance between network patches as a fraction of column diameter (default: 3.5). 
 #' @param neurons_per_node Matrix giving number of neurons of each type per node in each layer; dimensions must match n_layers (rows) and length of neuron_types (columns).
 #' @param recurrence_factors List of matrices giving local recurrence factors for each layer; each matrix must have dimensions matching length of neuron_types (rows and columns).
-#' @param pruning_threshold_factor Numeric giving factor for pruning weak connections within nodes; connections with strength below this factor times the maximum connection strength in the node will be pruned (default: 0.1).
+#' @param synaptic_neighborhood Numeric giving the radius (in microns) within which an axon node will trigger a synapse when near a dendrite node (default: 10.0).
 #' @return The updated network object with the specified structure and local nodes generated.
 #' @export
 set.network.structure <- function(
@@ -365,7 +365,7 @@ set.network.structure <- function(
     patch_separation_factor = 3.5,
     neurons_per_node = 30,
     recurrence_factors = 0.5,
-    pruning_threshold_factor = 0.1
+    synaptic_neighborhood = 10.0
   ) {
     # Run checks 
     n_neuron_types <- length(neuron_types)
@@ -445,7 +445,7 @@ set.network.structure <- function(
       patch_separation_factor,
       neurons_per_node,
       recurrence_factors,
-      pruning_threshold_factor
+      synaptic_neighborhood
     )
     # Make local nodes and return
     network$make_local_nodes()

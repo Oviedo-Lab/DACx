@@ -18,7 +18,7 @@ set.network.structure(
   patch_separation_factor = 3.5,
   neurons_per_node = 30,
   recurrence_factors = 0.5,
-  pruning_threshold_factor = 0.1
+  synaptic_neighborhood = 10
 )
 }
 \arguments{
@@ -48,7 +48,7 @@ set.network.structure(
 
 \item{recurrence_factors}{List of matrices giving local recurrence factors for each layer; each matrix must have dimensions matching length of neuron_types (rows and columns).}
 
-\item{pruning_threshold_factor}{Numeric giving factor for pruning weak connections within nodes; connections with strength below this factor times the maximum connection strength in the node will be pruned (default: 0.1).}
+\item{synaptic_neighborhood}{Numeric giving the radius (in microns) within which an axon node will trigger a synapse when near a dendrite node (default: 10.0).}
 
 \item{neuron_type_valences}{Numeric vector giving valences of each neuron type, e.g. c(1, -1) for excitatory and inhibitory neurons.}
 
