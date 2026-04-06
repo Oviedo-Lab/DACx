@@ -8,28 +8,21 @@ load.projection.into.motif(
   motif,
   presynaptic_layer,
   postsynaptic_layer,
-  density = NULL,
-  presynaptic_density = 0.5,
-  postsynaptic_density = 0.5,
+  connection_strength = 0.5,
   presynaptic_type = "principal",
   postsynaptic_type = "principal",
   max_col_shift_up = 0,
-  max_col_shift_down = 0,
-  connection_strength = 1
+  max_col_shift_down = 0
 )
 }
 \arguments{
 \item{motif}{Motif object into which to load the projection.}
 
-\item{presynaptic_layer}{Character string giving layer of presynaptic neuron, e.g. "L2/3", "L4", "L5", "L6", etc.}
+\item{presynaptic_layer}{Character string giving layer of presynaptic neuron, e.g. "L3", "L4", "L5", "L6", etc.}
 
-\item{postsynaptic_layer}{Character string, or vector of character strings, giving layer of postsynaptic neuron, e.g. "L2/3", "L4", "L5", "L6", etc.}
+\item{postsynaptic_layer}{Character string, or vector of character strings, giving layer of postsynaptic neuron, e.g. "L3", "L4", "L5", "L6", etc.}
 
-\item{density}{Numeric giving density of the projection; if left NULL, will use presynaptic_density and postsynaptic_density; if set, will use this value for both presynaptic_density and postsynaptic_density.}
-
-\item{presynaptic_density}{Numeric giving density of presynaptic neuron type in presynaptic layer (e.g., ratio of neurons per node, default: 0.5).}
-
-\item{postsynaptic_density}{Numeric giving density of postsynaptic neuron type in postsynaptic layer (e.g., ratio of neurons per node, default: 0.5).}
+\item{connection_strength}{Numeric giving overall strength of the projection (default: 0.5).}
 
 \item{presynaptic_type}{Character string giving type of presynaptic neuron, e.g. "excitatory", "inhibitory", etc. (default: "principal").}
 
@@ -38,8 +31,6 @@ load.projection.into.motif(
 \item{max_col_shift_up}{Maximum number of columns upwards (increasing columnar indexes) that the projection can reach (default: 0, should be positive integer).}
 
 \item{max_col_shift_down}{Maximum number of columns downwards (decreasing columnar indexes) that the projection can reach (default: 0, should be positive integer).}
-
-\item{connection_strength}{Numeric giving overall strength of the projection (default: 1.0).}
 }
 \value{
 The updated motif object with the new projection loaded.

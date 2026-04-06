@@ -11,20 +11,25 @@ add.cell.type(
   temporal_modulation_timeconstant = 1,
   temporal_modulation_amplitude = 0.005,
   transmission_velocity = 30000,
+  coupling_scaling_factor = 1e-07,
+  spine_density = 0,
+  axon_target = "dendrite_shaft",
   v_bound = 85,
   dHdv_bound = 1.05e-06,
   I_spike = 1e-06,
-  coupling_scaling_factor = 1e-07,
   spike_potential = 35,
   resting_potential = -70,
   threshold = -55,
   process_node_count = 10,
   axon_branch_count = 10,
-  dendrite_branch_count = 10
+  dendrite_branch_count = 10,
+  branch_independence = 0.5,
+  branch_spread = 0.5,
+  apical_target_layer = "none"
 )
 }
 \arguments{
-\item{type_name}{Character string giving name of the cell type, e.g. "excitatory", "inhibitory", "PV", "SST", etc.}
+\item{type_name}{Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.}
 
 \item{valence}{Valence of each neuron type, +1 for excitatory, -1 for inhibitory}
 
@@ -36,13 +41,17 @@ add.cell.type(
 
 \item{transmission_velocity}{Transmission velocity (in microns/ms) for each neuron type. Default value is 30e3.}
 
+\item{coupling_scaling_factor}{Controls how energy used in synaptic transmission compares to that used in spiking. Default value is 1e-7, meaning that synaptic transmission uses 0.00001 percent of the energy used in spiking.}
+
+\item{spine_density}{Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0.}
+
+\item{axon_target}{Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".}
+
 \item{v_bound}{Potential bound, such that -v_bound <= v_traces <= v_bound, in unit_potential (mV), for each neuron in the network, based on its type. Default value is 85.0.}
 
 \item{dHdv_bound}{Bound on derivative of metabolic energy wrt potential, such that dHdv_bound > abs(dHdv), in mA, for each neuron in the network, based on its type. Default value is 1.05e-6.}
 
 \item{I_spike}{Spike current, in mA. Default value is 1e-6 (i.e., 1 nA).}
-
-\item{coupling_scaling_factor}{Controls how energy used in synaptic transmission compares to that used in spiking. Default value is 1e-7, meaning that synaptic transmission uses 0.00001 percent of the energy used in spiking.}
 
 \item{spike_potential}{Magnitude of each spike, in mV. Default value is 35.0.}
 
@@ -55,6 +64,12 @@ add.cell.type(
 \item{axon_branch_count}{Expected number of axon branches. Default is 10.}
 
 \item{dendrite_branch_count}{Expected number of dendrite branches. Default is 10.}
+
+\item{branch_independence}{Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma. Default is 0.5.}
+
+\item{branch_spread}{Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma. Default is 0.5.}
+
+\item{apical_target_layer}{Character string giving target layer for apical dendrites. Default: "none".}
 }
 \value{
 Nothing.

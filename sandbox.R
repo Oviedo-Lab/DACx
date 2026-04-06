@@ -12,99 +12,149 @@ cortical.patch <- new.network()
 cortical.patch <- set.network.structure(
   cortical.patch,
   neuron_types = c("principal", "PV", "SST"),
-  layer_names = c("L6", "L5", "L4", "L2/3"),
+  layer_names = c("L6", "L5", "L4", "L3", "L2", "L1"),
   n_columns = 8,
   patch_depth = 4,
   layer_separation_factor = 3.0,
   column_separation_factor = 4.5,
   patch_separation_factor = 5.5,
-  neurons_per_node = c(10, 5, 5)
+  neurons_per_node = matrix(c(
+    10, 5, 5, # L6
+    10, 5, 5, # L5
+    10, 5, 5, # L4
+    10, 5, 5, # L3
+    10, 5, 5, # L2
+    5, 0, 1   # L1
+    ), ncol = 3, byrow = TRUE)
+)
+
+# Add mesoscale motifs
+motif.pp <- new.motif(motif_name = "principal projections")
+motif.pp <- load.projection.into.motif(motif.pp, "L4", "L2", 0.9)
+motif.pp <- load.projection.into.motif(motif.pp, "L4", "L3", 0.9)
+motif.pp <- load.projection.into.motif(motif.pp, "L4", "L5", 0.25)
+motif.pp <- load.projection.into.motif(motif.pp, "L4", "L6", 0.25)
+motif.pp <- load.projection.into.motif(motif.pp, "L2", "L5")
+motif.pp <- load.projection.into.motif(motif.pp, "L3", "L5")
+motif.pp <- load.projection.into.motif(motif.pp, "L5", "L2")
+motif.pp <- load.projection.into.motif(motif.pp, "L5", "L3")
+motif.pp <- load.projection.into.motif(motif.pp, "L5", "L6", 0.25)
+motif.pp <- load.projection.into.motif(motif.pp, "L6", "L4", 0.25)
+cortical.patch <- apply.circuit.motif(
+  cortical.patch,
+  motif.pp
+)
+
+motif.ACxlat <- new.motif(motif_name = "ACx laterals")
+# Add projection for each layer
+for (layer in c("L1", "L2", "L3", "L4", "L5", "L6")) {
+  # Excitatory laterals 
+  for (celltype in c("principal", "PV", "SST")) {
+    motif.ACxlat <- load.projection.into.motif(
+      motif.ACxlat, 
+      presynaptic_layer = layer, 
+      postsynaptic_layer = layer, 
+      presynaptic_type = "principal", 
+      postsynaptic_type = celltype,
+      max_col_shift_up = 4,
+      max_col_shift_down = 4
+    )
+  }
+  # Inhibitory laterals
+  motif.ACxlat <- load.projection.into.motif(
+    motif.ACxlat, 
+    presynaptic_layer = layer, 
+    postsynaptic_layer = layer, 
+    presynaptic_type = "SST", 
+    postsynaptic_type = "principal",
+    max_col_shift_up = 4,
+    max_col_shift_down = 4
+  )
+}
+cortical.patch <- apply.circuit.motif(
+  cortical.patch,
+  motif.ACxlat
+)
+# ... why does this one take so much longer? The "max_col_shift_up" / "max_col_shift_down" = 8 is the issue / difference, compared to the other two motifs, which have the default = 0. 
+
+motif.L6inhib <- new.motif(motif_name = "L6 inhibition")
+# Layer 5 projections
+motif.L6inhib <- load.projection.into.motif(
+  motif.L6inhib, 
+  presynaptic_layer = "L5", 
+  postsynaptic_layer = c("L4", "L3", "L2"), 
+  presynaptic_type = "PV", 
+  postsynaptic_type = "principal"
+)
+# Layer 6 projections
+motif.L6inhib <- load.projection.into.motif(
+  motif.L6inhib, 
+  presynaptic_layer = "L6", 
+  postsynaptic_layer = c("L5", "L4", "L3", "L2"), 
+  presynaptic_type = "PV", 
+  postsynaptic_type = "principal"
+)
+cortical.patch <- apply.circuit.motif(
+  cortical.patch,
+  motif.L6inhib
 )
 
 
 
-# Make plot
 
+
+
+
+
+##################################################################
+# Make plot
 
 ntw <- cortical.patch$fetch_network_components(TRUE)
 neuron_coordinates <- ntw$coordinates_spatial
 neuron_types <- ntw$neuron_type_name
-
+n_neurons <- ntw$n_neurons
 layer_names <- ntw$layer_names
 neuron_layer <- as.factor(layer_names[ntw$coordinates_node[,"layer_idx"]])
 
-
-
-
-
-
 # Get cell edge pairs
-plot_motif <- "local connections"
-cell_size_factor <- 5.0
-# edges <- matrix(0, nrow = 0, ncol = 5)
-# edge_type_names <- ntw$edge_type_names
-# edge_type_mask <- edge_type_names %in% plot_motif
-# edge_type_names <- edge_type_names[edge_type_mask]
-# n_edge_types <- length(edge_type_names)
-# et_masked <- which(edge_type_mask)
-# for (et in seq_along(edge_type_names)) {
-#   et_name <- edge_type_names[et]
-#   et_edges <- ntw$edge_idx_by_type[[et_masked[et]]]
-#   et_edges <- cbind(
-#     et_edges, 
-#     rep(et_name, nrow(et_edges)),
-#     neuron_types[et_edges[,"pre_neuron_idx"]],
-#     neuron_types[et_edges[,"post_neuron_idx"]]
-#   )
-#   edges <- rbind(edges, et_edges)
-# }
-# edges <- as.data.frame(edges)
-# colnames(edges) <- c("pre_idx", "post_idx", "motif", "pre_type", "post_type")
 
-edges <- matrix(0, nrow = 0, ncol = 7)
-edges <- as.data.frame(edges)
-colnames(edges) <- c("is_axon", "z_start", "y_start", "x_start", "z_end", "y_end", "x_end")
-synapse_coordinates <- matrix(0, nrow = 0, ncol = 3)
-colnames(synapse_coordinates) <- c("z", "y", "x")
-for (a in ntw[["arbor_list"]]) {
-  
-  for (b in unique(a[,"arbor_id"])) {
-    
-    ab <- a[a[,"arbor_id"] == b,]
-    
-    # parent rows
-    p <- ab[, "parent_idx"]
-    
-    # keep only rows that correspond to actual segments
-    seg_idx <- p != 0
-    
-    segments <- cbind(
-      is_axon = ab[seg_idx, "is_axon"],
-      
-      z_start = ab[p[seg_idx], "z"],
-      y_start = ab[p[seg_idx], "y"],
-      x_start = ab[p[seg_idx], "x"],
-      
-      z_end   = ab[seg_idx, "z"],
-      y_end   = ab[seg_idx, "y"],
-      x_end   = ab[seg_idx, "x"]
-    )
-    
-    edges <- rbind(edges, segments)
-    
-  }
-  
-  # Grab synapses 
-  synapse_mask <- a[,"is_synapse"] == 1
-  synapse_coordinates <- rbind(
-    synapse_coordinates,
-    a[synapse_mask, c("z", "y", "x")]
-  )
-  
+edges <- ntw[["arbors"]]
+n_neuron_downsample <- 100
+downsample_celltype <- "pyramidal"
+type_idx <- which(neuron_types == downsample_celltype)
+neuron_downsample_idx <- sample(type_idx, n_neuron_downsample, replace = FALSE)
+
+n_downsample_edges <- c()
+for (n in neuron_downsample_idx) {
+  n_edges <- sum(edges[,"neuron_idx"] == n)
+  n_downsample_edges <- c(n_downsample_edges, n_edges)
 }
-edges$is_axon[edges$is_axon == 1] <- "axon"
-edges$is_axon[edges$is_axon == 0] <- "dendrite"
-synapse_coordinates <- as.data.frame(synapse_coordinates)
+edges_downsampled <- matrix(NA, nrow = sum(n_downsample_edges), ncol = ncol(edges))
+idx_start <- 1
+idx_end <- 0
+for (i in seq_along(neuron_downsample_idx)) {
+  idx_start <- idx_end + 1
+  idx_end <- idx_end + n_downsample_edges[i]
+  n <- neuron_downsample_idx[i]
+  edges_downsampled[idx_start:idx_end, ] <- edges[edges[,"neuron_idx"] == n, ]
+}
+colnames(edges_downsampled) <- colnames(edges)
+
+edges_downsampled <- as.data.frame(edges_downsampled) 
+edges_downsampled$is_axon[edges_downsampled$is_axon == 1] <- "axon"
+edges_downsampled$is_axon[edges_downsampled$is_axon == 0] <- "dendrite"
+
+edges_downsampled$seg_length <- sqrt(
+  (edges_downsampled[,"x_end"] - edges_downsampled[,"x_start"])^2 +
+    (edges_downsampled[,"y_end"] - edges_downsampled[,"y_start"])^2 +
+    (edges_downsampled[,"z_end"] - edges_downsampled[,"z_start"])^2
+)
+hist(edges_downsampled$seg_length)
+
+synapse_coordinates <- edges_downsampled[edges_downsampled$is_synapse > 0, c("z_end", "y_end", "x_end")]
+colnames(synapse_coordinates) <- c("z", "y", "x")
+
+
 
 # Create cells dataframe
 cells <- data.frame(
@@ -116,20 +166,13 @@ cells <- data.frame(
   type = neuron_types
 )
 
-# Find coordinates for start and end of edges
-# edges$x_start <- cells[edges$pre_idx, "x"]
-# edges$y_start <- cells[edges$pre_idx, "y"]
-# edges$z_start <- cells[edges$pre_idx, "z"]
-# edges$x_end <- cells[edges$post_idx, "x"]
-# edges$y_end <- cells[edges$post_idx, "y"]
-# edges$z_end <- cells[edges$post_idx, "z"]
-
 # Set point size to scale with number of cells
+cell_size_factor <- 3.0
 n_cells <- nrow(cells)
-cell_size <- cell_size_factor * 100 / n_cells
+cell_size <- cell_size_factor * 10 / log(n_cells + 1)
 
-# Set arrow size to scale with number of edges
-n_edges <- nrow(edges)
+# Set arrow size to scale with number of edges_downsampled
+n_edges <- nrow(edges_downsampled)
 
 # Scake alpha by number of edges 
 edge_alpha <- max(0.1, min(1, n_cells / (n_edges + 1)))
@@ -138,11 +181,12 @@ edge_alpha <- max(0.1, min(1, n_cells / (n_edges + 1)))
 edge_color <- "is_axon"
 cell_color <- "layer"
 colored_labels <- unique(
-  c(unique(as.character(edges[,edge_color])), 
+  c(unique(as.character(edges_downsampled[,edge_color])), 
     unique(as.character(cells[,cell_color])))
 )
 known_label_colors <- list(
   "cell" = "gray50",
+  "layer" = "gray50",
   "L1" = "gray50",
   "L2" = "lightskyblue3",
   "L2/3" = "lightskyblue2",
@@ -154,8 +198,12 @@ known_label_colors <- list(
   "principal" = "green3",
   "PN" = "green3", 
   "excitatory" = "green3",
+  "pyramidal" = "green4",
+  "pyramidal_L6" = "green4",
+  "spiny_stellate" = "green2",
   "interneuron" = "red",
   "inhibitory" = "red", 
+  "Neurogliaform_cell" = "red", 
   "PV" = "darkred",
   "SOM" = "darkorchid",
   "SST" = "darkorchid",
@@ -184,30 +232,30 @@ hex <- rgb(t(col2rgb(label_colors)), maxColorValue = 255)
 
 cells$layer <- factor(
   cells$layer,
-  levels = c("axon", "dendrite", "L6", "L5", "L4", "L2/3", "syn"),
-  labels = c("axon", "dendrite", "L6", "L5", "L4", "L2/3", "syn")
+  levels = c("axon", "dendrite", "L6", "L5", "L4", "L3", "L2", "L1", "syn"),
+  labels = c("axon", "dendrite", "L6", "L5", "L4", "L3", "L2", "L1", "syn")
 )
-edges[,edge_color] <- factor(
-  edges[,edge_color],
-  levels = c("axon", "dendrite", "L6", "L5", "L4", "L2/3", "syn"),
-  labels = c("axon", "dendrite", "L6", "L5", "L4", "L2/3", "syn")
+edges_downsampled[,edge_color] <- factor(
+  edges_downsampled[,edge_color],
+  levels = c("axon", "dendrite", "L6", "L5", "L4", "L3", "L2", "L1", "syn"),
+  labels = c("axon", "dendrite", "L6", "L5", "L4", "L3", "L2", "L1", "syn")
 ) 
 synapse_coordinates$syn <- "syn" 
 synapse_coordinates$syn <- factor(
   synapse_coordinates$syn,
-  levels = c("axon", "dendrite", "L6", "L5", "L4", "L2/3", "syn"),
-  labels = c("axon", "dendrite", "L6", "L5", "L4", "L2/3", "syn")
+  levels = c("axon", "dendrite", "L6", "L5", "L4", "L3", "L2", "L1", "syn"),
+  labels = c("axon", "dendrite", "L6", "L5", "L4", "L3", "L2", "L1", "syn")
 )
 
-edges_long <- data.frame(
-  x = c(rbind(edges$x_start, edges$x_end, NA)),
-  y = c(rbind(edges$y_start, edges$y_end, NA)),
-  z = c(rbind(edges$z_start, edges$z_end, NA)),
-  group = rep(edges[[edge_color]], each = 3)
+edges_downsampled_long <- data.frame(
+  x = c(rbind(edges_downsampled$x_start, edges_downsampled$x_end, NA)),
+  y = c(rbind(edges_downsampled$y_start, edges_downsampled$y_end, NA)),
+  z = c(rbind(edges_downsampled$z_start, edges_downsampled$z_end, NA)),
+  group = rep(edges_downsampled[[edge_color]], each = 3)
 )
 
 plt <- plot_ly(
-  edges_long,
+  edges_downsampled_long,
   x = ~x,
   y = ~z,
   z = ~y,
@@ -217,7 +265,6 @@ plt <- plot_ly(
   colors = hex
 )
 
-# edges
 plt <- plt |>
   add_trace(
     data = cells,
@@ -226,6 +273,7 @@ plt <- plt |>
     z = ~z,
     type = "scatter3d",
     mode = "markers",
+    marker = list(size = cell_size),
     color = ~factor(layer),
     colors = hex
   ) 
@@ -238,7 +286,7 @@ plt <- plt |>
     z = ~y,
     type = "scatter3d",
     mode = "markers",
-    marker = list(size = 5),
+    marker = list(size = cell_size/2),
     color = ~syn,
     colors = hex
   )

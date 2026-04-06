@@ -4,12 +4,14 @@
 \alias{apply.circuit.motif}
 \title{Apply circuit motif to network}
 \usage{
-apply.circuit.motif(network, motif)
+apply.circuit.motif(network, motif, verbose = FALSE)
 }
 \arguments{
 \item{network}{Network object to which the motif will be applied.}
 
 \item{motif}{Motif object defining the circuit motif to apply.}
+
+\item{verbose}{Logical indicating whether to print progress messages during motif application (default: TRUE).}
 }
 \value{
 The updated network object with the motif applied.

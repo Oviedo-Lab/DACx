@@ -24,9 +24,9 @@ set.network.structure(
 \arguments{
 \item{network}{Network object to configure.}
 
-\item{neuron_types}{Character vector giving types of neurons in the network, e.g. c("principal", "interneuron").}
+\item{neuron_types}{Character vector giving types of neurons in the network. Known types can be accessed using \code{print.known.celltypes()}. Default is "principal", which will assign the most common neuron type for each layer, as defined in \code{principal.neurons()}.}
 
-\item{layer_names}{Character vector giving names of layers in the network, e.g. c("L2/3", "L4", "L5", "L6").}
+\item{layer_names}{Character vector giving names of layers in the network, ordered deepest to most superficial, e.g. c("L6", "L5", "L4", "L3", "L2", "L1").}
 
 \item{n_layers}{Integer giving number of layers in the network.}
 

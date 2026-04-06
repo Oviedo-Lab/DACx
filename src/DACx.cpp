@@ -8,8 +8,9 @@
  * - Probability distribution functions
  * - Growth-transform helper functions
  * - Matrix and vector operations
+ * - Cell types and related functions
  * - Network and related classes
- * - Network member function implementations
+ * - Network (and related) member function implementations
  */
 
 /*
@@ -24,6 +25,18 @@ const double Inf = 1e20;
 LogicalVector eq_left_broadcast(
     const CharacterVector& left,
     const String& right
+  ) {
+    int n = left.size();
+    LogicalVector out(n);
+    for (int i = 0; i < n; i++) {
+      out[i] = left[i] == right;
+    }
+    return out;
+  }
+// ... overload 
+LogicalVector eq_left_broadcast(
+    const CharacterVector& left,
+    const std::string& right
   ) {
     int n = left.size();
     LogicalVector out(n);
@@ -60,6 +73,21 @@ LogicalVector eq_left_broadcast(
 // Convert boolean masks to integer indexes
 IntegerVector Rwhich(
     const LogicalVector& x
+  ) {
+    std::vector<int> indices;  // Use std::vector for efficient dynamic resizing
+    for (int i = 0; i < x.size(); ++i) {
+      if (x[i]) {
+        indices.push_back(i);
+      }
+    }
+    if (indices.empty()) {
+      Rcpp::stop("No true values found in logical vector for Rwhich function.");
+    }
+    return wrap(indices);  // Convert std::vector to IntegerVector
+  }
+// ... overload
+IntegerVector Rwhich(
+    const std::vector<bool>& x
   ) {
     std::vector<int> indices;  // Use std::vector for efficient dynamic resizing
     for (int i = 0; i < x.size(); ++i) {
@@ -388,7 +416,7 @@ std::vector<int> find_first_neighbor(
     const std::vector<Vector3d>& b_active, // Branch searching for neighbor
     const std::vector<Vector3d>& b_all,    // Branch being searched
     const double& neighborhood_radius,
-    const bool& skip_origin = true
+    const bool& skip_origin
   ) {
     double neighborhood_radius_squared = neighborhood_radius * neighborhood_radius;
     int i_initial = 0;
@@ -464,6 +492,305 @@ MatrixXi pairwise_lags_by_edges(
 
 /*
  * ***********************************************************************************
+ * Cell types and related functions
+ */
+
+
+// Lookup table for known cell types
+std::unordered_map<std::string, cell_type> cell_types;
+
+/*
+ * To use or modify cell types: 
+ * 
+ *   const auto& ct = cell_types.at("PV");
+ *.  double cutoff = ct.temporal_modulation_amplitude;
+ *.  cell_types["PV"].temporal_modulation_timeconstant = 0.03;
+ */
+
+// Known cell types
+// [[Rcpp::export]]
+void init_known_celltypes() {
+  // Defaults ...
+  // Membrane kinetics (burst control)
+  double temporal_modulation_bias = 1e-3;      // temporal modulation time (in unit_time) bias for each neuron type
+  double temporal_modulation_timeconstant = 1e0;      // temporal modulation time (in unit_time) step for each neuron type
+  double temporal_modulation_amplitude = 5e-3;        // temporal modulation time (in unit_time) cutoff for each neuron type
+  // Axon transmission speed
+  double transmission_velocity = 30e3;         // microns/ms ... 30 m/s = 30e6 micron/s = 30e6 micron/ 1e3 ms = 30e3 micron/ms
+  // Synaptic transmission 
+  double coupling_scaling_factor = 1e-7;       // Controls how energy used in synaptic transmission compares to that used in spiking
+  double spine_density = 0.0;                  // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
+  std::string axon_target = "dendrite_shaft";  // "spine", "dendrite_shaft", "soma", and "axon_shaft"
+  // Membrane characteristics
+  double v_bound = 85.0;                       // potential bound, in unit_potential
+  double dHdv_bound = 1.05e-6;                 // bound the derivative of metabolic energy wrt potential, in unit_current
+  double I_spike = 1e-6;                       // spike current, in unit_current
+  double spike_potential = 35.0;               // Magnitude of each spike, in unit_potential
+  double resting_potential = -70.0;            // resting potential, in unit_potential
+  double threshold = -55.0;                    // spike threshold, in unit_potential
+  // Process size and structure parameters
+  int process_node_count = 10;                 // Sets n_segments in make_arbor, in terms of expected number of process nodes per process length
+  int axon_branch_count = 10;                  // Sets n_branches in make_arbor, in terms of expected number of branches per process length
+  int dendrite_branch_count = 10;              // Sets n_branches in make_arbor, in terms of expected number of branches per process length
+  double branch_independence = 0.5;            // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
+  double branch_spread = 0.5;                  // Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma
+  // Apical dendrite parameters 
+  std::string apical_target_layer = "none";
+
+  // Define excitatory cells
+  cell_types["pyramidal"] = cell_type{
+    "pyramidal", 1,
+    temporal_modulation_bias, temporal_modulation_timeconstant,
+    temporal_modulation_amplitude * 0.0, // No bursting
+    transmission_velocity, 
+    coupling_scaling_factor, 0.5, "spine",
+    v_bound, dHdv_bound, I_spike,
+    spike_potential, resting_potential, threshold,
+    process_node_count, axon_branch_count, dendrite_branch_count,
+    branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
+    "L1" // Harris2013a, for cells in L2, L3, and L5
+  };
+  cell_types["pyramidal_L6"] = cell_type{
+    "pyramidal_L6", 1,
+    temporal_modulation_bias, temporal_modulation_timeconstant,
+    temporal_modulation_amplitude * 0.0, // No bursting
+    transmission_velocity, 
+    coupling_scaling_factor, 0.5, "spine",
+    v_bound, dHdv_bound, I_spike,
+    spike_potential, resting_potential, threshold,
+    process_node_count, axon_branch_count, dendrite_branch_count,
+    branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
+    "L4" // Harris2013a: 
+  };
+  cell_types["spiny_stellate"] = cell_type{
+    "spiny_stellate", 1,
+    temporal_modulation_bias, temporal_modulation_timeconstant,
+    temporal_modulation_amplitude * 0.0, // No bursting
+    transmission_velocity, 
+    coupling_scaling_factor, 0.5, "spine",
+    v_bound, dHdv_bound, I_spike,
+    spike_potential, resting_potential, threshold,
+    process_node_count, axon_branch_count, dendrite_branch_count,
+    branch_independence * 1.5, branch_spread * 1.5, // Increased branching
+    apical_target_layer
+  };
+  // Define inhibitory cells
+  cell_types["Neurogliaform_cell"] = cell_type{
+    "Neurogliaform_cell", -1,
+    temporal_modulation_bias, temporal_modulation_timeconstant,
+    temporal_modulation_amplitude,
+    transmission_velocity * 0.5, // Slower transmission for neurogliaform cells
+    coupling_scaling_factor, spine_density, axon_target,
+    v_bound, dHdv_bound, I_spike,
+    spike_potential, resting_potential, threshold,
+    process_node_count, axon_branch_count, dendrite_branch_count,
+    branch_independence * 1.5, branch_spread * 1.5, // Increased branching
+    apical_target_layer
+  };
+  cell_types["PV"] = cell_type{
+    "PV", -1,
+    temporal_modulation_bias, temporal_modulation_timeconstant,
+    temporal_modulation_amplitude,
+    transmission_velocity,
+    coupling_scaling_factor, spine_density, "soma",
+    v_bound, dHdv_bound, I_spike,
+    spike_potential, resting_potential, threshold,
+    process_node_count, axon_branch_count, dendrite_branch_count,
+    branch_independence * 1.25, branch_spread * 1.25, // Increased branching
+    apical_target_layer
+  };
+  cell_types["SST"] = cell_type{
+    "SST", -1,
+    temporal_modulation_bias, temporal_modulation_timeconstant,
+    temporal_modulation_amplitude,
+    transmission_velocity,
+    coupling_scaling_factor, spine_density, axon_target,
+    v_bound, dHdv_bound, I_spike,
+    spike_potential, resting_potential, threshold,
+    process_node_count, axon_branch_count, dendrite_branch_count,
+    branch_independence * 1.5, branch_spread * 1.5, // Increased branching
+    apical_target_layer
+  };
+  cell_types["VIP"] = cell_type{
+    "VIP", -1,
+    temporal_modulation_bias, temporal_modulation_timeconstant,
+    temporal_modulation_amplitude,
+    transmission_velocity,
+    coupling_scaling_factor, spine_density, axon_target,
+    v_bound, dHdv_bound, I_spike,
+    spike_potential, resting_potential, threshold,
+    process_node_count, axon_branch_count, dendrite_branch_count,
+    branch_independence * 1.25, branch_spread * 1.25, // Increased branching
+    apical_target_layer
+  };
+}
+
+// Print known cell types 
+// [[Rcpp::export]]
+void print_known_celltypes() {
+  Rcpp::Rcout << "Known cell types:" << std::endl;
+  for (const auto& pair : cell_types) {
+    const cell_type& ct = pair.second;
+    Rcpp::Rcout << "\nType: " << ct.type_name << std::endl
+                << "  Valence: " << ct.valence << std::endl
+                << "  Temporal modulation bias: " << ct.temporal_modulation_bias << std::endl
+                << "  Temporal modulation time constant: " << ct.temporal_modulation_timeconstant << std::endl
+                << "  Temporal modulation amplitude: " << ct.temporal_modulation_amplitude << std::endl
+                << "  Transmission velocity: " << ct.transmission_velocity << std::endl
+                << "  Coupling scaling factor: " << ct.coupling_scaling_factor << std::endl
+                << "  Spine density: " << ct.spine_density << std::endl
+                << "  Axon target: " << ct.axon_target << std::endl
+                << "  Potential bound (mV): " << ct.v_bound << std::endl
+                << "  Metabolic energy derivative dHdv bound (mA): " << ct.dHdv_bound << std::endl
+                << "  Spike current (mA): " << ct.I_spike << std::endl
+                << "  Spike potential (mV): " << ct.spike_potential << std::endl
+                << "  Resting potential (mV): " << ct.resting_potential << std::endl
+                << "  Threshold (mV): " << ct.threshold << std::endl
+                << "  Process node density: " << ct.process_node_count << std::endl
+                << "  Axon branch density: " << ct.axon_branch_count << std::endl
+                << "  Dendrite branch density: " << ct.dendrite_branch_count << std::endl
+                << "  Branch independence: " << ct.branch_independence << std::endl
+                << "  Branch spread: " << ct.branch_spread << std::endl
+                << "  Apical target layer: " << ct.apical_target_layer << std::endl;
+  }
+}
+
+// Fetch cell type parameters 
+// [[Rcpp::export]]
+List fetch_cell_type_params(const std::string& type_name) {
+  auto it = cell_types.find(type_name);
+  if (it == cell_types.end()) {
+    Rcpp::stop("Cell type not found in known cell types");
+  } else {
+    const cell_type& ct = (*it).second;
+    return List::create(
+      Named("type_name") = ct.type_name,
+      Named("valence") = ct.valence,
+      Named("temporal_modulation_bias") = ct.temporal_modulation_bias,
+      Named("temporal_modulation_timeconstant") = ct.temporal_modulation_timeconstant,
+      Named("temporal_modulation_amplitude") = ct.temporal_modulation_amplitude,
+      Named("transmission_velocity") = ct.transmission_velocity,
+      Named("coupling_scaling_factor") = ct.coupling_scaling_factor,
+      Named("spine_density") = ct.spine_density,
+      Named("axon_target") = ct.axon_target,
+      Named("v_bound") = ct.v_bound,
+      Named("dHdv_bound") = ct.dHdv_bound,
+      Named("I_spike") = ct.I_spike,
+      Named("spike_potential") = ct.spike_potential,
+      Named("resting_potential") = ct.resting_potential,
+      Named("threshold") = ct.threshold,
+      Named("process_node_count") = ct.process_node_count,
+      Named("axon_branch_count") = ct.axon_branch_count,
+      Named("dendrite_branch_count") = ct.dendrite_branch_count,
+      Named("branch_independence") = ct.branch_independence,
+      Named("branch_spread") = ct.branch_spread,
+      Named("apical_target_layer") = ct.apical_target_layer
+    );
+  }
+}
+
+// Make new cell type
+// [[Rcpp::export]]
+void add_cell_type(
+    const std::string& type_name,
+    const int& valence,
+    const double& temporal_modulation_bias,
+    const double& temporal_modulation_timeconstant,
+    const double& temporal_modulation_amplitude,
+    const double& transmission_velocity,
+    const double& coupling_scaling_factor,      // Controls how energy used in synaptic transmission compares to that used in spiking
+    const double& spine_density,                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
+    const std::string& axon_target,             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
+    const double& v_bound,                      // potential bound, in unit_potential
+    const double& dHdv_bound,                   // bound on dHdv, in unit_current
+    const double& I_spike,                      // spike current, in unit_current
+    const double& spike_potential,              // Magnitude of each spike, in unit_potential
+    const double& resting_potential,            // resting potential, in unit_potential
+    const double& threshold,                    // spike threshold, in unit_potential
+    const int& process_node_count,              // Expected number of process nodes over the length of one process branch
+    const int& axon_branch_count,               // Expected number of axon branches 
+    const int& dendrite_branch_count,           // Expected number of dendrite branches 
+    const double& branch_independence,          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
+    const double& branch_spread,                // Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma
+    const std::string& apical_target_layer      // For pyramidal cells, which layer their apical dendrites target
+  ) {
+    if (cell_types.find(type_name) != cell_types.end()) {
+      Rcpp::stop("Cell type already exists in known cell types");
+    } else {
+      if (spine_density < 0.0 || spine_density > 1.0) {Rcpp::stop("spine_density must be between 0 and 1");}
+      if (branch_independence < 0.0 || branch_independence > 1.0) {Rcpp::stop("branch_independence must be between 0 and 1");} 
+      if (branch_spread < 0.0 || branch_spread > 1.0) {Rcpp::stop("branch_spread must be between 0 and 1");}
+      cell_types[type_name] = cell_type{
+        type_name, valence,
+        temporal_modulation_bias, temporal_modulation_timeconstant,
+        temporal_modulation_amplitude,
+        transmission_velocity,
+        coupling_scaling_factor, spine_density, axon_target,
+        v_bound, dHdv_bound, I_spike,
+        spike_potential, resting_potential, threshold,
+        process_node_count, axon_branch_count, dendrite_branch_count,
+        branch_independence, branch_spread,
+        apical_target_layer
+      };
+    }
+  }
+
+// Modify cell type parameters
+// [[Rcpp::export]]
+void modify_cell_type(
+    const std::string& type_name,
+    const int& valence,
+    const double& temporal_modulation_bias,
+    const double& temporal_modulation_timeconstant,
+    const double& temporal_modulation_amplitude,
+    const double& transmission_velocity,
+    const double& coupling_scaling_factor,      // Controls how energy used in synaptic transmission compares to that used in spiking
+    const double& spine_density,                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
+    const std::string& axon_target,             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
+    const double& v_bound,                      // potential bound, in unit_potential
+    const double& dHdv_bound,                   // bound on dHdv, in unit_current
+    const double& I_spike,                      // spike current, in unit_current
+    const double& spike_potential,              // Magnitude of each spike, in unit_potential
+    const double& resting_potential,            // resting potential, in unit_potential
+    const double& threshold,                    // spike threshold, in unit_potential
+    const int& process_node_count,              // Expected number of process nodes over the length of one process branch
+    const int& axon_branch_count,               // Expected number of axon branches 
+    const int& dendrite_branch_count,           // Expected number of dendrite branches 
+    const double& branch_independence,          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
+    const double& branch_spread,                // Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma
+    const std::string& apical_target_layer      // For pyramidal cells, which layer their apical dendrites target
+  ) {
+    if (cell_types.find(type_name) != cell_types.end()) {
+      if (spine_density < 0.0 || spine_density > 1.0) {Rcpp::stop("spine_density must be between 0 and 1");}
+      if (branch_independence < 0.0 || branch_independence > 1.0) {Rcpp::stop("branch_independence must be between 0 and 1");} 
+      if (branch_spread < 0.0 || branch_spread > 1.0) {Rcpp::stop("branch_spread must be between 0 and 1");}
+      cell_types[type_name].valence = valence;
+      cell_types[type_name].temporal_modulation_bias = temporal_modulation_bias;
+      cell_types[type_name].temporal_modulation_timeconstant = temporal_modulation_timeconstant;
+      cell_types[type_name].temporal_modulation_amplitude = temporal_modulation_amplitude;
+      cell_types[type_name].transmission_velocity = transmission_velocity;
+      cell_types[type_name].coupling_scaling_factor = coupling_scaling_factor;
+      cell_types[type_name].spine_density = spine_density;
+      cell_types[type_name].axon_target = axon_target;
+      cell_types[type_name].v_bound = v_bound;
+      cell_types[type_name].dHdv_bound = dHdv_bound;
+      cell_types[type_name].I_spike = I_spike;
+      cell_types[type_name].spike_potential = spike_potential;
+      cell_types[type_name].resting_potential = resting_potential;
+      cell_types[type_name].threshold = threshold;
+      cell_types[type_name].process_node_count = process_node_count;
+      cell_types[type_name].axon_branch_count = axon_branch_count;
+      cell_types[type_name].dendrite_branch_count = dendrite_branch_count;
+      cell_types[type_name].branch_independence = branch_independence;
+      cell_types[type_name].branch_spread = branch_spread;
+      cell_types[type_name].apical_target_layer = apical_target_layer;
+    } else {
+      Rcpp::stop("Cell type not found in known cell types");
+    }
+  }
+
+/*
+ * ***********************************************************************************
  * Network and related classes
  */
 
@@ -513,231 +840,23 @@ network::network(
       // No initialization operations
   }
 
-// Lookup table for known cell types
-std::unordered_map<std::string, cell_type> cell_types;
-
-/*
- * To use or modify cell types: 
- * 
- *   const auto& ct = cell_types.at("PV");
- *.  double cutoff = ct.temporal_modulation_amplitude;
- *.  cell_types["PV"].temporal_modulation_timeconstant = 0.03;
- */
-
-// Known cell types
-// [[Rcpp::export]]
-void init_known_celltypes() {
-  /*
-   * Format: 
-   * 
-   *  std::string type_name;
-   *  int valence;                          // valence of each neuron type, +1 for excitatory, -1 for inhibitory
-   *  double temporal_modulation_bias;      // temporal modulation time (in unit_time) bias for each neuron type
-   *  double temporal_modulation_timeconstant;     // temporal modulation time (in unit_time) step for each neuron type
-   *  double temporal_modulation_amplitude;        // temporal modulation time (in unit_time) cutoff for each neuron type
-   *  double transmission_velocity;         // transmission velocity, in unit_distance/unit_time, for each neuron type (microns/ms)
-   *  double v_bound;                       // potential bound, in unit_potential (mV), such that -v_bound <= v_traces <= v_bound for all neurons in network
-   *  double dHdv_bound;                    // bound on derivative of metabolic energy wrt potential, such that dHdv_bound > abs(dHdv), in unit_current, for each neuron in the network, based on its type (mA)
-   *  double I_spike;                       // spike current, in unit_current (mA)
-   *  double coupling_scaling_factor;       // Controls how energy used in synaptic transmission compares to that used in spiking
-   *  double spike_potential;               // Magnitude of each spike, in unit_potential (mV)
-   *  double resting_potential;             // resting potential, in unit_potential (mV)
-   *  double threshold;                     // spike threshold, in unit_potential (mV)
-   */
-  // Defaults 
-  double temporal_modulation_bias = 1e-3;   // primarily affects firing rate
-  double temporal_modulation_timeconstant = 1e0;
-  double temporal_modulation_amplitude = 5e-3;
-  double transmission_velocity = 30e3;      // microns/ms ... 30 m/s = 30e6 micron/s = 30e6 micron/ 1e3 ms = 30e3 micron/ms
-  double v_bound = 85.0;                  
-  double dHdv_bound = 1.05e-6;
-  double I_spike = 1e-6; 
-  double coupling_scaling_factor = 1e-7;
-  double spike_potential = 35.0;
-  double resting_potential = -70.0; 
-  double threshold = -55.0;  
-  int process_node_count = 10;
-  int axon_branch_count = 10;
-  int dendrite_branch_count = 10;
-  // Define excitatory cells
-  cell_types["principal"] = cell_type{
-    "principal", 1,
-    temporal_modulation_bias, temporal_modulation_timeconstant,
-    temporal_modulation_amplitude * 0.0, // No bursting
-    transmission_velocity, 
-    v_bound, dHdv_bound, I_spike,
-    coupling_scaling_factor,
-    spike_potential, resting_potential, threshold,
-    process_node_count, axon_branch_count, dendrite_branch_count
-  };
-  // Define inhibitory cells
-  cell_types["PV"] = cell_type{
-    "PV", -1,
-    temporal_modulation_bias, temporal_modulation_timeconstant,
-    temporal_modulation_amplitude,
-    transmission_velocity * 1.2,
-    v_bound, dHdv_bound, I_spike,
-    coupling_scaling_factor,
-    spike_potential, resting_potential, threshold,
-    process_node_count, axon_branch_count, dendrite_branch_count
-  };
-  cell_types["SST"] = cell_type{
-    "SST", -1,
-    temporal_modulation_bias, temporal_modulation_timeconstant,
-    temporal_modulation_amplitude,
-    transmission_velocity * 0.8,
-    v_bound, dHdv_bound, I_spike,
-    coupling_scaling_factor,
-    spike_potential, resting_potential, threshold,
-    process_node_count, axon_branch_count, dendrite_branch_count
-  };
-  cell_types["VIP"] = cell_type{
-    "VIP", -1,
-    temporal_modulation_bias, temporal_modulation_timeconstant,
-    temporal_modulation_amplitude,
-    transmission_velocity,
-    v_bound, dHdv_bound, I_spike,
-    coupling_scaling_factor,
-    spike_potential, resting_potential, threshold,
-    process_node_count, axon_branch_count, dendrite_branch_count
-  };
-}
-
-// Print known cell types 
-// [[Rcpp::export]]
-void print_known_celltypes() {
-  Rcpp::Rcout << "Known cell types:" << std::endl;
-  for (const auto& pair : cell_types) {
-    const cell_type& ct = pair.second;
-    Rcpp::Rcout << "\nType: " << ct.type_name << std::endl
-                << "  Valence: " << ct.valence << std::endl
-                << "  Temporal modulation bias: " << ct.temporal_modulation_bias << std::endl
-                << "  Temporal modulation time constant: " << ct.temporal_modulation_timeconstant << std::endl
-                << "  Temporal modulation amplitude: " << ct.temporal_modulation_amplitude << std::endl
-                << "  Transmission velocity: " << ct.transmission_velocity << std::endl
-                << "  Potential bound (mV): " << ct.v_bound << std::endl
-                << "  Metabolic energy derivative dHdv bound (mA): " << ct.dHdv_bound << std::endl
-                << "  Spike current (mA): " << ct.I_spike << std::endl
-                << "  Coupling scaling factor: " << ct.coupling_scaling_factor << std::endl
-                << "  Spike potential (mV): " << ct.spike_potential << std::endl
-                << "  Resting potential (mV): " << ct.resting_potential << std::endl
-                << "  Threshold (mV): " << ct.threshold << std::endl
-                << "  Process node density: " << ct.process_node_count << std::endl
-                << "  Axon branch density: " << ct.axon_branch_count << std::endl
-                << "  Dendrite branch density: " << ct.dendrite_branch_count << std::endl;
-  }
-}
-
-// Fetch cell type parameters 
-// [[Rcpp::export]]
-List fetch_cell_type_params(const std::string& type_name) {
-  auto it = cell_types.find(type_name);
-  if (it == cell_types.end()) {
-    Rcpp::stop("Cell type not found in known cell types");
-  } else {
-    const cell_type& ct = (*it).second;
-    return List::create(
-      Named("type_name") = ct.type_name,
-      Named("valence") = ct.valence,
-      Named("temporal_modulation_bias") = ct.temporal_modulation_bias,
-      Named("temporal_modulation_timeconstant") = ct.temporal_modulation_timeconstant,
-      Named("temporal_modulation_amplitude") = ct.temporal_modulation_amplitude,
-      Named("transmission_velocity") = ct.transmission_velocity,
-      Named("v_bound") = ct.v_bound,
-      Named("dHdv_bound") = ct.dHdv_bound,
-      Named("I_spike") = ct.I_spike,
-      Named("coupling_scaling_factor") = ct.coupling_scaling_factor,
-      Named("spike_potential") = ct.spike_potential,
-      Named("resting_potential") = ct.resting_potential,
-      Named("threshold") = ct.threshold,
-      Named("process_node_count") = ct.process_node_count,
-      Named("axon_branch_count") = ct.axon_branch_count,
-      Named("dendrite_branch_count") = ct.dendrite_branch_count
-    );
-  }
-}
-
-// Make new cell type
-// [[Rcpp::export]]
-void add_cell_type(
-    const std::string& type_name,
-    const int& valence,
-    const double& temporal_modulation_bias,
-    const double& temporal_modulation_timeconstant,
-    const double& temporal_modulation_amplitude,
-    const double& transmission_velocity,
-    const double& v_bound,                      // potential bound, in unit_potential
-    const double& dHdv_bound,                   // bound on dHdv, in unit_current
-    const double& I_spike,                      // spike current, in unit_current
-    const double& coupling_scaling_factor,      // Controls how energy used in synaptic transmission
-    const double& spike_potential,              // Magnitude of each spike, in unit_potential
-    const double& resting_potential,            // resting potential, in unit_potential
-    const double& threshold,                    // spike threshold, in unit_potential
-    const int& process_node_count,              // Expected number of process nodes over the length of one process branch
-    const int& axon_branch_count,               // Expected number of axon branches 
-    const int& dendrite_branch_count            // Expected number of dendrite branches 
-  ) {
-    if (cell_types.find(type_name) != cell_types.end()) {
-      Rcpp::stop("Cell type already exists in known cell types");
-    } else {
-      cell_types[type_name] = cell_type{
-        type_name, valence,
-        temporal_modulation_bias, temporal_modulation_timeconstant,
-        temporal_modulation_amplitude,
-        transmission_velocity,
-        v_bound, dHdv_bound, I_spike,
-        coupling_scaling_factor,
-        spike_potential, resting_potential, threshold,
-        process_node_count, axon_branch_count, dendrite_branch_count
-      };
-    }
-  }
-
-// Modify cell type parameters 
-// [[Rcpp::export]]
-void modify_cell_type(
-    const std::string& type_name,
-    const int& valence,
-    const double& temporal_modulation_bias,
-    const double& temporal_modulation_timeconstant,
-    const double& temporal_modulation_amplitude,
-    const double& transmission_velocity,
-    const double& v_bound,                      // potential bound, in unit_potential
-    const double& dHdv_bound,                   // bound on dHdv, in unit_current
-    const double& I_spike,                      // spike current, in unit_current
-    const double& coupling_scaling_factor,      // Controls how energy used in synaptic transmission compares to that used in spiking
-    const double& spike_potential,              // Magnitude of each spike, in unit_potential
-    const double& resting_potential,            // resting potential, in unit_potential
-    const double& threshold,                    // spike threshold, in unit_potential
-    const int& process_node_count,              // Expected number of process nodes over the length of one process branch
-    const int& axon_branch_count,               // Expected number of axon branches 
-    const int& dendrite_branch_count            // Expected number of dendrite branches 
-  ) {
-    if (cell_types.find(type_name) != cell_types.end()) {
-      cell_types[type_name].valence = valence;
-      cell_types[type_name].temporal_modulation_bias = temporal_modulation_bias;
-      cell_types[type_name].temporal_modulation_timeconstant = temporal_modulation_timeconstant;
-      cell_types[type_name].temporal_modulation_amplitude = temporal_modulation_amplitude;
-      cell_types[type_name].transmission_velocity = transmission_velocity;
-      cell_types[type_name].v_bound = v_bound;
-      cell_types[type_name].dHdv_bound = dHdv_bound;
-      cell_types[type_name].I_spike = I_spike;
-      cell_types[type_name].coupling_scaling_factor = coupling_scaling_factor;
-      cell_types[type_name].spike_potential = spike_potential;
-      cell_types[type_name].resting_potential = resting_potential;
-      cell_types[type_name].threshold = threshold;
-      cell_types[type_name].process_node_count = process_node_count;
-      cell_types[type_name].axon_branch_count = axon_branch_count;
-      cell_types[type_name].dendrite_branch_count = dendrite_branch_count;
-    } else {
-      Rcpp::stop("Cell type not found in known cell types");
-    }
-  }
-
 /*
  * ***********************************************************************************
- * Network member function implementations
+ * Network (and related) member function implementations
  */
+
+void motif::load_projection(
+    const Projection& proj,
+    const int& max_up,
+    const int& max_down,
+    const double& c_strength
+  ) {
+    projections.push_back(proj);
+    max_col_shift_up.push_back(max_up);
+    max_col_shift_down.push_back(max_down);
+    connection_strength.push_back(c_strength);
+    n_projections++;
+  }
 
 void network::set_network_structure(
     CharacterVector nrn_types,
@@ -867,27 +986,14 @@ void network::set_network_structure(
     
   };
 
-void motif::load_projection(
-    const Projection& proj,
-    const int& max_up,
-    const int& max_down,
-    const double& c_strength
-  ) {
-    projections.push_back(proj);
-    max_col_shift_up.push_back(max_up);
-    max_col_shift_down.push_back(max_down);
-    connection_strength.push_back(c_strength);
-    n_projections++;
-  }
-
-// Function to make axons and dendrites 
+// Function to make axon and dendrite branches
 void network::make_arbor_branch(
-    const int& cell_idx,                    // Number of neuron for which to make processes
-    int n_segments,                         // Expected number of process segments on longest branch
-    const bool& is_axon,                    // Whether to make axon (true) or dendrite (false)
-    double segment_divisor,                 // Specifies expected length of segments in terms of column diameter and layer height, or distance to attractor point
-    int parent_branch_idx,                  // Index of parent branch, if this is a branch off of a main process; otherwise, -1 for new process arbor
-    const Eigen::Matrix<double, 3, 1> attractor_point
+    const int& cell_idx,                                // Number of neuron for which to make processes
+    int n_segments,                                     // Expected number of process segments on longest branch
+    const bool& is_axon,                                // Whether to make axon (true) or dendrite (false)
+    double segment_divisor,                             // Specifies expected length of segments in terms of column diameter and layer height, or distance to attractor point
+    int parent_branch_idx,                              // Index of parent branch, if this is a branch off of a main process; otherwise, -1 for new process arbor
+    const Vector3d& attractor_point                     // z (patch), y (layer), x (column); if all zeros, no attractor bias; otherwise, bias branch growth toward this point
   ) {
     
     // Check expected number of segments
@@ -899,9 +1005,9 @@ void network::make_arbor_branch(
     
     // Check attractor point
     bool use_attractor = false;
-    if (attractor_point(0,0) != 0.0 ||
-        attractor_point(1,0) != 0.0 ||
-        attractor_point(2,0) != 0.0) {
+    if (attractor_point(0) != 0.0 ||
+        attractor_point(1) != 0.0 ||
+        attractor_point(2) != 0.0) {
       use_attractor = true;
     }
     
@@ -909,38 +1015,26 @@ void network::make_arbor_branch(
     cell_arbors& arbor = arbors[cell_idx];
     
     // Set parent flag 
-    bool has_parent = (parent_branch_idx >= 0);
+    bool has_parent = parent_branch_idx >= 0;
     
     // Find initial point 
-    Vector3d initial_point;
+    Vector3d last_node;
+    Vector3d soma_coordinates = coordinates_spatial.row(cell_idx);
+    int parent_idx;
     if (has_parent) {
-      // If child of parent branch, make sure parent exists
-      if (parent_branch_idx >= arbor.axon.size()) {
-        Rcpp::Rcout << "Parent branch index: " << parent_branch_idx << ", number of branches in arbor: " << arbor.axon.size() << std::endl;
-        Rcpp::stop("Parent branch index exceeds number of branches in arbor");
-      }
-      // ... and check axon flag
-      if (is_axon != arbor.axon[parent_branch_idx]) {
-        Rcpp::stop("Parent branch type (axon vs dendrite) does not match specified branch type for new branch");
-      }
-      // ... and randomly select branch point 
+      // If child of parent branch, make sure parent exists and check axon flag
+      if (parent_branch_idx >= arbor.axon.size()) {Rcpp::stop("Parent branch index exceeds number of branches in arbor");}
+      if (is_axon != arbor.axon[parent_branch_idx]) {Rcpp::stop("Parent branch type (axon vs dendrite) does not match specified branch type for new branch");}
+      // Randomly select branch point 
       int parent_branch_length = arbor.coordinates[parent_branch_idx].size();
-      int branch_point = Rcpp::sample(parent_branch_length, 1)[0] - 1; // Rcpp::sample is 1-indexed, so subtract 1 for 0-indexing
-      // ... ensure it's not a synapse
-      int safety_counter = 0; // To prevent infinite loop
-      while (arbor.synapses[parent_branch_idx][branch_point] == 1) {
-        branch_point = Rcpp::sample(parent_branch_length, 1)[0] - 1;
-        safety_counter++;
-        if (safety_counter > 1000) {
-          Rcpp::stop("Unable to find a branch point that is not a synapse after 1000 iteractions");
-        }
-      }
+      if (parent_branch_length == 0) {Rcpp::stop("Parent branch has no segments to branch from");}
+      int branch_point = Rcpp::sample(parent_branch_length, 1)[0] - 1; // Rcpp::sample samples between 1 and its first argument, so subtract 1 for 0-indexing
       // ... and set as initial point
-      initial_point = arbor.coordinates[parent_branch_idx][branch_point];
+      last_node = arbor.coordinates[parent_branch_idx][branch_point];
       // ... ensure this point not marked as a leaf 
       arbor.leafs[parent_branch_idx][branch_point] = 0;
-      // ... and save as parent of next node
-      arbor.parents[parent_branch_idx].push_back(branch_point);
+      // ... and set initial parent node idx
+      parent_idx = branch_point;
     } else {
       // Set axon flag for new process arbor
       if (is_axon) {
@@ -948,81 +1042,112 @@ void network::make_arbor_branch(
       } else {
         arbor.axon.push_back(false);
       }
-      // Set initial point as the soma location
-      initial_point = coordinates_spatial.row(cell_idx);
-      // Initialize new coordinates vector (of Vector3d) with first row as spatial coordinates of the cell body 
-      arbor.coordinates.push_back({initial_point});
-      // ... and initialize new vector to track node parents
-      arbor.parents.push_back({-1});
-      // Initialize leafs vector and mark that this first point is not a leaf 
-      arbor.leafs.push_back({0});
-      // Initialize synapses vector and mark that this first point is not a synapse
-      arbor.synapses.push_back({0});
-      // ... set as parent branch 
-      parent_branch_idx = arbor.axon.size() - 1;
+      last_node = soma_coordinates;              // Set initial point as the soma location
+      arbor.coordinates.push_back({last_node});  // Initialize new coordinates vector (of Vector3d) with first row as spatial coordinates of the cell body 
+      arbor.node_type.push_back({"soma"});       // ... and initialize node_type vector and mark that this first point is "soma"
+      arbor.parents.push_back({-1});             // ... and initialize new vector to track node parents
+      arbor.leafs.push_back({0});                // ... and initialize leafs vector and mark that this first point is not a leaf 
+      arbor.synapses.push_back({0});             // ... and initialize synapses vector and mark that this first point is not a synapse
+      parent_branch_idx = arbor.axon.size() - 1; // ... set as parent branch 
+      parent_idx = 0;                            // ... and set initial parent node idx 
     }
     
     // Set the expected segment length
     double zx_segment_length = (column_diameter/2.0)/segment_divisor; 
     double y_segment_length = (layer_height/2.0)/segment_divisor;
-    // ... adjust if using attractor 
+    
+    // If using attractor ...
+    double bias_component_magnitude_init; 
     if (use_attractor) {
-      double z_bias = (attractor_point(0,0) - arbor.coordinates[parent_branch_idx].back()[0]);
-      double y_bias = (attractor_point(1,0) - arbor.coordinates[parent_branch_idx].back()[1]);
-      double x_bias = (attractor_point(2,0) - arbor.coordinates[parent_branch_idx].back()[2]);
-      double bias_magnitude = std::sqrt(z_bias*z_bias + y_bias*y_bias + x_bias*x_bias);
-      bias_magnitude = (bias_magnitude > 0) ? bias_magnitude : 1.0; // Avoid division by zero
-      zx_segment_length *= bias_magnitude / column_diameter;
-      y_segment_length *= bias_magnitude / layer_height;
+      // ... adjust expected segment length
+      Vector3d bias = attractor_point - arbor.coordinates[parent_branch_idx].back();
+      bias_component_magnitude_init = bias.norm();
+      if (bias_component_magnitude_init == 0.0) {bias_component_magnitude_init = 1.0;}
+      double segment_scalar = (bias_component_magnitude_init / column_diameter + bias_component_magnitude_init / layer_height)/2.0;
+      if (segment_scalar > 2.0) {
+        int n_segment_scalar = (int)std::round(segment_scalar - 2.0) + 1;
+        n_segments *= n_segment_scalar;
+        segment_scalar = 2.0; // Cap segment scalar at 2.0 to avoid excessively long segments for very distant attractor points
+      } 
+      zx_segment_length *= segment_scalar;
+      y_segment_length *= segment_scalar;
     }
     
+    // Grab spine density and branch spread
+    int t_num = neuron_type_num[cell_idx];
+    double spine_density = neuron_types[t_num].spine_density;
+    double branch_spread = neuron_types[t_num].branch_spread;
+    
+    // Compute expansion weight parameters
+    double walk_variability = 10.0; // Higher means more variability, must be at least 2.
+    double shape2_expand = (walk_variability/branch_spread) - walk_variability;
+    
     // Make branch
-    Vector3d last_node = initial_point;
     for (int s = 0; s < n_segments; s++) {
       
       // Make random component of the step
-      double z_step = R::rnorm(0.0, zx_segment_length);
-      double y_step = R::rnorm(0.0, y_segment_length);
-      double x_step = R::rnorm(0.0, zx_segment_length);
-      double step_magnitude = std::sqrt(z_step*z_step + y_step*y_step + x_step*x_step);
+      Vector3d step = {
+         R::rnorm(0.0, zx_segment_length), // z
+         R::rnorm(0.0, y_segment_length),  // y
+         R::rnorm(0.0, zx_segment_length)  // x
+      };
+      double random_component_magnitude = step.norm();
+      // ... bias step away from soma in proportion to branch spread
+      Vector3d expand = last_node - soma_coordinates;
+      // ... normalize expansion component so that it's the same magnitude as the random component 
+      double expand_component_magnitude = expand.norm();
+      if (expand_component_magnitude > 0) {
+        expand *= random_component_magnitude / expand_component_magnitude;
+      } else {
+        expand = Vector3d::Zero(); // If last_node is exactly at the soma, there is no expansion component
+      }
+      // ... randomly select weight with expected value of branch_spread
+      double weight_expand = R::rbeta(walk_variability, shape2_expand); 
+      // ... make weighted combination of the step and directed component
+      step = (1 - weight_expand) * step + weight_expand * expand;
       
       if (use_attractor) {
         
-        // Make directed component of the step 
-        double z_bias = (attractor_point(0,0) - last_node[0]);
-        double y_bias = (attractor_point(1,0) - last_node[1]);
-        double x_bias = (attractor_point(2,0) - last_node[2]);
-        
-        // ... normalize so that it's the same magnitude as the random component
-        double bias_magnitude = std::sqrt(z_bias*z_bias + y_bias*y_bias + x_bias*x_bias);
-        bias_magnitude = (bias_magnitude > 0) ? bias_magnitude : 1.0; // Avoid division by zero
-        z_bias = (z_bias / bias_magnitude) * step_magnitude;
-        y_bias = (y_bias / bias_magnitude) * step_magnitude;
-        x_bias = (x_bias / bias_magnitude) * step_magnitude;
-        
-        // Randomly select a weight between 0 and 1
-        double weight = R::runif(0.0, 1.0);
-        
-        // Make weighted combination of the step and bias 
-        z_step = weight * z_step + (1 - weight) * z_bias;
-        y_step = weight * y_step + (1 - weight) * y_bias;
-        x_step = weight * x_step + (1 - weight) * x_bias;
+        // Make directed component of the step (z, y, x)
+        Vector3d bias = attractor_point - last_node;
+        // ... normalize directed component so that it's the same magnitude as the random component
+        double bias_component_magnitude = bias.norm();
+        if (bias_component_magnitude > 0) {
+          bias *= random_component_magnitude / bias_component_magnitude;
+        } else {
+          bias = Vector3d::Zero(); // If last_node is exactly at the attractor point, there is no bias component
+        }
+        // ... randomly select weight with expected value in proportion to distance to attractor point 
+        double bias_weight = bias_component_magnitude / bias_component_magnitude_init;
+        if (bias_weight > 1.0) {bias_weight = 1.0;} // Cap weight at 1.0
+        double shape2 = (walk_variability/bias_weight) - walk_variability;
+        double weight_bias = R::rbeta(walk_variability, shape2);
+        // ... make weighted combination of the step and bias 
+        step = (1 - weight_bias) * step + weight_bias * bias;
         
       }
       
       // Add the step to the previous segment's coordinates to get the new segment's coordinates, and add to arbor coordinates
-      Vector3d new_node(
-        last_node[0] + z_step,
-        last_node[1] + y_step,
-        last_node[2] + x_step
-      );
+      Vector3d new_node = last_node + step;
+      if (new_node.array().isNaN().any()) {Rcpp::stop("NaN detected in Vector3d");}
       arbor.coordinates[parent_branch_idx].push_back(new_node);
       // ... and update last_node 
       last_node = new_node;
       
-      // Add new node as child of previous node in parents vector
-      if (!has_parent || s > 0) {
-        arbor.parents[parent_branch_idx].push_back(arbor.coordinates[parent_branch_idx].size() - 2);
+      // Update and add parent index
+      arbor.parents[parent_branch_idx].push_back(parent_idx);
+      parent_idx = arbor.coordinates[parent_branch_idx].size() - 1;
+      
+      // Mark node type 
+      if (is_axon) {
+        arbor.node_type[parent_branch_idx].push_back("axon_shaft");
+      } else {
+        // Randomly mark some nodes as spines based on spine density
+        if (R::runif(0.0, 1.0) < spine_density) {
+          arbor.node_type[parent_branch_idx].push_back("spine");
+        } else {
+          arbor.node_type[parent_branch_idx].push_back("dendrite_shaft");
+        }
       }
       
       // Mark whether this node is a leaf
@@ -1039,14 +1164,15 @@ void network::make_arbor_branch(
     
   }
 
+// Function to make axon and dendrite arbors
 void network::make_arbor(
-    const int& cell_idx,                    // Number of neuron for which to make processes
-    int n_segments,                         // Expected number of process segments on longest branch
-    int n_branches,                         // Expected number of branches, including the main process 
-    const bool& is_axon,                    // Whether to make axon (true) or dendrite (false)
-    double segment_divisor,                 // Specifies expected length of segments in terms of column diameter and layer height, or distance to attractor point
-    int parent_branch_idx,                  // Index of parent branch, if this is a branch off of a main process; otherwise, -1 for new process arbor
-    const Eigen::Matrix<double, 3, 1> attractor_point
+    const int& cell_idx,                                // Number of neuron for which to make processes
+    int n_segments,                                     // Expected number of process segments on longest branch
+    int n_branches,                                     // Expected number of branches, including the main process 
+    const bool& is_axon,                                // Whether to make axon (true) or dendrite (false)
+    double segment_divisor,                             // Specifies expected length of segments in terms of column diameter and layer height, or distance to attractor point
+    int parent_branch_idx,                              // Index of parent branch, if this is a branch off of a main process; otherwise, -1 for new process arbor
+    const Vector3d& attractor_point                     // z (patch), y (layer), x (column); if all zeros, no attractor bias; otherwise, bias branch growth toward this point
   ) {
     
     // Find number of existing branches 
@@ -1059,23 +1185,37 @@ void network::make_arbor(
     // Make branch structure
     std::vector<int> parent_branch_idx_list; 
     if (parent_branch_idx == -1) {
+      
       // Starting fresh, no matter what other branches already exist
       parent_branch_idx_list.push_back(-1);
-      for (int b = 1; b < n_branches; b++) {
-        parent_branch_idx_list.push_back(n_existing_arbors); 
-      }
       // Set arbor ID number 
       arbors[cell_idx].arbor_id.push_back(n_existing_arbors);
+      // Grab branch independence 
+      int t_num = neuron_type_num[cell_idx];
+      double branch_independence = neuron_types[t_num].branch_independence;
+      // Track number of additional new branches
+      int n_new_branches = 0;
+      for (int b = 1; b < n_branches; b++) {
+        if (R::runif(0.0, 1.0) < branch_independence) {
+          n_new_branches++;
+          parent_branch_idx_list.push_back(-1);
+          arbors[cell_idx].arbor_id.push_back(n_existing_arbors + n_new_branches);
+        } else {
+          int parent_idx = n_existing_arbors;
+          parent_idx += (int)(Rcpp::sample(n_new_branches + 1, 1)[0] - 1); 
+          parent_branch_idx_list.push_back(parent_idx);
+        }
+      }
+      
     } else {
+      
       // Starting from existing branch, so make sure to build off of that branch and its children
       if (parent_branch_idx >= n_existing_arbors) {
         Rcpp::Rcout << "Parent branch index: " << parent_branch_idx << ", number of existing branches: " << n_existing_arbors << std::endl;
         Rcpp::stop("Parent branch index exceeds number of branches in arbor");
       }
-      parent_branch_idx_list.push_back(parent_branch_idx);
-      for (int b = 1; b < n_branches; b++) {
-        parent_branch_idx_list.push_back(n_existing_arbors);
-      }
+      parent_branch_idx_list.assign(n_branches, parent_branch_idx);
+      
     }
     
     // For each branch to-be-made: 
@@ -1106,6 +1246,11 @@ void network::make_local_nodes() {
     // Initialize vectors to track local edge coordinates
     std::vector<int> local_edges_pre; 
     std::vector<int> local_edges_post;
+    
+    // Compute expected node radius within layer-column plane 
+    double lh = layer_height * layer_separation_factor / 2.0;
+    double cd = column_diameter * column_separation_factor / 2.0;
+    double expected_node_radious = std::sqrt(std::pow(lh, 2) + std::pow(cd, 2));
     
     // Initialize local transconductance matrix
     MatrixXd local_transconductances = MatrixXd::Zero(n_neurons, n_neurons);
@@ -1150,12 +1295,61 @@ void network::make_local_nodes() {
             int process_node_count = neuron_types[t_num].process_node_count;
             int axon_branch_count = neuron_types[t_num].axon_branch_count;
             int dendrite_branch_count = neuron_types[t_num].dendrite_branch_count;
+            std::string apical_target_layer = neuron_types[t_num].apical_target_layer;
             
             // Create local axon arbor
             make_arbor(cell_idx, process_node_count, axon_branch_count, true);
             
             // Create local dendrite arbor
             make_arbor(cell_idx, process_node_count, dendrite_branch_count, false);
+            
+            // Create apical dendrite, if any 
+            if (apical_target_layer != "none") {
+              LogicalVector layer_mask = eq_left_broadcast(layer_names, apical_target_layer);
+              if (any_true(layer_mask)) {
+                // MB: Much of this code duplicated from apply_motif; create function??
+                
+                // Get coordinates of the target node 
+                int apical_target_layer_idx = Rwhich(layer_mask)[0];
+                // ... reconstruct target node ID number
+                int target_node_idx = p * (n_layers * n_columns) + apical_target_layer_idx * n_columns + c;
+                // ... get spatial position of this node
+                Eigen::Matrix<double, 3, 1> attractor_point = {
+                  node_coordinates_spatial(target_node_idx, 0), // z / p
+                  node_coordinates_spatial(target_node_idx, 1), // y / l
+                  node_coordinates_spatial(target_node_idx, 2)  // x / c
+                };
+                
+                // ... find distance to attractor point 
+                double distance_to_attractor = std::sqrt(
+                  std::pow(attractor_point(0,0) - node_z, 2) +
+                  std::pow(attractor_point(1,0) - node_y, 2) +
+                  std::pow(attractor_point(2,0) - node_x, 2)
+                );
+                // ... rescale node count to ensure proper length of processes given distance to attractor point
+                double projection_scale_factor = distance_to_attractor / expected_node_radious;
+                int process_node_count_rescaled = std::max(1, static_cast<int>(std::round(process_node_count * projection_scale_factor)));
+                
+                // Leave segment divisor at default
+                double segment_divisor = 0.0; 
+                
+                // Make apical dendrite arbor
+                make_arbor(
+                  cell_idx, 
+                  process_node_count_rescaled, 
+                  dendrite_branch_count, 
+                  false,
+                  segment_divisor,
+                  -1, // should be a new dendrite
+                  attractor_point 
+                );
+                
+              } else {
+                Rcpp::Rcout << "Apical target layer: " << apical_target_layer << ", layer names: " << layer_names << std::endl;
+                Rcpp::stop("Apical target layer not found in layer names");
+              }
+              
+            }
             
           }
           
@@ -1176,67 +1370,30 @@ void network::make_local_nodes() {
             // Get coupling scaling factor for pre-synaptic cells
             double coupling_scaling_factor = neuron_types[t_pre].coupling_scaling_factor;
             
-            // Initialize pointer to appropriate cell_arbors structure
-            cell_arbors& arbor_pre = arbors[idx_pre];
-            
-            // Confirm first branch is the axon 
-            if (!arbor_pre.axon[0]) {
-              Rcpp::Rcout << "First branch in arbor_pre for cell index " << idx_pre << " is not an axon; check arbor structure." << std::endl;
-              Rcpp::stop("First branch in arbor is not an axon");
-            }
-            
-            // Grab all nodes along axon
-            std::vector<Vector3d>& axon_coordinates = arbor_pre.coordinates[0];
-            
             // Set transconductance into post-synaptic cells
             for (int idx_post = node_range_start; idx_post <= node_range_end; idx_post++) {
               
-              // Get the post-synaptic arbor 
-              cell_arbors& arbor_post = arbors[idx_post];
+              // Get neuron types for post-synaptic neurons
+              int t_post = neuron_type_num[idx_post];
               
-              // Assuming first dendrite branch is at index 1
-              // ... for local connections, only one dendritic branch as been made so far
-              std::vector<Vector3d>& dendrite_coordinates = arbor_post.coordinates[1]; 
+              // Get recurrence factor for this connection type
+              double rec_factor = recurrence_factor_matrix(t_post, t_pre);
+              double transductance_bias = rec_factor * spike_H * coupling_scaling_factor;
               
-              // Check for synapses 
-              std::vector<int> neighbor_idx = find_first_neighbor(
-                axon_coordinates, 
-                dendrite_coordinates,
-                synaptic_neighborhood
+              // Search for synapse and compute its transconductance
+              double this_transconductance = find_synapse(
+                idx_pre, 
+                idx_post, 
+                val_pre, 
+                transductance_bias
               );
               
-              // If one is found, create it
-              if (neighbor_idx[0] >= 0) {
-                
-                // Extend the axon
-                // ... add coordinates
-                axon_coordinates.push_back(dendrite_coordinates[neighbor_idx[1]]);
-                // ... add parent 
-                arbor_pre.parents[0].push_back(neighbor_idx[0]);
-                // ... ensure old node not marked as leaf 
-                arbor_pre.leafs[0][neighbor_idx[0]] = 0;
-                // ... and mark new node as leaf
-                arbor_pre.leafs[0].push_back(1);
-                // ... and mark new node as synapse
-                arbor_pre.synapses[0].push_back(1);
-                // ... and mark in the synapse idx matrix 
-                synapse_idx(idx_pre, idx_post) = axon_coordinates.size() - 1;
-                
-                // Get neuron types for post-synaptic neurons
-                int t_post = neuron_type_num[idx_post];
-                
-                // Get recurrence factor for this connection type
-                double rec_factor = recurrence_factor_matrix(t_post, t_pre);
-                double transductance_bias = rec_factor * spike_H * coupling_scaling_factor;
-                
+              if (this_transconductance > 0) {
                 // Set transductance 
-                double trans = R::runif(0.0, 2.0) * transductance_bias;
-                local_transconductances(idx_post, idx_pre) = val_pre * trans;
-                
+                local_transconductances(idx_post, idx_pre) = this_transconductance;
                 // Save edge coordinate
                 local_edges_pre.push_back(idx_pre);
                 local_edges_post.push_back(idx_post);
-                
               }
               
             }
@@ -1244,6 +1401,7 @@ void network::make_local_nodes() {
           }
           
         }
+        
       }
       
     }
@@ -1293,7 +1451,7 @@ MatrixXi network::find_pairwise_lags_by_axon(
       }
       
       // Grab all nodes along axon and their parents
-      std::vector<Vector3d>& axon_coordinates = arbor_pre.coordinates[0];
+      std::vector<Vector3d> axon_coordinates = arbor_pre.coordinates[0];
       std::vector<int> axon_node_parents = arbor_pre.parents[0];
       
       // For each post-synaptic neuron, check for synapses and set lag if found
@@ -1327,10 +1485,89 @@ MatrixXi network::find_pairwise_lags_by_axon(
     
   }
 
+// Function to find synapses and return transconductance into post-synaptic cell 
+double network::find_synapse(
+    const int& idx_pre,
+    const int& idx_post,
+    const double& val_pre,
+    const double& transductance_bias
+  ) {
+    
+    // Get the pre-synaptic arbor and its coordinates
+    cell_arbors arbor_pre = arbors[idx_pre];
+    
+    // Get the post-synaptic arbor and its coordinates
+    cell_arbors arbor_post = arbors[idx_post];
+    
+    // Get axon indices 
+    IntegerVector axon_idx = Rwhich(arbor_pre.axon);
+    
+    // Get post-synaptic dendrite branch indices
+    std::vector<bool> dendrite_mask = arbor_post.axon; 
+    for (int i = 0; i < dendrite_mask.size(); i++) {dendrite_mask[i] = !dendrite_mask[i];}
+    IntegerVector dendrite_idx = Rwhich(dendrite_mask);
+    
+    // Check all axons 
+    for (int ax : axon_idx) {
+      
+      // Check all dendrites 
+      for (int dd : dendrite_idx) {
+        
+        // Check for synapses 
+        // ... first element of neighbor_idx is the axon node idx, second is the dendrite node idx
+        std::vector<int> neighbor_idx = find_first_neighbor(
+          arbor_pre.coordinates[ax], 
+          arbor_post.coordinates[dd],
+          synaptic_neighborhood
+        );
+        
+        // If one is found, create it
+        if (neighbor_idx[0] >= 0) {
+          // MUST ADD CORRECT INDICES!!
+          
+          // Extend the axon
+          // ... add coordinates
+          arbor_pre.coordinates[ax].push_back(arbor_post.coordinates[dd][neighbor_idx[1]]);
+          // ... add parent 
+          arbor_pre.parents[ax].push_back(neighbor_idx[0]);
+          // ... add node type 
+          arbor_pre.node_type[ax].push_back("axon_shaft");
+          // ... ensure old node not marked as leaf 
+          arbor_pre.leafs[ax][neighbor_idx[0]] = 0;
+          // ... and mark new node as leaf
+          arbor_pre.leafs[ax].push_back(1);
+          // ... and mark new node as synapse
+          arbor_pre.synapses[ax].push_back(1);
+          // ... and mark in the synapse idx matrix 
+          synapse_idx(idx_pre, idx_post) = arbor_pre.coordinates[ax].size() - 1;
+          
+          // Update arbors
+          arbors[idx_pre] = arbor_pre;
+          arbors[idx_post] = arbor_post;
+          
+          // Find and return transductance 
+          double trans = R::runif(0.0, 2.0) * transductance_bias;
+          return(trans);
+          
+        } else {
+          return(0.0);
+        }
+        
+      }
+      
+    }
+    
+  }
+
 // Function to apply circuit motif
 void network::apply_circuit_motif(
-    const motif& cmot
+    const motif& cmot,
+    const bool& verbose
   ) {
+    
+    if (verbose) {
+      Rcpp::Rcout << "Applying motif: " << cmot.motif_name << std::endl;
+    }
    
     if (edge_types.size() < 1) {
       Rcpp::stop("Must set local edges before applying any circuit motifs.");
@@ -1343,11 +1580,29 @@ void network::apply_circuit_motif(
     // Initialize motif transconductance matrix
     MatrixXd motif_transconductances = MatrixXd::Zero(n_neurons, n_neurons);
     
+    // Pre-make all column masks 
+    LogicalMatrix column_masks(n_neurons, n_columns);
+    for (int c = 0; c < n_columns; c++) {
+      column_masks(_, c) = eq_left_broadcast(coordinates_node(Eigen::all,2), c); // column 2 is the column
+    }
+    
+    // Pre-make all patch masks 
+    LogicalMatrix patch_masks(n_neurons, n_patches);
+    for (int p = 0; p < n_patches; p++) {
+      patch_masks(_, p) = eq_left_broadcast(coordinates_node(Eigen::all,0), p); // column 0 is the patch
+    }
+    
+    // Compute expected node radius within layer-column plane 
+    double lh = layer_height * layer_separation_factor / 2.0;
+    double cd = column_diameter * column_separation_factor / 2.0;
+    double expected_node_radious = std::sqrt(std::pow(lh, 2) + std::pow(cd, 2));
+    
     // For each projection in the motif
-    for (int p = 0; p < cmot.n_projections; p++) {
+    const int n_projections = cmot.n_projections;
+    for (int pj = 0; pj < n_projections; pj++) {
       
       // Grab projection
-      Projection proj = cmot.projections[p];
+      Projection proj = cmot.projections[pj];
       
       // Grab pre- and post-synaptic cell types for this projection
       std::string pre_type_name = proj.pre_type;
@@ -1360,7 +1615,10 @@ void network::apply_circuit_motif(
       LogicalVector pre_type_exists = eq_left_broadcast(type_names, pre_type_name);
       LogicalVector post_type_exists = eq_left_broadcast(type_names, post_type_name);
       if (!(any_true(pre_type_exists) && any_true(post_type_exists))) {
-        Rcpp::Rcout << "Projection " << p << " in motif " << cmot.motif_name << " has pre- or post-synaptic type that does not exist in this network; skipping this projection." << std::endl;
+        Rcpp::Rcout << "Projection " << pj << " in motif " << cmot.motif_name << " has pre- or post-synaptic type that does not exist in this network." << std::endl
+                    << "  Pre-synaptic type: " << pre_type_name << ", post-synaptic type: " << post_type_name << std::endl
+                    << "  Available types: " << type_names << std::endl
+                    << "  ...  skipping this projection." << std::endl;
         continue;
       }
       int t_pre = Rwhich(pre_type_exists)[0];
@@ -1376,101 +1634,201 @@ void network::apply_circuit_motif(
       double spike_H = I_spike * spike_potential;
       // ... get coupling scaling factor for pre-synaptic cell
       double coupling_scaling_factor = neuron_types[t_pre].coupling_scaling_factor;
-      // ... get recurrence factor for this connection type
-      double proj_strength = cmot.connection_strength[p];
+      
+      // ... get connection strength for this connection type
+      double proj_strength = cmot.connection_strength[pj];
       double transductance_bias = proj_strength * spike_H * coupling_scaling_factor;
       
-      // Grab pre-synaptic valence
+      // Grab pre-synaptic valence and axon characteristics
       int val_pre = neuron_types[t_pre].valence;
+      int process_node_count_pre = neuron_types[t_pre].process_node_count;
+      int axon_branch_count = neuron_types[t_pre].axon_branch_count;
+      
+      // Grab dendrite characteristics for post-synaptic cells
+      int process_node_count_post = neuron_types[t_post].process_node_count;
+      int dendrite_branch_count = neuron_types[t_post].dendrite_branch_count;
       
       // Grab pre and post layers
       LogicalVector pre_layer_exists = eq_left_broadcast(layer_names, proj.pre_layer);
       LogicalVector post_layer_exists = eq_left_broadcast(layer_names, proj.post_layer);
       if (!(any_true(pre_layer_exists) && any_true(post_layer_exists))) {
-        Rcpp::Rcout << "Projection " << p << " in motif " << cmot.motif_name << " has pre- or post-synaptic layer that does not exist in this network; skipping this projection." << std::endl;
+        Rcpp::Rcout << "Projection " << pj << " in motif " << cmot.motif_name << " has pre- or post-synaptic layer that does not exist in this network; skipping this projection." << std::endl;
         continue;
       }
       int layer_pre = Rwhich(pre_layer_exists)[0];
       int layer_post = Rwhich(post_layer_exists)[0];
       // ... and make masks 
-      LogicalVector pre_layer_mask = eq_left_broadcast(coordinates_node(Eigen::all,1), layer_pre); // column 1 is the layer
-      LogicalVector post_layer_mask = eq_left_broadcast(coordinates_node(Eigen::all,1), layer_post);
-      
-      // Grab pre and post densities
-      double density_pre = proj.pre_density;
-      double density_post = proj.post_density;
+      LogicalVector pre_layer_mask = pre_type_mask & eq_left_broadcast(coordinates_node(Eigen::all,1), layer_pre); // column 1 is the layer
+      LogicalVector post_layer_mask = post_type_mask & eq_left_broadcast(coordinates_node(Eigen::all,1), layer_post);
       
       // Grab max shifts
-      int max_up = cmot.max_col_shift_up[p];
-      int max_down = cmot.max_col_shift_down[p];
+      int max_up = cmot.max_col_shift_up[pj];
+      int max_down = cmot.max_col_shift_down[pj];
       
       // Build column range
       VectorXi col_range(max_up + max_down + 1);
       for (int i = 0; i < col_range.size(); i++) col_range[i] = -max_down + i;
       
-      // Pre-make all column masks 
-      LogicalMatrix column_masks(n_neurons, n_columns);
-      for (int c = 0; c < n_columns; c++) {
-        column_masks(_, c) = eq_left_broadcast(coordinates_node(Eigen::all,2), c); // column 2 is the column
-      }
-      
-      // Apply projection to each column 
-      for (int c = 0; c < n_columns; c++) {
+      // Within each patch
+      for (int p = 0; p < n_patches; p++) {
         
-        // Get pre-synaptic column mask
-        LogicalVector pre_column_mask = column_masks(_, c);
+        // Get patch mask 
+        LogicalVector pre_patch_mask = pre_layer_mask & patch_masks(_, p);
+        LogicalVector post_patch_mask = post_layer_mask & patch_masks(_, p);
         
-        // Shift range to this column 
-        VectorXi col_range_shifted = col_range.array() + c;
-        
-        // For each target column
-        for (int tc : col_range_shifted) {
+        // Apply projection to each column 
+        for (int c = 0; c < n_columns; c++) {
           
-          // Check if target column is valid
-          if (tc >= 0 && tc < n_columns) {
+          if (verbose) {
+            Rcpp::Rcout 
+              << "Applying projection: " << pj << " / " << n_projections 
+              << ", column: " << c << " / " << n_columns 
+              << ", patch " << p << " / " << n_patches 
+            << std::endl;
+          }
+          
+          // Get pre-synaptic column mask
+          LogicalVector pre_column_mask = column_masks(_, c);
+          
+          // Find indexes of pre-synaptic cells 
+          LogicalVector pre_mask = pre_patch_mask & pre_column_mask;
+          if (!any_true(pre_mask)) {continue;} // Skip if no pre-synaptic cells of the right type in this column and layer
+          IntegerVector pre_indices = Rwhich(pre_mask);
+          
+          // Get coordinates of home node
+          int home_node_idx = p * (n_layers * n_columns) + layer_pre * n_columns + c;
+          Eigen::Matrix<double, 3, 1> home_node_coordinates = {
+            node_coordinates_spatial(home_node_idx, 0), // z / p
+            node_coordinates_spatial(home_node_idx, 1), // y / l
+            node_coordinates_spatial(home_node_idx, 2)  // x / c
+          };
+          
+          // Shift range to this column 
+          VectorXi col_range_shifted = col_range.array() + c;
+          
+          // For each target column
+          for (int tc : col_range_shifted) {
             
-            // Don't make local connections 
-            if (layer_pre != layer_post || c != tc) {
+            // Check if target column is valid
+            if (tc >= 0 && tc < n_columns) {
               
-              // Find distance off home column 
-              int col_offset = std::abs(tc - c);
-              double offset_factor = 1.0 / (double)(col_offset + 1.0);
-              
-              // Get post-synaptic column mask
-              LogicalVector post_column_mask = column_masks(_, tc);
-              
-              // Sample pre-synaptic cells 
-              LogicalVector pre_mask = pre_type_mask & pre_layer_mask & pre_column_mask;
-              if (!any_true(pre_mask)) {continue;} // Skip if no pre-synaptic cells of the right type in this column and layer
-              IntegerVector pre_indices = Rwhich(pre_mask);
-              int n_pre = R::rpois(pre_indices.size() * density_pre * offset_factor);
-              n_pre = std::min(n_pre, 1);
-              IntegerVector pre_sampled = Rcpp::sample(pre_indices, n_pre, false);
-              
-              // Prepare for repeated sampling of post-synaptic cells
-              LogicalVector post_mask = post_type_mask & post_layer_mask & post_column_mask;
-              if (!any_true(post_mask)) {continue;} // Skip if no post-synaptic cells of the right type in this column and layer
-              IntegerVector post_indices = Rwhich(post_mask);
-              
-              for (int pre_c : pre_sampled) {
+              // Don't make local connections 
+              if (layer_pre != layer_post || c != tc) {
                 
-                // Sample post-synaptic cells
-                int n_post = R::rpois(post_indices.size() * density_post * offset_factor);
-                n_post = std::min(n_post, 1);
-                IntegerVector post_sampled = Rcpp::sample(post_indices, n_post, false);
+                // Find distance off home column 
+                int col_offset = std::abs(tc - c);
+                double offset_factor = 1.0 / (double)(col_offset + 1.0);
                 
-                // Set transductances 
-                for (int post_c : post_sampled) {
-                  double trans = R::runif(0.0, 2.0) * transductance_bias;
-                  motif_transconductances(post_c, pre_c) = val_pre * trans;
-                  // Save edge coordinate
-                  motif_edges_pre.push_back(pre_c);
-                  motif_edges_post.push_back(post_c);
+                // Get post-synaptic column mask
+                LogicalVector post_column_mask = column_masks(_, tc);
+                
+                // Find indexes of post-synaptic cells
+                LogicalVector post_mask = post_patch_mask & post_column_mask;
+                if (!any_true(post_mask)) {continue;} // Skip if no post-synaptic cells of the right type in this column and layer
+                IntegerVector post_indices = Rwhich(post_mask);
+                
+                // Get coordinates of the target node 
+                // ... reconstruct target node ID number
+                int node_idx = p * (n_layers * n_columns) + layer_post * n_columns + tc;
+                // ... get spatial position of this node
+                Eigen::Matrix<double, 3, 1> attractor_point = {
+                  node_coordinates_spatial(node_idx, 0), // z / p
+                  node_coordinates_spatial(node_idx, 1), // y / l
+                  node_coordinates_spatial(node_idx, 2)  // x / c
+                };
+                
+                // ... find distance to attractor point 
+                double distance_to_attractor = std::sqrt(
+                  std::pow(attractor_point(0,0) - home_node_coordinates(0,0), 2) +
+                  std::pow(attractor_point(1,0) - home_node_coordinates(1,0), 2) +
+                  std::pow(attractor_point(2,0) - home_node_coordinates(2,0), 2)
+                );
+                // ... rescale node count to ensure proper length of processes given distance to attractor point
+                double projection_scale_factor = distance_to_attractor / expected_node_radious;
+                int process_node_count_pre_rescaled = std::max(1, static_cast<int>(std::round(process_node_count_pre * projection_scale_factor)));
+                
+                // Leave segment divisor at default
+                double segment_divisor_pre = 0.0; 
+                
+                // Make mesoscale axon arbors for these cells
+                for (int cell_idx : pre_indices) {
+                  
+                  // Select random axon to extend
+                  std::vector<bool> axon_mask = arbors[cell_idx].axon; 
+                  IntegerVector axon_idx = Rwhich(axon_mask);
+                  int axon_parent = Rcpp::sample(axon_idx, 1)[0];
+                  
+                  // Make axon
+                  make_arbor(
+                    cell_idx, 
+                    process_node_count_pre_rescaled, 
+                    axon_branch_count, 
+                    true, 
+                    segment_divisor_pre,
+                    axon_parent, 
+                    attractor_point
+                  );
+                  
                 }
                 
-              }
+                // Rescale dendrite node count 
+                int process_node_count_post_rescaled = std::max(1, static_cast<int>(std::round(process_node_count_post * projection_scale_factor)));
+                
+                // Leave segment divisor at default
+                double segment_divisor_post = 0.0; 
+                
+                // Extend dendrites of postsynaptic cells 
+                for (int cell_idx : post_indices) {
+                  
+                  // Select random dendrite to extend
+                  std::vector<bool> dendrite_mask = arbors[cell_idx].axon; 
+                  for (int i = 0; i < dendrite_mask.size(); i++) {dendrite_mask[i] = !dendrite_mask[i];}
+                  IntegerVector dendrite_idx = Rwhich(dendrite_mask);
+                  int dendrite_parent = Rcpp::sample(dendrite_idx, 1)[0];
+                  
+                  // Make dendrite
+                  make_arbor(
+                    cell_idx, 
+                    process_node_count_post_rescaled, 
+                    dendrite_branch_count, 
+                    false,
+                    segment_divisor_post,
+                    dendrite_parent,
+                    {0.0, 0.0, 0.0} // for now, leave at default
+                  );
+                  
+                }
+                
+                // For all combinations of pre- and post-synaptic neurons in this projection
+                for (int idx_pre : pre_indices) {
+                  
+                  // Set transconductance into post-synaptic cells
+                  for (int idx_post : post_indices) {
+                    
+                    // Search for synapse and compute its transconductance
+                    double this_transconductance = find_synapse(
+                      idx_pre, 
+                      idx_post, 
+                      val_pre, 
+                      transductance_bias
+                    );
+                    
+                    // If one is found, create it
+                    if (this_transconductance > 0) {
+                      // Set transductance 
+                      motif_transconductances(idx_post, idx_pre) = val_pre * this_transconductance;
+                      // Save edge coordinate
+                      motif_edges_pre.push_back(idx_pre);
+                      motif_edges_post.push_back(idx_post);
+                    }
+                    
+                  }
+                  
+                }
+                
+              } 
               
-            } 
+            }
             
           }
           
@@ -1521,43 +1879,71 @@ List network::fetch_network_components(
       edge_type_matrices[eti] = et_r;
     }
     
-    // Convert arbors into list of numeric matrices
-    List arbor_list(n_neurons);
+    // Convert arbors into numeric matrix
+    NumericMatrix arbor_matrix;
     if (include_arbors) {
+      // Count total number of segments across all arbors
+      int n_segments = 0;
+      int n_roots = 0;
       for (int n = 0; n < n_neurons; n++) {
-        // Parse arbor sizes
         int n_arbors = arbors[n].axon.size();
-        int n_segments = 0;
+        n_roots += n_arbors;
         for (int a = 0; a < n_arbors; a++) {
           n_segments += arbors[n].coordinates[a].size();
         }
-        // Extract nodes
-        NumericMatrix arbor_r(n_segments, 8);
-        int last_seg_idx = 0;
+      }
+      
+      // Create matrix to hold arbor data
+      arbor_matrix = NumericMatrix(n_segments - n_roots, 13);
+      colnames(arbor_matrix) = CharacterVector::create(
+        "neuron_idx", "arbor_id", "is_axon", "node_type", "parent_idx", "is_leaf", "is_synapse", 
+        "z_start", "y_start", "x_start", "z_end", "y_end", "x_end"
+      );
+      
+      // Fill matrix with arbor data
+      int seg_idx = 0;
+      for (int n = 0; n < n_neurons; n++) {
+        int n_arbors = arbors[n].axon.size();
         for (int a = 0; a < n_arbors; a++) {
           int n_segs = arbors[n].coordinates[a].size();
-          double arbor_type = arbors[n].axon[a] ? 1.0 : 0.0; // 1 for axon, 0 for dendrite
-          NumericVector parents_r = wrap(arbors[n].parents[a]);
-          for (double &v : parents_r) v++; // put into 1-indexed form for R
-          NumericVector leafs_r = wrap(arbors[n].leafs[a]);
-          NumericVector synapses_r = wrap(arbors[n].synapses[a]);
+          double arbor_type = arbors[n].axon[a] ? 1.0 : 0.0;               // 1 for axon, 0 for dendrite
+          // ... for each segment endpoint i
           for (int i = 0; i < n_segs; i++) { 
-            arbor_r(i + last_seg_idx, 0) = (double)arbors[n].arbor_id[a]; // arbor ID number
-            arbor_r(i + last_seg_idx, 1) = arbor_type;
-            arbor_r(i + last_seg_idx, 2) = parents_r[i];
-            arbor_r(i + last_seg_idx, 3) = leafs_r[i];
-            arbor_r(i + last_seg_idx, 4) = synapses_r[i];
-            arbor_r(i + last_seg_idx, 5) = arbors[n].coordinates[a][i][0]; // z
-            arbor_r(i + last_seg_idx, 6) = arbors[n].coordinates[a][i][1]; // y
-            arbor_r(i + last_seg_idx, 7) = arbors[n].coordinates[a][i][2]; // x
+            double parent_idx = arbors[n].parents[a][i];
+            double node_type_idx;
+            std::string node_type_str = arbors[n].node_type[a][i];
+            if (node_type_str == "soma") {
+              node_type_idx = 0.0;
+            } else if (node_type_str == "dendrite_shaft") {
+              node_type_idx = 1.0;
+            } else if (node_type_str == "axon_shaft") {
+              node_type_idx = 2.0;
+            } else if (node_type_str == "spine") {
+              node_type_idx = 3.0;
+            } else {
+              Rcpp::Rcout << "Unknown node type string: " << node_type_str << std::endl;
+              Rcpp::stop("Unknown node type string in arbor structure");
+            }
+            if (parent_idx < 0) {continue;}                                     // Skip root node since it has no parent
+            arbor_matrix(seg_idx, 0) = (double)n;                               // neuron index
+            arbor_matrix(seg_idx, 1) = (double)arbors[n].arbor_id[a];           // arbor ID number
+            arbor_matrix(seg_idx, 2) = arbor_type;
+            arbor_matrix(seg_idx, 3) = node_type_idx;                           // 0 = "soma", 1 = "dendrite_shaft", 2 = "axon_shaft", or 3 = "spine"
+            arbor_matrix(seg_idx, 4) = parent_idx + 1;                          // put into 1-indexed form for R
+            arbor_matrix(seg_idx, 5) = (double)arbors[n].leafs[a][i];
+            arbor_matrix(seg_idx, 6) = (double)arbors[n].synapses[a][i];        // count of synapses at this node
+            arbor_matrix(seg_idx, 7) = arbors[n].coordinates[a][parent_idx][0]; // z_start
+            arbor_matrix(seg_idx, 8) = arbors[n].coordinates[a][parent_idx][1]; // y_start
+            arbor_matrix(seg_idx, 9) = arbors[n].coordinates[a][parent_idx][2]; // x_start
+            arbor_matrix(seg_idx, 10) = arbors[n].coordinates[a][i][0];         // z_end
+            arbor_matrix(seg_idx, 11) = arbors[n].coordinates[a][i][1];         // y_end
+            arbor_matrix(seg_idx, 12) = arbors[n].coordinates[a][i][2];         // x_end
+            seg_idx++;
           }
-          last_seg_idx += n_segs;
         }
-        colnames(arbor_r) = CharacterVector::create("arbor_id", "is_axon", "parent_idx", "is_leaf", "is_synapse", "z", "y", "x");
-        arbor_list[n] = arbor_r;
       }
     } else {
-      arbor_list = R_NilValue;
+      arbor_matrix = R_NilValue;
     }
     
     // Add labels 
@@ -1586,7 +1972,7 @@ List network::fetch_network_components(
       _["edge_idx_by_type"] = edge_type_matrices, 
       _["edge_type_names"] = edge_type_names,
       _["sim_dt"] = sim_dt,
-      _["arbor_list"] = arbor_list, 
+      _["arbors"] = arbor_matrix, 
       _["units"] = List::create(
         _["time"] = unit_time,
         _["sample_rate"] = unit_sample_rate,
@@ -1757,8 +2143,6 @@ RCPP_MODULE(Projection) {
   .constructor()
   .field("pre_type",      &Projection::pre_type)
   .field("pre_layer",     &Projection::pre_layer)
-  .field("pre_density",   &Projection::pre_density)
   .field("post_type",     &Projection::post_type)
-  .field("post_layer",    &Projection::post_layer)
-  .field("post_density",  &Projection::post_density);
+  .field("post_layer",    &Projection::post_layer);
 }

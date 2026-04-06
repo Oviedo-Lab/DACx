@@ -41,8 +41,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // add_cell_type
-void add_cell_type(const std::string& type_name, const int& valence, const double& temporal_modulation_bias, const double& temporal_modulation_timeconstant, const double& temporal_modulation_amplitude, const double& transmission_velocity, const double& v_bound, const double& dHdv_bound, const double& I_spike, const double& coupling_scaling_factor, const double& spike_potential, const double& resting_potential, const double& threshold, const int& process_node_count, const int& axon_branch_count, const int& dendrite_branch_count);
-RcppExport SEXP _DACx_add_cell_type(SEXP type_nameSEXP, SEXP valenceSEXP, SEXP temporal_modulation_biasSEXP, SEXP temporal_modulation_timeconstantSEXP, SEXP temporal_modulation_amplitudeSEXP, SEXP transmission_velocitySEXP, SEXP v_boundSEXP, SEXP dHdv_boundSEXP, SEXP I_spikeSEXP, SEXP coupling_scaling_factorSEXP, SEXP spike_potentialSEXP, SEXP resting_potentialSEXP, SEXP thresholdSEXP, SEXP process_node_countSEXP, SEXP axon_branch_countSEXP, SEXP dendrite_branch_countSEXP) {
+void add_cell_type(const std::string& type_name, const int& valence, const double& temporal_modulation_bias, const double& temporal_modulation_timeconstant, const double& temporal_modulation_amplitude, const double& transmission_velocity, const double& coupling_scaling_factor, const double& spine_density, const std::string& axon_target, const double& v_bound, const double& dHdv_bound, const double& I_spike, const double& spike_potential, const double& resting_potential, const double& threshold, const int& process_node_count, const int& axon_branch_count, const int& dendrite_branch_count, const double& branch_independence, const double& branch_spread, const std::string& apical_target_layer);
+RcppExport SEXP _DACx_add_cell_type(SEXP type_nameSEXP, SEXP valenceSEXP, SEXP temporal_modulation_biasSEXP, SEXP temporal_modulation_timeconstantSEXP, SEXP temporal_modulation_amplitudeSEXP, SEXP transmission_velocitySEXP, SEXP coupling_scaling_factorSEXP, SEXP spine_densitySEXP, SEXP axon_targetSEXP, SEXP v_boundSEXP, SEXP dHdv_boundSEXP, SEXP I_spikeSEXP, SEXP spike_potentialSEXP, SEXP resting_potentialSEXP, SEXP thresholdSEXP, SEXP process_node_countSEXP, SEXP axon_branch_countSEXP, SEXP dendrite_branch_countSEXP, SEXP branch_independenceSEXP, SEXP branch_spreadSEXP, SEXP apical_target_layerSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string& >::type type_name(type_nameSEXP);
@@ -51,23 +51,28 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const double& >::type temporal_modulation_timeconstant(temporal_modulation_timeconstantSEXP);
     Rcpp::traits::input_parameter< const double& >::type temporal_modulation_amplitude(temporal_modulation_amplitudeSEXP);
     Rcpp::traits::input_parameter< const double& >::type transmission_velocity(transmission_velocitySEXP);
+    Rcpp::traits::input_parameter< const double& >::type coupling_scaling_factor(coupling_scaling_factorSEXP);
+    Rcpp::traits::input_parameter< const double& >::type spine_density(spine_densitySEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type axon_target(axon_targetSEXP);
     Rcpp::traits::input_parameter< const double& >::type v_bound(v_boundSEXP);
     Rcpp::traits::input_parameter< const double& >::type dHdv_bound(dHdv_boundSEXP);
     Rcpp::traits::input_parameter< const double& >::type I_spike(I_spikeSEXP);
-    Rcpp::traits::input_parameter< const double& >::type coupling_scaling_factor(coupling_scaling_factorSEXP);
     Rcpp::traits::input_parameter< const double& >::type spike_potential(spike_potentialSEXP);
     Rcpp::traits::input_parameter< const double& >::type resting_potential(resting_potentialSEXP);
     Rcpp::traits::input_parameter< const double& >::type threshold(thresholdSEXP);
     Rcpp::traits::input_parameter< const int& >::type process_node_count(process_node_countSEXP);
     Rcpp::traits::input_parameter< const int& >::type axon_branch_count(axon_branch_countSEXP);
     Rcpp::traits::input_parameter< const int& >::type dendrite_branch_count(dendrite_branch_countSEXP);
-    add_cell_type(type_name, valence, temporal_modulation_bias, temporal_modulation_timeconstant, temporal_modulation_amplitude, transmission_velocity, v_bound, dHdv_bound, I_spike, coupling_scaling_factor, spike_potential, resting_potential, threshold, process_node_count, axon_branch_count, dendrite_branch_count);
+    Rcpp::traits::input_parameter< const double& >::type branch_independence(branch_independenceSEXP);
+    Rcpp::traits::input_parameter< const double& >::type branch_spread(branch_spreadSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type apical_target_layer(apical_target_layerSEXP);
+    add_cell_type(type_name, valence, temporal_modulation_bias, temporal_modulation_timeconstant, temporal_modulation_amplitude, transmission_velocity, coupling_scaling_factor, spine_density, axon_target, v_bound, dHdv_bound, I_spike, spike_potential, resting_potential, threshold, process_node_count, axon_branch_count, dendrite_branch_count, branch_independence, branch_spread, apical_target_layer);
     return R_NilValue;
 END_RCPP
 }
 // modify_cell_type
-void modify_cell_type(const std::string& type_name, const int& valence, const double& temporal_modulation_bias, const double& temporal_modulation_timeconstant, const double& temporal_modulation_amplitude, const double& transmission_velocity, const double& v_bound, const double& dHdv_bound, const double& I_spike, const double& coupling_scaling_factor, const double& spike_potential, const double& resting_potential, const double& threshold, const int& process_node_count, const int& axon_branch_count, const int& dendrite_branch_count);
-RcppExport SEXP _DACx_modify_cell_type(SEXP type_nameSEXP, SEXP valenceSEXP, SEXP temporal_modulation_biasSEXP, SEXP temporal_modulation_timeconstantSEXP, SEXP temporal_modulation_amplitudeSEXP, SEXP transmission_velocitySEXP, SEXP v_boundSEXP, SEXP dHdv_boundSEXP, SEXP I_spikeSEXP, SEXP coupling_scaling_factorSEXP, SEXP spike_potentialSEXP, SEXP resting_potentialSEXP, SEXP thresholdSEXP, SEXP process_node_countSEXP, SEXP axon_branch_countSEXP, SEXP dendrite_branch_countSEXP) {
+void modify_cell_type(const std::string& type_name, const int& valence, const double& temporal_modulation_bias, const double& temporal_modulation_timeconstant, const double& temporal_modulation_amplitude, const double& transmission_velocity, const double& coupling_scaling_factor, const double& spine_density, const std::string& axon_target, const double& v_bound, const double& dHdv_bound, const double& I_spike, const double& spike_potential, const double& resting_potential, const double& threshold, const int& process_node_count, const int& axon_branch_count, const int& dendrite_branch_count, const double& branch_independence, const double& branch_spread, const std::string& apical_target_layer);
+RcppExport SEXP _DACx_modify_cell_type(SEXP type_nameSEXP, SEXP valenceSEXP, SEXP temporal_modulation_biasSEXP, SEXP temporal_modulation_timeconstantSEXP, SEXP temporal_modulation_amplitudeSEXP, SEXP transmission_velocitySEXP, SEXP coupling_scaling_factorSEXP, SEXP spine_densitySEXP, SEXP axon_targetSEXP, SEXP v_boundSEXP, SEXP dHdv_boundSEXP, SEXP I_spikeSEXP, SEXP spike_potentialSEXP, SEXP resting_potentialSEXP, SEXP thresholdSEXP, SEXP process_node_countSEXP, SEXP axon_branch_countSEXP, SEXP dendrite_branch_countSEXP, SEXP branch_independenceSEXP, SEXP branch_spreadSEXP, SEXP apical_target_layerSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string& >::type type_name(type_nameSEXP);
@@ -76,17 +81,22 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const double& >::type temporal_modulation_timeconstant(temporal_modulation_timeconstantSEXP);
     Rcpp::traits::input_parameter< const double& >::type temporal_modulation_amplitude(temporal_modulation_amplitudeSEXP);
     Rcpp::traits::input_parameter< const double& >::type transmission_velocity(transmission_velocitySEXP);
+    Rcpp::traits::input_parameter< const double& >::type coupling_scaling_factor(coupling_scaling_factorSEXP);
+    Rcpp::traits::input_parameter< const double& >::type spine_density(spine_densitySEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type axon_target(axon_targetSEXP);
     Rcpp::traits::input_parameter< const double& >::type v_bound(v_boundSEXP);
     Rcpp::traits::input_parameter< const double& >::type dHdv_bound(dHdv_boundSEXP);
     Rcpp::traits::input_parameter< const double& >::type I_spike(I_spikeSEXP);
-    Rcpp::traits::input_parameter< const double& >::type coupling_scaling_factor(coupling_scaling_factorSEXP);
     Rcpp::traits::input_parameter< const double& >::type spike_potential(spike_potentialSEXP);
     Rcpp::traits::input_parameter< const double& >::type resting_potential(resting_potentialSEXP);
     Rcpp::traits::input_parameter< const double& >::type threshold(thresholdSEXP);
     Rcpp::traits::input_parameter< const int& >::type process_node_count(process_node_countSEXP);
     Rcpp::traits::input_parameter< const int& >::type axon_branch_count(axon_branch_countSEXP);
     Rcpp::traits::input_parameter< const int& >::type dendrite_branch_count(dendrite_branch_countSEXP);
-    modify_cell_type(type_name, valence, temporal_modulation_bias, temporal_modulation_timeconstant, temporal_modulation_amplitude, transmission_velocity, v_bound, dHdv_bound, I_spike, coupling_scaling_factor, spike_potential, resting_potential, threshold, process_node_count, axon_branch_count, dendrite_branch_count);
+    Rcpp::traits::input_parameter< const double& >::type branch_independence(branch_independenceSEXP);
+    Rcpp::traits::input_parameter< const double& >::type branch_spread(branch_spreadSEXP);
+    Rcpp::traits::input_parameter< const std::string& >::type apical_target_layer(apical_target_layerSEXP);
+    modify_cell_type(type_name, valence, temporal_modulation_bias, temporal_modulation_timeconstant, temporal_modulation_amplitude, transmission_velocity, coupling_scaling_factor, spine_density, axon_target, v_bound, dHdv_bound, I_spike, spike_potential, resting_potential, threshold, process_node_count, axon_branch_count, dendrite_branch_count, branch_independence, branch_spread, apical_target_layer);
     return R_NilValue;
 END_RCPP
 }
@@ -99,8 +109,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_DACx_init_known_celltypes", (DL_FUNC) &_DACx_init_known_celltypes, 0},
     {"_DACx_print_known_celltypes", (DL_FUNC) &_DACx_print_known_celltypes, 0},
     {"_DACx_fetch_cell_type_params", (DL_FUNC) &_DACx_fetch_cell_type_params, 1},
-    {"_DACx_add_cell_type", (DL_FUNC) &_DACx_add_cell_type, 16},
-    {"_DACx_modify_cell_type", (DL_FUNC) &_DACx_modify_cell_type, 16},
+    {"_DACx_add_cell_type", (DL_FUNC) &_DACx_add_cell_type, 21},
+    {"_DACx_modify_cell_type", (DL_FUNC) &_DACx_modify_cell_type, 21},
     {"_rcpp_module_boot_motif", (DL_FUNC) &_rcpp_module_boot_motif, 0},
     {"_rcpp_module_boot_network", (DL_FUNC) &_rcpp_module_boot_network, 0},
     {"_rcpp_module_boot_Projection", (DL_FUNC) &_rcpp_module_boot_Projection, 0},

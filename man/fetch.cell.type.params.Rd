@@ -6,6 +6,9 @@
 \usage{
 fetch.cell.type.params(type_name)
 }
+\arguments{
+\item{type_name}{Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.}
+}
 \value{
 List of parameters for the named cell type.
 }

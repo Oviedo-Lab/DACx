@@ -21,6 +21,8 @@ using namespace Eigen;
 
 // Return logical vector giving elements of left which match right
 LogicalVector eq_left_broadcast(const CharacterVector& left, const String& right);
+// ... overload 
+LogicalVector eq_left_broadcast(const CharacterVector& left, const std::string& right);
 // ... overload
 LogicalVector eq_left_broadcast(const std::vector<int>& left, const int& right);
 // ... overload 
@@ -28,6 +30,8 @@ LogicalVector eq_left_broadcast(const VectorXi& left, const int& right);
 
 // Convert boolean masks to integer indexes
 IntegerVector Rwhich(const LogicalVector& x);
+// ... overload 
+IntegerVector Rwhich(const std::vector<bool>& x);
 
 // Boolean quantifiers
 bool any_true(const LogicalVector& x);
@@ -103,7 +107,8 @@ NumericMatrix makePositiveDefinite(
 std::vector<int> find_first_neighbor(
     const std::vector<Vector3d>& b_active,     // Branch searching for neighbor
     const std::vector<Vector3d>& b_all,        // Branch being searched
-    const double& neighborhood_radius
+    const double& neighborhood_radius,
+    const bool& skip_origin = true
   );
 
 // Find pairwise Euclidean distances for a set of points
@@ -120,46 +125,123 @@ MatrixXi pairwise_lags_by_edges(
 
 /*
  * ***********************************************************************************
- * Network and related classes
+ * Cell types and related functions
  */
 
 // Cell types used in the network
 struct cell_type {
+    // ID information
     std::string type_name;
+    // Excitatory or inhibitory?
     int valence;                         // valence of each neuron type, +1 for excitatory, -1 for inhibitory
+    // Membrane kinetics (burst control)
     double temporal_modulation_bias;     // temporal modulation time (in unit_time) bias for each neuron type
     double temporal_modulation_timeconstant;     // temporal modulation time (in unit_time) step for each neuron type
     double temporal_modulation_amplitude;        // temporal modulation time (in unit_time) cutoff for each neuron type
+    // Axon transmission speed
     double transmission_velocity;        // transmission velocity (in unit_distance/unit_time) for each neuron type
+    // Synaptic transmission 
+    double coupling_scaling_factor;      // Controls how energy used in synaptic transmission compares to that used in spiking
+    double spine_density;                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
+    std::string axon_target;             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
+    // Membrane characteristics
     double v_bound;                      // potential bound, in unit_potential
     double dHdv_bound;                   // bound the derivative of metabolic energy wrt potential, in unit_current
     double I_spike;                      // spike current, in unit_current
-    double coupling_scaling_factor;      // Controls how energy used in synaptic transmission compares to that used in spiking
     double spike_potential;              // Magnitude of each spike, in unit_potential
     double resting_potential;            // resting potential, in unit_potential
     double threshold;                    // spike threshold, in unit_potential
+    // Process size and structure parameters
     int process_node_count;              // Sets n_segments in make_arbor, in terms of expected number of process nodes per process length
     int axon_branch_count;               // Sets n_branches in make_arbor, in terms of expected number of branches per process length
     int dendrite_branch_count;           // Sets n_branches in make_arbor, in terms of expected number of branches per process length
+    double branch_independence;          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
+    double branch_spread;                // Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma
+    // Apical dendrite parameters 
+    std::string apical_target_layer;     // Layer to which apical dendrite is expected to grow, if any; if none, "none"
   };
+
+// Known cell types
+void init_known_celltypes(); 
+
+// Print known cell types 
+void print_known_celltypes();
+
+// Fetch cell type parameters 
+List fetch_cell_type_params(const std::string& type_name);
+
+// Make new cell type
+void add_cell_type(
+    const std::string& type_name,
+    const int& valence,
+    const double& temporal_modulation_bias,
+    const double& temporal_modulation_timeconstant,
+    const double& temporal_modulation_amplitude,
+    const double& transmission_velocity,
+    const double& coupling_scaling_factor,      // Controls how energy used in synaptic transmission compares to that used in spiking
+    const double& spine_density,                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
+    const std::string& axon_target,             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
+    const double& v_bound,                      // potential bound, in unit_potential
+    const double& dHdv_bound,                   // bound on dHdv, in unit_current
+    const double& I_spike,                      // spike current, in unit_current
+    const double& spike_potential,              // Magnitude of each spike, in unit_potential
+    const double& resting_potential,            // resting potential, in unit_potential
+    const double& threshold,                    // spike threshold, in unit_potential
+    const int& process_node_count,              // Expected number of process nodes over the length of one process branch
+    const int& axon_branch_count,               // Expected number of axon branches 
+    const int& dendrite_branch_count,           // Expected number of dendrite branches 
+    const double& branch_independence,          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
+    const double& branch_spread,                // Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma
+    const std::string& apical_target_layer      // For pyramidal cells, which layer their apical dendrites target
+  );
+
+// Modify cell type parameters 
+void modify_cell_type(
+    const std::string& type_name,
+    const int& valence,
+    const double& temporal_modulation_bias,
+    const double& temporal_modulation_timeconstant,
+    const double& temporal_modulation_amplitude,
+    const double& transmission_velocity,
+    const double& coupling_scaling_factor,      // Controls how energy used in synaptic transmission compares to that used in spiking
+    const double& spine_density,                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
+    const std::string& axon_target,             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
+    const double& v_bound,                      // potential bound, in unit_potential
+    const double& dHdv_bound,                   // bound on dHdv, in unit_current
+    const double& I_spike,                      // spike current, in unit_current
+    const double& spike_potential,              // Magnitude of each spike, in unit_potential
+    const double& resting_potential,            // resting potential, in unit_potential
+    const double& threshold,                    // spike threshold, in unit_potential
+    const int& process_node_count,              // Expected number of process nodes over the length of one process branch
+    const int& axon_branch_count,               // Expected number of axon branches 
+    const int& dendrite_branch_count,           // Expected number of dendrite branches 
+    const double& branch_independence,          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
+    const double& branch_spread,                // Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma
+    const std::string& apical_target_layer      // For pyramidal cells, which layer their apical dendrites target
+  );
+
+/*
+ * ***********************************************************************************
+ * Network and related classes
+ */
 
 // Meso-scale axonal and dendritic projections
 struct Projection {
     std::string pre_type;
     std::string pre_layer;
-    double pre_density;
     std::string post_type;
     std::string post_layer;
-    double post_density;
   };
 
+// Node-tree description of process arbors, one structure instance per cell
 struct cell_arbors {
     std::vector<int> arbor_id;                         // arbor_id[i] = unique id for arbor i
     std::vector<bool> axon;                            // axon[i] = whether arbor i is axon (true) or dendrite (false)
-    std::vector<std::vector<Vector3d>> coordinates;    // Rows as process nodes (including soma coordinates); Columns z, y, x
-    std::vector<std::vector<int>> parents;             // parents[i] = the idx in coordinates of the parent of node i in coordinates, with -1 for the soma
-    std::vector<std::vector<int>> leafs;               // leafs[i] = 1 if node i in coordinates is a leaf, 0 otherwise
-    std::vector<std::vector<int>> synapses;            // synapses[i] = 1 if node i in coordinates is a synapse, 0 otherwise
+    std::vector<std::vector<Vector3d>> coordinates;    // coordinates[i][j] j = coordinates z, y, x of process node j on arbor i (including soma coordinates for j = 0)
+    std::vector<std::vector<std::string>> node_type;   // node_type[i][j] = "soma", "dendrite_shaft", "axon_shaft", or "spine" for node j in arbor i
+    std::vector<std::vector<int>> parents;             // parents[i][j] = the node number (idx in coordinates) of the parent of node j in arbor i, with -1 for the soma
+    std::vector<std::vector<int>> leafs;               // leafs[i][j] = 1 if node j in arbor i is a leaf, 0 otherwise
+    std::vector<std::vector<int>> synapses;            // synapses[i][j] = number of synapses on node j in arbor i, with 0 for non-synaptic nodes
   };
 
 class motif {
@@ -178,7 +260,7 @@ class motif {
     // Variables *********************************
     
     std::string motif_name = "not_provided";      // Name of motif
-    std::vector<Projection> projections;
+    std::vector<Projection> projections;          // List of projection descriptions
     std::vector<int> max_col_shift_up;            // Maximum number of columns to shift up when applying motif
     std::vector<int> max_col_shift_down;          // Maximum number of columns to shift down when applying motif
     std::vector<double> connection_strength;      // Strength of connection for each projection
@@ -260,7 +342,7 @@ class network {
     double sample_rate = 1e4;                     // Sample rate (in above units), e.g., 10000 Hz
     
     // Network structure
-    std::vector<cell_type> neuron_types;          // Types of neurons in network, e.g., "principal", "PV", "SST", "VIP"
+    std::vector<cell_type> neuron_types;          // Types of neurons in network, e.g., "pyramidal", "PV", "SST", "VIP"
     CharacterVector layer_names;                  // Names of layers in the network
     int n_layers = 1;                             // number of layers in the network
     int n_columns = 1;                            // number of columns in the network
@@ -352,7 +434,7 @@ class network {
       const bool& is_axon,                    // Whether to make axon (true) or dendrite (false)
       double segment_divisor = 0.0,           // Specifies expected length of segments in terms of column diameter and layer height, or distance to attractor point
       int parent_branch_idx = -1,             // Index of parent branch, if this is a branch off of a main process; otherwise, -1 for new process arbor
-      const Eigen::Matrix<double, 3, 1> attractor_point = {0.0, 0.0, 0.0}
+      const Vector3d& attractor_point = {0.0, 0.0, 0.0}
     );
     void make_arbor(
       const int& cell_idx,                    // Number of neuron for which to make processes
@@ -361,10 +443,16 @@ class network {
       const bool& is_axon,                    // Whether to make axon (true) or dendrite (false)
       double segment_divisor = 0.0,           // Specifies expected length of segments in terms of column diameter and layer height, or distance to attractor point
       int parent_branch_idx = -1,             // Index of parent branch, if this is a branch off of a main process; otherwise, -1 for new process arbor
-      const Eigen::Matrix<double, 3, 1> attractor_point = {0.0, 0.0, 0.0}
+      const Vector3d& attractor_point = {0.0, 0.0, 0.0}
+    );
+    double find_synapse(                      // ... and return its transduction while setting a number of other important synaptic properties
+        const int& idx_pre,
+        const int& idx_post,
+        const double& val_pre,
+        const double& transductance_bias
     );
     void make_local_nodes(); 
-    void apply_circuit_motif(const motif& cmot);
+    void apply_circuit_motif(const motif& cmot, const bool& verbose = true);
     
     // Member functions for fetching data 
     List fetch_network_components(const bool& include_arbors = false) const;
@@ -373,7 +461,7 @@ class network {
     
     // Member functions for analysis and simulation 
     MatrixXi find_pairwise_lags_by_axon(
-      const double& dt                      // time step length, in unit_time
+      const double& dt                        // time step length, in unit_time
     );
     void SGT(
       const NumericMatrix& stimulus_current,  // matrix of stimulus currents, in unit_current, n_neurons x n_steps

@@ -127,6 +127,7 @@ print.known.celltypes <- function() print_known_celltypes()
 #' 
 #' This function returns the parameters for a named cell type in a list. It's just a wrapper for the Rcpp-exported \code{fetch_cell_type_params} function.
 #' 
+#' @param type_name Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.
 #' @return List of parameters for the named cell type. 
 #' @export
 fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
@@ -135,22 +136,27 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 #' 
 #' This function adds a user-defined cell type to the current session. It's just a wrapper for the Rcpp-exported \code{add_cell_type} function. Technically, \code{cell_type} is a \code{struc} defined in the Rcpp backend of the neurons package. They are essentially labeled lists with the following entries: \code{type_name}, \code{valence}, \code{temporal_modulation_bias}, \code{temporal_modulation_timeconstant}, \code{temporal_modulation_amplitude}, \code{transmission_velocity}, \code{v_bound}, \code{dHdv_bound}, \code{I_spike}, \code{coupling_scaling_factor}, \code{spike_potential}, \code{resting_potential}, and \code{threshold}. Each session stores cell types in the Rcpp backend in an \code{unordered_map} with \code{string} labels. All parameters come with biologically realistic (and mathematically workable) default values, except for \code{type_name} and \code{valence}. 
 #' 
-#' @param type_name Character string giving name of the cell type, e.g. "excitatory", "inhibitory", "PV", "SST", etc.
+#' @param type_name Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.
 #' @param valence Valence of each neuron type, +1 for excitatory, -1 for inhibitory
 #' @param temporal_modulation_bias Temporal modulation time (in ms) bias for each neuron type. Default value is 1e-3.
 #' @param temporal_modulation_timeconstant Temporal modulation time (in ms) step for each neuron type. Default value is 1e0.
 #' @param temporal_modulation_amplitude Temporal modulation time (in ms) cutoff for each neuron type. Default value is 5e-3.
 #' @param transmission_velocity Transmission velocity (in microns/ms) for each neuron type. Default value is 30e3.
+#' @param coupling_scaling_factor Controls how energy used in synaptic transmission compares to that used in spiking. Default value is 1e-7, meaning that synaptic transmission uses 0.00001 percent of the energy used in spiking.
+#' @param spine_density Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0. 
+#' @param axon_target Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".
 #' @param v_bound Potential bound, such that -v_bound <= v_traces <= v_bound, in unit_potential (mV), for each neuron in the network, based on its type. Default value is 85.0.
 #' @param dHdv_bound Bound on derivative of metabolic energy wrt potential, such that dHdv_bound > abs(dHdv), in mA, for each neuron in the network, based on its type. Default value is 1.05e-6.
 #' @param I_spike Spike current, in mA. Default value is 1e-6 (i.e., 1 nA).
-#' @param coupling_scaling_factor Controls how energy used in synaptic transmission compares to that used in spiking. Default value is 1e-7, meaning that synaptic transmission uses 0.00001 percent of the energy used in spiking.
 #' @param spike_potential Magnitude of each spike, in mV. Default value is 35.0.
 #' @param resting_potential Resting potential, in mV. Default value is -70.0.
 #' @param threshold Spike threshold, in mV. Default value is -55.0.
 #' @param process_node_count Expected number of process nodes over the length of one process branch. Default is 10.
 #' @param axon_branch_count Expected number of axon branches. Default is 10. 
 #' @param dendrite_branch_count Expected number of dendrite branches. Default is 10. 
+#' @param branch_independence Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma. Default is 0.5.
+#' @param branch_spread Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma. Default is 0.5.
+#' @param apical_target_layer Character string giving target layer for apical dendrites. Default: "none".
 #' @return Nothing.
 #' @export
 add.cell.type <- function(
@@ -160,16 +166,21 @@ add.cell.type <- function(
     temporal_modulation_timeconstant = 1e0,
     temporal_modulation_amplitude = 5e-3,
     transmission_velocity = 30e3,
+    coupling_scaling_factor = 1e-7,
+    spine_density = 0.0,
+    axon_target = "dendrite_shaft",
     v_bound = 85.0,
     dHdv_bound = 1.05e-6,
     I_spike = 1e-6,
-    coupling_scaling_factor = 1e-7,
     spike_potential = 35.0,
     resting_potential = -70.0,
     threshold = -55.0,
     process_node_count = 10,
     axon_branch_count = 10,
-    dendrite_branch_count = 10
+    dendrite_branch_count = 10,
+    branch_independence = 0.5,
+    branch_spread = 0.5,
+    apical_target_layer = "none"
   ) {
     add_cell_type(
       type_name, 
@@ -178,16 +189,21 @@ add.cell.type <- function(
       temporal_modulation_timeconstant, 
       temporal_modulation_amplitude, 
       transmission_velocity, 
+      coupling_scaling_factor, 
+      spine_density,
+      axon_target,
       v_bound, 
       dHdv_bound, 
       I_spike, 
-      coupling_scaling_factor, 
       spike_potential, 
       resting_potential, 
       threshold,
       process_node_count,
       axon_branch_count,
-      dendrite_branch_count
+      dendrite_branch_count,
+      branch_independence,
+      branch_spread,
+      apical_target_layer
     )
   }
 
@@ -201,6 +217,9 @@ add.cell.type <- function(
 #' @param temporal_modulation_timeconstant Temporal modulation time (in ms) step for each neuron type
 #' @param temporal_modulation_amplitude Temporal modulation time (in ms) cutoff for each neuron type
 #' @param transmission_velocity Transmission velocity (in microns/ms) for each neuron type
+#' @param coupling_scaling_factor Controls how energy used in synaptic transmission compares to that used in spiking. Default value is 1e-7, meaning that synaptic transmission uses 0.00001 percent of the energy used in spiking.
+#' @param axon_target Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".
+#' @param spine_density Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0. 
 #' @param v_bound Potential bound, such that -v_bound <= v_traces <= v_bound, in mV, for each neuron in the network, based on its type
 #' @param dHdv_bound Bound on derivative of metabolic energy wrt potential, such that dHdv_bound > abs(dHdv), in mA, for each neuron in the network, based on its type
 #' @param I_spike Spike current, in mA
@@ -211,6 +230,9 @@ add.cell.type <- function(
 #' @param process_node_count Expected number of process nodes over the length of one process branch
 #' @param axon_branch_count Expected number of axon branches
 #' @param dendrite_branch_count Expected number of dendrite branches
+#' @param branch_independence Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma. Default is 0.5.
+#' @param branch_spread Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma. Default is 0.5.
+#' @param apical_target_layer Character string giving target layer for apical dendrites. Default: "none".
 #' @return Nothing.
 #' @export
 modify.cell.type <- function(
@@ -220,16 +242,21 @@ modify.cell.type <- function(
     temporal_modulation_timeconstant = NULL,
     temporal_modulation_amplitude = NULL,
     transmission_velocity = NULL,
+    coupling_scaling_factor = NULL,
+    spine_density = NULL,
+    axon_target = NULL, 
     v_bound = NULL,
     dHdv_bound = NULL,
     I_spike = NULL,
-    coupling_scaling_factor = NULL,
     spike_potential = NULL,
     resting_potential = NULL,
     threshold = NULL,
     process_node_count = NULL,
     axon_branch_count = NULL,
-    dendrite_branch_count = NULL
+    dendrite_branch_count = NULL, 
+    branch_independence = NULL, 
+    branch_spread = NULL,
+    apical_target_layer = NULL
   ) {
     existing_params <- fetch.cell.type.params(type_name)
     if (is.null(valence)) valence <- existing_params$valence
@@ -237,16 +264,21 @@ modify.cell.type <- function(
     if (is.null(temporal_modulation_timeconstant)) temporal_modulation_timeconstant <- existing_params$temporal_modulation_timeconstant
     if (is.null(temporal_modulation_amplitude)) temporal_modulation_amplitude <- existing_params$temporal_modulation_amplitude
     if (is.null(transmission_velocity)) transmission_velocity <- existing_params$transmission_velocity
+    if (is.null(coupling_scaling_factor)) coupling_scaling_factor <- existing_params$coupling_scaling_factor
+    if (is.null(spine_density)) spine_density <- existing_params$spine_density
+    if (is.null(axon_target)) axon_target <- existing_params$axon_target
     if (is.null(v_bound)) v_bound <- existing_params$v_bound
     if (is.null(dHdv_bound)) dHdv_bound <- existing_params$dHdv_bound
     if (is.null(I_spike)) I_spike <- existing_params$I_spike
-    if (is.null(coupling_scaling_factor)) coupling_scaling_factor <- existing_params$coupling_scaling_factor
     if (is.null(spike_potential)) spike_potential <- existing_params$spike_potential
     if (is.null(resting_potential)) resting_potential <- existing_params$resting_potential
     if (is.null(threshold)) threshold <- existing_params$threshold
     if (is.null(process_node_count)) process_node_count <- existing_params$process_node_count
     if (is.null(axon_branch_count)) axon_branch_count <- existing_params$axon_branch_count
     if (is.null(dendrite_branch_count)) dendrite_branch_count <- existing_params$dendrite_branch_count
+    if (is.null(branch_independence)) branch_independence <- existing_params$branch_independence
+    if (is.null(branch_spread)) branch_spread <- existing_params$branch_spread
+    if (is.null(apical_target_layer)) apical_target_layer <- existing_params$apical_target_layer
     modify_cell_type(
       type_name, 
       valence, 
@@ -254,70 +286,89 @@ modify.cell.type <- function(
       temporal_modulation_timeconstant, 
       temporal_modulation_amplitude, 
       transmission_velocity, 
+      coupling_scaling_factor, 
+      spine_density,
+      axon_target,
       v_bound, 
       dHdv_bound, 
       I_spike, 
-      coupling_scaling_factor, 
       spike_potential, 
       resting_potential, 
       threshold,
       process_node_count,
       axon_branch_count,
-      dendrite_branch_count
+      dendrite_branch_count,
+      branch_independence,
+      branch_spread,
+      apical_target_layer
     )
   }
 
 # Functions for network ################################################################################################
+
+#' Return principal neurons by standard layers 
+#' 
+#' This function returns the "principal" (i.e., most common) types of neuron, from among the default known list, for each of the default known layers. 
+#' 
+#' @return A list of principal neuron types by layer, with layer names as keys and neuron type names as values.
+#' @export
+principal.neurons <- function() {
+    return(
+      list(
+        layer = "pyramidal",
+        L1 = "Neurogliaform_cell",
+        L2 = "pyramidal",
+        L3 = "pyramidal",
+        L4 = "spiny_stellate",
+        L5 = "pyramidal",
+        L6 = "pyramidal_L6"
+      )
+    )
+  }
 
 #' Load projection into motif
 #' 
 #' This function loads a projection schema into a motif object. Projections define internode connectivity within a network built using the motif.
 #' 
 #' @param motif Motif object into which to load the projection.
-#' @param presynaptic_layer Character string giving layer of presynaptic neuron, e.g. "L2/3", "L4", "L5", "L6", etc.
-#' @param postsynaptic_layer Character string, or vector of character strings, giving layer of postsynaptic neuron, e.g. "L2/3", "L4", "L5", "L6", etc.
-#' @param density Numeric giving density of the projection; if left NULL, will use presynaptic_density and postsynaptic_density; if set, will use this value for both presynaptic_density and postsynaptic_density.
-#' @param presynaptic_density Numeric giving density of presynaptic neuron type in presynaptic layer (e.g., ratio of neurons per node, default: 0.5).
-#' @param postsynaptic_density Numeric giving density of postsynaptic neuron type in postsynaptic layer (e.g., ratio of neurons per node, default: 0.5).
+#' @param presynaptic_layer Character string giving layer of presynaptic neuron, e.g. "L3", "L4", "L5", "L6", etc.
+#' @param postsynaptic_layer Character string, or vector of character strings, giving layer of postsynaptic neuron, e.g. "L3", "L4", "L5", "L6", etc.
+#' @param connection_strength Numeric giving overall strength of the projection (default: 0.5).
 #' @param presynaptic_type Character string giving type of presynaptic neuron, e.g. "excitatory", "inhibitory", etc. (default: "principal").
 #' @param postsynaptic_type Character string giving type of postsynaptic neuron, e.g. "excitatory", "inhibitory", etc. (default: "principal").
 #' @param max_col_shift_up Maximum number of columns upwards (increasing columnar indexes) that the projection can reach (default: 0, should be positive integer).
 #' @param max_col_shift_down Maximum number of columns downwards (decreasing columnar indexes) that the projection can reach (default: 0, should be positive integer).
-#' @param connection_strength Numeric giving overall strength of the projection (default: 1.0).
 #' @return The updated motif object with the new projection loaded.
 #' @export
 load.projection.into.motif <- function(
     motif,
     presynaptic_layer,
     postsynaptic_layer,
-    density = NULL,
-    presynaptic_density = 0.5,
-    postsynaptic_density = 0.5,
+    connection_strength = 0.5,
     presynaptic_type = "principal",
     postsynaptic_type = "principal",
     max_col_shift_up = 0,
-    max_col_shift_down = 0,
-    connection_strength = 1.0
+    max_col_shift_down = 0
   ) {
     if (length(presynaptic_layer) != 1) {
       stop("presynaptic_layer must be a single layer name.")
+    }
+    # Set principal type by layer 
+    if (presynaptic_type == "principal") {
+      presynaptic_type <- principal.neurons()[[presynaptic_layer]] 
+    } 
+    if (postsynaptic_type == "principal") {
+      postsynaptic_type <- principal.neurons()[[postsynaptic_layer]]
     }
     # ... for each target layer
     for (psl in postsynaptic_layer) {
       # Initialize new projection object
       proj <- new(Projection)
-      # Check density 
-      if (!is.null(density)) {
-        presynaptic_density <- density
-        postsynaptic_density <- density
-      }
       # Load projection parameters 
       proj$pre_type <- presynaptic_type
       proj$pre_layer <- presynaptic_layer
-      proj$pre_density <- max(min(presynaptic_density, 1), 0)
       proj$post_type <- postsynaptic_type
       proj$post_layer <- psl
-      proj$post_density <- max(min(postsynaptic_density, 1), 0)
       # Add projection to motif
       motif$load_projection(
         proj,
@@ -334,10 +385,10 @@ load.projection.into.motif <- function(
 #' This function sets the structure of a network object, defining its layers, columns, neuron types, and local connectivity parameters. It also generates local nodes based on the specified structure.
 #' 
 #' @param network Network object to configure.
-#' @param neuron_types Character vector giving types of neurons in the network, e.g. c("principal", "interneuron").
+#' @param neuron_types Character vector giving types of neurons in the network. Known types can be accessed using \code{print.known.celltypes()}. Default is "principal", which will assign the most common neuron type for each layer, as defined in \code{principal.neurons()}.
 #' @param neuron_type_valences Numeric vector giving valences of each neuron type, e.g. c(1, -1) for excitatory and inhibitory neurons.
 #' @param neuron_type_temporal_modulation Numeric matrix giving temporal modulation time components (for modulation time in the unit_time of the network) for each neuron type: bias, step size, and count cutoff (rows as neuron types, columns as components). Will example a single value or a vector of length three. 
-#' @param layer_names Character vector giving names of layers in the network, e.g. c("L2/3", "L4", "L5", "L6").
+#' @param layer_names Character vector giving names of layers in the network, ordered deepest to most superficial, e.g. c("L6", "L5", "L4", "L3", "L2", "L1").
 #' @param n_layers Integer giving number of layers in the network.
 #' @param n_columns Integer giving number of columns in the network.
 #' @param patch_depth Integer giving the number of "patches" (n_layers x n_columns sheets) in the network.
@@ -367,8 +418,9 @@ set.network.structure <- function(
     recurrence_factors = 0.5,
     synaptic_neighborhood = 10.0
   ) {
-    # Run checks 
-    n_neuron_types <- length(neuron_types)
+   
+    
+    # Check layer names
     if (length(layer_names) != n_layers) {
       if (n_layers > length(layer_names) && length(layer_names) == 1) {
         layer_names <- paste0(layer_names, "_", seq_len(n_layers))
@@ -378,6 +430,117 @@ set.network.structure <- function(
         stop("Length of layer_names does not match n_layers, and neither is inferable from the other.")
       }
     }
+   
+    # Unpack "principal" neuron types 
+    if ("principal" %in% neuron_types) {
+      
+      # ... remake neuron_types
+      principals_by_layer <- sapply(layer_names, function(ln) principal.neurons()[[ln]])
+      principals <- unique(principals_by_layer)
+      principal_idx <- which(neuron_types == "principal")
+      neuron_types <- c(principals, neuron_types[-principal_idx])
+      n_p <- length(principals)
+      n_t <- length(neuron_types)
+      n_types_old <- n_t - n_p + 1
+      
+      # ... remake neurons_per_node
+      neurons_per_node_new <- matrix(NA, nrow = n_layers, ncol = n_t)
+      if (length(neurons_per_node) >= n_types_old) {
+        if (!is.null(dim(neurons_per_node))) { # counts per layer and per type specified
+          for (i in c(1:nrow(neurons_per_node))) {
+            principal_counts <- c()
+            for (t in seq_along(principals)) {
+              if (principals[t] == principal.neurons()[[layer_names[i]]]) {
+                principal_counts <- c(principal_counts, neurons_per_node[i, principal_idx])
+              } else {
+                principal_counts <- c(principal_counts, 0)
+              }
+            }
+            neurons_per_node_new[i, ] <- c(principal_counts, neurons_per_node[i, -principal_idx])
+          }
+          neurons_per_node <- neurons_per_node_new
+        } else { # only counts per type specified
+          neurons_per_node <- c(rep(neurons_per_node[principal_idx], n_p), neurons_per_node[-principal_idx])
+        }
+      }
+      
+      # ... remake recurrence_factors
+      if (!("list" %in% class(recurrence_factors))) {
+        
+        # Given a single matrix or numeric value
+        if ("matrix" %in% class(recurrence_factors) || "numeric" %in% class(recurrence_factors)) {
+          rm <- as.matrix(recurrence_factors)
+          rm_new <- matrix(0, nrow = n_t, ncol = n_t)
+          recurrence_factors <- list()
+          for (l in seq_len(n_layers)) {
+            if (length(rm) != n_types_old^2) {
+              if (length(rm) == 1) {
+                # Remake the matrix
+                rm_new[c((n_p + 1):n_t, c((n_p + 1):n_t))] <- rm
+                for (t in seq_along(principals)) {
+                  if (principals[t] == principal.neurons()[[layer_names[l]]]) {
+                    rm_new[t, t] <- rm
+                    rm_new[t, c((n_p + 1):n_t)] <- rm
+                    rm_new[c((n_p + 1):n_t), t] <- rm
+                  }
+                }
+              } else {
+                stop("Dimensions of recurrence_factors matrix must match length of neuron_types, or be a single numeric scalar.")
+              }
+            } else {
+              # Remake the matrix
+              rm_new[c((n_p + 1):n_t, c((n_p + 1):n_t))] <- rm[-principal_idx, -principal_idx]
+              for (t in seq_along(principals)) {
+                if (principals[t] == principal.neurons()[[layer_names[l]]]) {
+                  rm_new[t, t] <- rm[principal_idx, principal_idx]
+                  rm_new[t, c((n_p + 1):n_t)] <- rm[principal_idx, -principal_idx]
+                  rm_new[c((n_p + 1):n_t), t] <- rm[-principal_idx, principal_idx]
+                }
+              }
+            }
+            recurrence_factors[[l]] <- rm_new
+          }
+          
+        } else {
+          stop("recurrence_factors must be a list of matrices, a single matrix, or a single numeric scalar.")
+        }
+        
+      } else { 
+        
+        # Given a list (... hopefully of matrices)
+        for (l in seq_along(recurrence_factors)) {
+          rm <- recurrence_factors[[l]]
+          rm_new <- matrix(0, nrow = n_t, ncol = n_t)
+          # Check if we have a matrix
+          if (length(dim(rm)) != 2) {
+            stop(paste0("recurrence_factors[[", l, "]] must be a matrix."))
+          }
+          # Check dimensions 
+          if (ncol(rm) != n_types_old) {
+            if (ncol(rm) != nrow(rm)) {
+              stop(paste0("Dimensions of recurrence_factors[[", l, "]] must match length of neuron_types."))
+            }
+          }
+          # Set new recurrence matrix 
+          rm_new[c((n_p + 1):n_t, c((n_p + 1):n_t))] <- rm[-principal_idx, -principal_idx]
+          for (t in seq_along(principals)) {
+            if (principals[t] == principal.neurons()[[layer_names[l]]]) {
+              rm_new[t, t] <- rm[principal_idx, principal_idx]
+              rm_new[t, c((n_p + 1):n_t)] <- rm[principal_idx, -principal_idx]
+              rm_new[c((n_p + 1):n_t), t] <- rm[-principal_idx, principal_idx]
+            }
+          }
+          recurrence_factors[[l]] <- rm_new
+        }
+        
+      }
+      
+    }
+    
+    # Grab number of neuron types
+    n_neuron_types <- length(neuron_types)
+    
+    # Check neuron counts per node
     if (!is.null(dim(neurons_per_node))) {
       npn_dim <- dim(neurons_per_node)
     } else {
@@ -399,24 +562,26 @@ set.network.structure <- function(
     if (any(npn_dim != c(n_layers, n_neuron_types))) {
       stop("Dimensions of neurons_per_node must match n_layers and length of neuron_types.")
     }
+    
+    # Check recurrence factors
     if (!("list" %in% class(recurrence_factors))) {
       if ("matrix" %in% class(recurrence_factors) || "numeric" %in% class(recurrence_factors)) {
-        recurrence_factors_matrix <- as.matrix(recurrence_factors)
-        if (length(recurrence_factors_matrix) != n_neuron_types^2) {
-          if (length(recurrence_factors_matrix) == 1) {
-            recurrence_factors_matrix <- matrix(
-              recurrence_factors_matrix, 
+        rm <- as.matrix(recurrence_factors)
+        if (length(rm) != n_neuron_types^2) {
+          if (length(rm) == 1) {
+            rm <- matrix(
+              rm, 
               nrow = n_neuron_types, 
               ncol = n_neuron_types
             )
           } else {
-            stop("Dimensions of recurrence_factors matrix must match length of neuron_types, or be a single scalar.")
+            stop("Dimensions of recurrence_factors matrix must match length of neuron_types, or be a single numeric scalar.")
           }
         }
         recurrence_factors <- list()
-        for (l in seq_len(n_layers)) recurrence_factors[[l]] <- recurrence_factors_matrix
+        for (l in seq_len(n_layers)) recurrence_factors[[l]] <- rm
       } else {
-        stop("recurrence_factors must be a list of matrices or a single matrix.")
+        stop("recurrence_factors must be a list of matrices, a single matrix, or a single numeric scalar.")
       }
     } else if (length(recurrence_factors) != n_layers) {
       stop("Length of recurrence_factors list must match n_layers.") 
@@ -431,6 +596,7 @@ set.network.structure <- function(
         }
       }
     }
+    
     # Set structure
     network$set_network_structure(
       neuron_types,
@@ -458,13 +624,15 @@ set.network.structure <- function(
 #' 
 #' @param network Network object to which the motif will be applied.
 #' @param motif Motif object defining the circuit motif to apply.
+#' @param verbose Logical indicating whether to print progress messages during motif application (default: TRUE).
 #' @return The updated network object with the motif applied.
 #' @export
 apply.circuit.motif <- function(
     network,
-    motif
+    motif,
+    verbose = FALSE
   ) {
-    network$apply_circuit_motif(motif)
+    network$apply_circuit_motif(motif, verbose)
     return(network)
   }
 
