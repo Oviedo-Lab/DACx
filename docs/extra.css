@@ -36,7 +36,7 @@ img {
   margin-left: auto;
   margin-right: auto;
 }
-.figure .caption {
+.figure, .caption {
   font-style: italic;
   color: #555;
   margin-top: 0.5em;
@@ -50,6 +50,12 @@ math[display="block"] {
   display: block;
 }
 img.r-plt {
+  filter: none !important;
+}
+.plotly {
+  color-scheme: light !important;
+  forced-color-adjust: none !important;
+  background: white !important;
   filter: none !important;
 }
 div.sourceCode pre {

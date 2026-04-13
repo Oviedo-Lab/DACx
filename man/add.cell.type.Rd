@@ -20,7 +20,6 @@ add.cell.type(
   spike_potential = 35,
   resting_potential = -70,
   threshold = -55,
-  process_node_count = 10,
   axon_branch_count = 10,
   dendrite_branch_count = 10,
   branch_independence = 0.5,
@@ -58,8 +57,6 @@ add.cell.type(
 \item{resting_potential}{Resting potential, in mV. Default value is -70.0.}
 
 \item{threshold}{Spike threshold, in mV. Default value is -55.0.}
-
-\item{process_node_count}{Expected number of process nodes over the length of one process branch. Default is 10.}
 
 \item{axon_branch_count}{Expected number of axon branches. Default is 10.}
 

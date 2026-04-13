@@ -18,9 +18,9 @@ load.projection.into.motif(
 \arguments{
 \item{motif}{Motif object into which to load the projection.}
 
-\item{presynaptic_layer}{Character string giving layer of presynaptic neuron, e.g. "L3", "L4", "L5", "L6", etc.}
+\item{presynaptic_layer}{Character string giving layer of presynaptic neuron, e.g. "L1", "L2", "L3", "L4", etc.}
 
-\item{postsynaptic_layer}{Character string, or vector of character strings, giving layer of postsynaptic neuron, e.g. "L3", "L4", "L5", "L6", etc.}
+\item{postsynaptic_layer}{Character string, or vector of character strings, giving layer of postsynaptic neuron.}
 
 \item{connection_strength}{Numeric giving overall strength of the projection (default: 0.5).}
 

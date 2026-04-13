@@ -11,11 +11,12 @@ set.network.structure(
   n_layers = 1,
   n_columns = 1,
   patch_depth = 1,
-  layer_height = 250,
-  column_diameter = 130,
-  layer_separation_factor = 3,
-  column_separation_factor = 3.5,
-  patch_separation_factor = 3.5,
+  layer_height = 180,
+  column_diameter = 120,
+  segment_length = 20,
+  layer_separation_factor = 2.5,
+  column_separation_factor = 2.5,
+  patch_separation_factor = 2.5,
   neurons_per_node = 30,
   recurrence_factors = 0.5,
   synaptic_neighborhood = 10
@@ -34,15 +35,17 @@ set.network.structure(
 
 \item{patch_depth}{Integer giving the number of "patches" (n_layers x n_columns sheets) in the network.}
 
-\item{layer_height}{Numeric giving height of each layer (in units specified at network creation, default unit is microns, default value is 250.0).}
+\item{layer_height}{Numeric giving height of each layer (in units specified at network creation, default unit is microns, default value is 180.0).}
 
-\item{column_diameter}{Numeric giving diameter of each column (in units specified at network creation, default unit is microns, default value is 130.0).}
+\item{column_diameter}{Numeric giving diameter of each column (in units specified at network creation, default unit is microns, default value is 120.0).}
 
-\item{layer_separation_factor}{Numeric giving mean distance between layers as a fraction of layer height (default: 3.0).}
+\item{segment_length}{Numeric giving expected length of each segment in the axonal and dendritic processes of each neuron (in units specified at network creation, default unit is microns, default value is 20.0).}
 
-\item{column_separation_factor}{Numeric giving mean distance between columns as a fraction of column diameter (default: 3.5).}
+\item{layer_separation_factor}{Numeric giving mean distance between layers as a fraction of layer height (default: 2.5).}
 
-\item{patch_separation_factor}{Numeric giving mean distance between network patches as a fraction of column diameter (default: 3.5).}
+\item{column_separation_factor}{Numeric giving mean distance between columns as a fraction of column diameter (default: 2.5).}
+
+\item{patch_separation_factor}{Numeric giving mean distance between network patches as a fraction of column diameter (default: 2.5).}
 
 \item{neurons_per_node}{Matrix giving number of neurons of each type per node in each layer; dimensions must match n_layers (rows) and length of neuron_types (columns).}
 

@@ -1,7 +1,7 @@
 # https://stackoverflow.com/a/38928678
 
-load_libs <- function(bundle = "neurons") {
-  if (length(bundle) == 1L && bundle == "neurons") {
+load_libs <- function(bundle = "DACx") {
+  if (length(bundle) == 1L && bundle == "DACx") {
     packages <- c(
       "Rcpp",
       "RcppEigen",
@@ -10,7 +10,8 @@ load_libs <- function(bundle = "neurons") {
       "ggplot2",
       "roxygen2",
       "shiny",
-      "shinyjs"
+      "shinyjs",
+      "plotly"
     )
   }
 
@@ -34,4 +35,4 @@ load_libs <- function(bundle = "neurons") {
 
 }
 
-load_libs("neurons")
+load_libs("DACx")

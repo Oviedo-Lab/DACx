@@ -6,12 +6,12 @@
 
 ## Citation
 
-Barkasi M (2026). *neurons: A Framework for Neuron Modelling,
-Simulation, and Analysis*. R package version 1.0.
+Barkasi M (2026). *DACx: Digital Auditory Cortex*. R package version
+0.1.1.
 
     @Manual{,
-      title = {neurons: A Framework for Neuron Modelling, Simulation, and Analysis},
+      title = {DACx: Digital Auditory Cortex},
       author = {Michael Barkasi},
       year = {2026},
-      note = {R package version 1.0},
+      note = {R package version 0.1.1},
     }

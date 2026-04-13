@@ -152,7 +152,6 @@ struct cell_type {
     double resting_potential;            // resting potential, in unit_potential
     double threshold;                    // spike threshold, in unit_potential
     // Process size and structure parameters
-    int process_node_count;              // Sets n_segments in make_arbor, in terms of expected number of process nodes per process length
     int axon_branch_count;               // Sets n_branches in make_arbor, in terms of expected number of branches per process length
     int dendrite_branch_count;           // Sets n_branches in make_arbor, in terms of expected number of branches per process length
     double branch_independence;          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
@@ -187,7 +186,6 @@ void add_cell_type(
     const double& spike_potential,              // Magnitude of each spike, in unit_potential
     const double& resting_potential,            // resting potential, in unit_potential
     const double& threshold,                    // spike threshold, in unit_potential
-    const int& process_node_count,              // Expected number of process nodes over the length of one process branch
     const int& axon_branch_count,               // Expected number of axon branches 
     const int& dendrite_branch_count,           // Expected number of dendrite branches 
     const double& branch_independence,          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
@@ -212,7 +210,6 @@ void modify_cell_type(
     const double& spike_potential,              // Magnitude of each spike, in unit_potential
     const double& resting_potential,            // resting potential, in unit_potential
     const double& threshold,                    // spike threshold, in unit_potential
-    const int& process_node_count,              // Expected number of process nodes over the length of one process branch
     const int& axon_branch_count,               // Expected number of axon branches 
     const int& dendrite_branch_count,           // Expected number of dendrite branches 
     const double& branch_independence,          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
@@ -347,14 +344,15 @@ class network {
     int n_layers = 1;                             // number of layers in the network
     int n_columns = 1;                            // number of columns in the network
     int n_patches = 1;                            // number of patches (rows of columns, i.e., n_layers x n_columns sheets) in the network
-    double layer_height = 1.0;                    // sd of the normal distribution for local y coordinates of the neurons
-    double column_diameter = 1.0;                 // sd of the normal distribution for local x coordinates of the neurons
-    double layer_separation_factor = 1.25;        // factor to multiply layer height by to get the distance between layers
-    double column_separation_factor = 1.5;        // factor to multiply column diameter by to get the distance between columns
-    double patch_separation_factor = 1.5;         // factor to multiply column diameter by to get the distance between patches (rows of columns)
+    double layer_height;                          // sd of the normal distribution for local y coordinates of the neurons
+    double column_diameter;                       // sd of the normal distribution for local x coordinates of the neurons
+    double segment_length;                        // expected length of segments in process arbors, in unit_distance
+    double layer_separation_factor;               // factor to multiply layer height by to get the distance between layers
+    double column_separation_factor;              // factor to multiply column diameter by to get the distance between columns
+    double patch_separation_factor;               // factor to multiply column diameter by to get the distance between patches (rows of columns)
     MatrixXi neurons_per_node;                    // mean number of neurons in each layer (rows) by type (columns)
     std::vector<MatrixXd> recurrence_factors;     // Vector of matrices of sd of the normal distribution for local transconductances between neurons of each type, one matrix per layer
-    double synaptic_neighborhood = 10.0;          // radius of synapse-forming neighborhood; axon-dendrite node pairs within this distance initialize as synapses
+    double synaptic_neighborhood;                 // radius of synapse-forming neighborhood; axon-dendrite node pairs within this distance initialize as synapses
     
     // Network components 
     int n_neurons;                                // Total number of neurons in the network
@@ -419,6 +417,7 @@ class network {
       int n_pch,
       double lyr_height,
       double cls_diameter,
+      double seg_length, 
       double lyr_separation_factor,
       double cls_separation_factor,
       double pch_separation_factor,
@@ -430,20 +429,16 @@ class network {
     // Member functions for building network
     void make_arbor_branch(
       const int& cell_idx,                    // Number of neuron for which to make processes
-      int n_segments,                         // Expected number of process segments on longest branch
       const bool& is_axon,                    // Whether to make axon (true) or dendrite (false)
-      double segment_divisor = 0.0,           // Specifies expected length of segments in terms of column diameter and layer height, or distance to attractor point
       int parent_branch_idx = -1,             // Index of parent branch, if this is a branch off of a main process; otherwise, -1 for new process arbor
       const Vector3d& attractor_point = {0.0, 0.0, 0.0}
     );
     void make_arbor(
       const int& cell_idx,                    // Number of neuron for which to make processes
-      int n_segments,                         // Expected number of process segments on longest branch
       int n_branches,                         // Expected number of branches, including the main process 
       const bool& is_axon,                    // Whether to make axon (true) or dendrite (false)
-      double segment_divisor = 0.0,           // Specifies expected length of segments in terms of column diameter and layer height, or distance to attractor point
       int parent_branch_idx = -1,             // Index of parent branch, if this is a branch off of a main process; otherwise, -1 for new process arbor
-      const Vector3d& attractor_point = {0.0, 0.0, 0.0}
+      const std::vector<Vector3d>& attractor_points = {{0.0, 0.0, 0.0}}
     );
     double find_synapse(                      // ... and return its transduction while setting a number of other important synaptic properties
         const int& idx_pre,
@@ -451,6 +446,7 @@ class network {
         const double& val_pre,
         const double& transductance_bias
     );
+    double compute_expected_node_radius();
     void make_local_nodes(); 
     void apply_circuit_motif(const motif& cmot, const bool& verbose = true);
     

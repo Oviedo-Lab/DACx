@@ -4,7 +4,10 @@
 \alias{principal.neurons}
 \title{Return principal neurons by standard layers}
 \usage{
-principal.neurons()
+principal.neurons(print_nicely = FALSE)
+}
+\arguments{
+\item{print_nicely}{Logical; if TRUE, returns nothing while printing the principal neuron types in a nice format. If FALSE, returns a list of principal neuron types by layer, with layer names as keys and neuron type names as values (default: FALSE).}
 }
 \value{
 A list of principal neuron types by layer, with layer names as keys and neuron type names as values.

@@ -1,4 +1,4 @@
-url: https://michaelbarkasi.github.io/neurons/
+url: https://Oviedo-Lab.github.io/DACx/
 template:
   bootstrap: 5
   light-switch: true
@@ -17,7 +17,7 @@ navbar:
       href: reference/index.html
     github:
       icon: fab fa-github
-      href: https://github.com/michaelbarkasi/neurons
+      href: https://github.com/Oviedo-Lab/DACx
 
 articles:
 - title: Installation
@@ -40,17 +40,6 @@ reference:
   navbar: Initialization functions
   contents:
   - starts_with("new.")
-  - load.rasters.as.neurons
-  
-- title: Neuron method wrappers
-  navbar: Neuron method wrappers
-  contents:
-  - fit.edf.autocorr
-  - compute.autocorr
-  - estimate.autocorr.params
-  - process.autocorr
-  - plot.raster
-  - plot.autocorrelation
   
 - title: Motif method wrappers 
   navbar: Motif method wrappers 
@@ -61,6 +50,7 @@ reference:
   navbar: Network method wrappers 
   contents:
   - set.network.structure
+  - fetch.network.components
   - apply.circuit.motif
   - run.SGT
   - plot.network
@@ -73,16 +63,9 @@ reference:
   - fetch.cell.type.params
   - add.cell.type
   - modify.cell.type
+  - principal.neurons
   
 - title: Analysis functions
   navbar: Analysis functions
   contents:
-  - starts_with("analyze.")
-  - test.sigma.assumption
-  
-- title: Preprocessing functions 
-  navbar: Preprocessing functions 
-  contents:
-  - import.kilo4
-  - preprocess.kilo4
-  - summarize.cluster.key
+  - starts_with("analyze.") 

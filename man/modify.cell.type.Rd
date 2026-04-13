@@ -20,7 +20,6 @@ modify.cell.type(
   spike_potential = NULL,
   resting_potential = NULL,
   threshold = NULL,
-  process_node_count = NULL,
   axon_branch_count = NULL,
   dendrite_branch_count = NULL,
   branch_independence = NULL,
@@ -58,8 +57,6 @@ modify.cell.type(
 \item{resting_potential}{Resting potential, in mV}
 
 \item{threshold}{Spike threshold, in mV}
-
-\item{process_node_count}{Expected number of process nodes over the length of one process branch}
 
 \item{axon_branch_count}{Expected number of axon branches}
 
