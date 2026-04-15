@@ -25,3 +25,9 @@ devtools::document()
 pkgdown::build_site()
 pkgdown::build_article("<article name>")
 ```
+
+Then: 
+
+```bash
+git subtree push --prefix docs origin gh-pages
+```
