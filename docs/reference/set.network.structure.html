@@ -25,6 +25,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Tutorials</h6></li>
     <li><a class="dropdown-item" href="../articles/tutorial_network_topology.html">Network topology from circuit motifs</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_SGT.html">Spatial growth-transform models</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Legal</h6></li>
     <li><a class="dropdown-item" href="../articles/license.html">Dependency licenses</a></li>
@@ -70,8 +71,8 @@
 <span>  layer_separation_factor <span class="op">=</span> <span class="fl">2.5</span>,</span>
 <span>  column_separation_factor <span class="op">=</span> <span class="fl">2.5</span>,</span>
 <span>  patch_separation_factor <span class="op">=</span> <span class="fl">2.5</span>,</span>
-<span>  neurons_per_node <span class="op">=</span> <span class="fl">30</span>,</span>
-<span>  recurrence_factors <span class="op">=</span> <span class="fl">0.5</span>,</span>
+<span>  neurons_per_node <span class="op">=</span> <span class="fl">10</span>,</span>
+<span>  local_synaptic_conductance <span class="op">=</span> <span class="fl">1e-10</span>,</span>
 <span>  synaptic_neighborhood <span class="op">=</span> <span class="fl">10</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -132,8 +133,8 @@
 <dd><p>Matrix giving number of neurons of each type per node in each layer; dimensions must match n_layers (rows) and length of neuron_types (columns).</p></dd>
 
 
-<dt id="arg-recurrence-factors">recurrence_factors<a class="anchor" aria-label="anchor" href="#arg-recurrence-factors"></a></dt>
-<dd><p>List of matrices giving local recurrence factors for each layer; each matrix must have dimensions matching length of neuron_types (rows and columns).</p></dd>
+<dt id="arg-local-synaptic-conductance">local_synaptic_conductance<a class="anchor" aria-label="anchor" href="#arg-local-synaptic-conductance"></a></dt>
+<dd><p>List (one entry per layer) of matrices giving synaptic conductance in millisiemens for local connections by cell-type; each matrix must have dimensions matching length of neuron_types (rows and columns).</p></dd>
 
 
 <dt id="arg-synaptic-neighborhood">synaptic_neighborhood<a class="anchor" aria-label="anchor" href="#arg-synaptic-neighborhood"></a></dt>

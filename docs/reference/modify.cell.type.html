@@ -25,6 +25,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Tutorials</h6></li>
     <li><a class="dropdown-item" href="../articles/tutorial_network_topology.html">Network topology from circuit motifs</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_SGT.html">Spatial growth-transform models</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Legal</h6></li>
     <li><a class="dropdown-item" href="../articles/license.html">Dependency licenses</a></li>
@@ -64,7 +65,6 @@
 <span>  temporal_modulation_timeconstant <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  temporal_modulation_amplitude <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  transmission_velocity <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  coupling_scaling_factor <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  spine_density <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  axon_target <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  v_bound <span class="op">=</span> <span class="cn">NULL</span>,</span>
@@ -107,10 +107,6 @@
 
 <dt id="arg-transmission-velocity">transmission_velocity<a class="anchor" aria-label="anchor" href="#arg-transmission-velocity"></a></dt>
 <dd><p>Transmission velocity (in microns/ms) for each neuron type</p></dd>
-
-
-<dt id="arg-coupling-scaling-factor">coupling_scaling_factor<a class="anchor" aria-label="anchor" href="#arg-coupling-scaling-factor"></a></dt>
-<dd><p>Controls how energy used in synaptic transmission compares to that used in spiking</p></dd>
 
 
 <dt id="arg-spine-density">spine_density<a class="anchor" aria-label="anchor" href="#arg-spine-density"></a></dt>
@@ -163,6 +159,10 @@
 
 <dt id="arg-apical-target-layer">apical_target_layer<a class="anchor" aria-label="anchor" href="#arg-apical-target-layer"></a></dt>
 <dd><p>Character string giving target layer for apical dendrites. Default: "none".</p></dd>
+
+
+<dt id="arg-coupling-scaling-factor">coupling_scaling_factor<a class="anchor" aria-label="anchor" href="#arg-coupling-scaling-factor"></a></dt>
+<dd><p>Controls how energy used in synaptic transmission compares to that used in spiking</p></dd>
 
 </dl></div>
     <div class="section level2">

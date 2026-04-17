@@ -23,7 +23,6 @@ add.cell.type(
   temporal_modulation_timeconstant = 1,
   temporal_modulation_amplitude = 0.005,
   transmission_velocity = 30000,
-  coupling_scaling_factor = 1e-07,
   spine_density = 0,
   axon_target = "dendrite_shaft",
   v_bound = 85,
@@ -70,12 +69,6 @@ add.cell.type(
 
   Transmission velocity (in microns/ms) for each neuron type. Default
   value is 30e3.
-
-- coupling_scaling_factor:
-
-  Controls how energy used in synaptic transmission compares to that
-  used in spiking. Default value is 1e-7, meaning that synaptic
-  transmission uses 0.00001 percent of the energy used in spiking.
 
 - spine_density:
 

@@ -35,7 +35,9 @@ IntegerVector Rwhich(const std::vector<bool>& x);
 
 // Boolean quantifiers
 bool any_true(const LogicalVector& x);
+bool any_true(const std::vector<bool>& x);
 bool all_true(const LogicalVector& x);
+bool all_true(const std::vector<bool>& x);
 
 // Convert between vector types
 std::vector<double> to_dVec(const VectorXd& vec);
@@ -89,8 +91,8 @@ VectorXd network_power_dissipation_gradient(
     const VectorXd& v_traces_current, // n_neuron x 1 matrix (column vector) of membrane potentials, in unit_potential, from which to calculate derivative
     const VectorXd& stimulus_current, // n_neuron x 1 matrix (column vector) of stimulus currents, in unit_current, from which to calculate derivative
     const MatrixXd& transconductance, // n_neuron x n_neuron transconductance matrix, giving connections between neurons
-    const double& I_spike,            // spike current, in unit_current
-    const double& threshold           // spike threshold, in unit_potential
+    const VectorXd& I_spike,          // spike current, in unit_current
+    const VectorXd& threshold         // spike threshold, in unit_potential
   );
 
 /*
@@ -138,10 +140,8 @@ struct cell_type {
     double temporal_modulation_bias;     // temporal modulation time (in unit_time) bias for each neuron type
     double temporal_modulation_timeconstant;     // temporal modulation time (in unit_time) step for each neuron type
     double temporal_modulation_amplitude;        // temporal modulation time (in unit_time) cutoff for each neuron type
-    // Axon transmission speed
+    // Intercell transmission
     double transmission_velocity;        // transmission velocity (in unit_distance/unit_time) for each neuron type
-    // Synaptic transmission 
-    double coupling_scaling_factor;      // Controls how energy used in synaptic transmission compares to that used in spiking
     double spine_density;                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
     std::string axon_target;             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
     // Membrane characteristics
@@ -152,8 +152,8 @@ struct cell_type {
     double resting_potential;            // resting potential, in unit_potential
     double threshold;                    // spike threshold, in unit_potential
     // Process size and structure parameters
-    int axon_branch_count;               // Sets n_branches in make_arbor, in terms of expected number of branches per process length
-    int dendrite_branch_count;           // Sets n_branches in make_arbor, in terms of expected number of branches per process length
+    int axon_branch_count;               // Sets expected number n_branches in make_arbor for axons
+    int dendrite_branch_count;           // Sets expected number n_branches in make_arbor for dendrites
     double branch_independence;          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
     double branch_spread;                // Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma
     // Apical dendrite parameters 
@@ -177,7 +177,6 @@ void add_cell_type(
     const double& temporal_modulation_timeconstant,
     const double& temporal_modulation_amplitude,
     const double& transmission_velocity,
-    const double& coupling_scaling_factor,      // Controls how energy used in synaptic transmission compares to that used in spiking
     const double& spine_density,                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
     const std::string& axon_target,             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
     const double& v_bound,                      // potential bound, in unit_potential
@@ -201,7 +200,6 @@ void modify_cell_type(
     const double& temporal_modulation_timeconstant,
     const double& temporal_modulation_amplitude,
     const double& transmission_velocity,
-    const double& coupling_scaling_factor,      // Controls how energy used in synaptic transmission compares to that used in spiking
     const double& spine_density,                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
     const std::string& axon_target,             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
     const double& v_bound,                      // potential bound, in unit_potential
@@ -260,7 +258,7 @@ class motif {
     std::vector<Projection> projections;          // List of projection descriptions
     std::vector<int> max_col_shift_up;            // Maximum number of columns to shift up when applying motif
     std::vector<int> max_col_shift_down;          // Maximum number of columns to shift down when applying motif
-    std::vector<double> connection_strength;      // Strength of connection for each projection
+    std::vector<double> projection_conductance;   // Strength of connection for each projection
     int n_projections = 0;                        // Number of projections in motif
     
     // Functions *********************************
@@ -277,9 +275,9 @@ class motif {
     // Load projection into motif
     void load_projection(
       const Projection& proj,
-      const int& max_up = 0,
-      const int& max_down = 0,
-      const double& c_strength = 1.0
+      const int& max_up,
+      const int& max_down,
+      const double& proj_conductance
     );
     
   };
@@ -330,7 +328,7 @@ class network {
     std::string unit_time = "ms";                 // Unit of time, e.g., "ms", "bin", "sample"
     std::string unit_sample_rate = "Hz";          // Unit of recording sample rate, e.g., "Hz", "kHz"
     std::string unit_potential = "mV";            // Unit of membrane potential, e.g., "mV"
-    std::string unit_current = "mA";              // Unit of current, e.g., "mA", "nA"
+    std::string unit_current = "mA";              // Unit of current, e.g., "mA"
     std::string unit_conductance = "mS";          // Unit of conductance, e.g., "mS", "uS"
     std::string unit_distance = "micron";         // Unit of distance, e.g., "micron", "mm"
     
@@ -351,13 +349,14 @@ class network {
     double column_separation_factor;              // factor to multiply column diameter by to get the distance between columns
     double patch_separation_factor;               // factor to multiply column diameter by to get the distance between patches (rows of columns)
     MatrixXi neurons_per_node;                    // mean number of neurons in each layer (rows) by type (columns)
-    std::vector<MatrixXd> recurrence_factors;     // Vector of matrices of sd of the normal distribution for local transconductances between neurons of each type, one matrix per layer
+    std::vector<MatrixXd> local_conductance;      // Vector of matrices of sd of the normal distribution for local transconductances between neurons of each type, one matrix per layer
     double synaptic_neighborhood;                 // radius of synapse-forming neighborhood; axon-dendrite node pairs within this distance initialize as synapses
     
     // Network components 
     int n_neurons;                                // Total number of neurons in the network
     int n_neuron_types;                           // Number of different neuron types in the network
-    MatrixXi synapse_idx;                         // n_neuron x n_neuron matrix of synapse indexes, with -1 for no synapse and otherwise the index in arbors[i][0].coordinates of the synapse from neuron i to neuron j
+    MatrixXi synapse_arbor_idx;                   // n_neuron x n_neuron matrix of synapse indexes, with -1 for no synapse and otherwise synapse_arbor_idx[i,j] = index ax in arbors[i].coordinates[ax] of the axon of cell i holding the synapse into cell j
+    MatrixXi synapse_node_idx;                    // n_neuron x n_neuron matrix of synapse indexes, with -1 for no synapse and otherwise synapse_node_idx[i,j] = index k in arbors[i].coordinates[ax][k] of the synapse from neuron i to neuron j
     std::vector<cell_arbors> arbors;              // Vector of length n_neurons
     std::vector<MatrixXd> transconductances;      // Vector of square matrices, each giving the transconductance between each neuron in the network, rows are post-synaptic, columns are pre-synaptic
     MatrixXd node_coordinates_spatial;            // Mx3 matrix giving the (z,y,x) spatial coordinates of each node in the network
@@ -422,7 +421,7 @@ class network {
       double cls_separation_factor,
       double pch_separation_factor,
       IntegerMatrix nrn_per_node,
-      List recur_factors,
+      List local_conductance,
       double synaptic_neighborhood_radius
     );
     

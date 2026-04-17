@@ -44,6 +44,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Tutorials</h6></li>
     <li><a class="dropdown-item" href="articles/tutorial_network_topology.html">Network topology from circuit motifs</a></li>
+    <li><a class="dropdown-item" href="articles/tutorial_SGT.html">Spatial growth-transform models</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Legal</h6></li>
     <li><a class="dropdown-item" href="articles/license.html">Dependency licenses</a></li>
@@ -71,21 +72,33 @@
 </nav><div class="container template-home">
 <div class="row">
   <main id="main" class="col-md-9"><div class="section level1">
-<div class="page-header"><h1 id="neurons-high-performance-modeling-tools-in-c-with-r-interface">neurons: High performance modeling tools in C++ with R interface<a class="anchor" aria-label="anchor" href="#neurons-high-performance-modeling-tools-in-c-with-r-interface"></a>
+<div class="page-header"><h1 id="dacx-digital-auditory-cortex">DACx: Digital Auditory Cortex<a class="anchor" aria-label="anchor" href="#dacx-digital-auditory-cortex"></a>
 </h1></div>
-<p>Neurons is an R/C++ package for simulating neurons and networks of neurons, currently under development at <a href="https://oviedolab.org/" class="external-link">Oviedo Lab</a>. The package is built around a few core object classes, all of which are a C++ class accessible through R via Rcpp modules and wrappers.</p>
+<p>DACx is an R/C++ package for running biologically realistic simulations of the mammalian auditory cortex – a “digital twin”. <a href="articles/tutorial_network_topology.html">Network topologies</a> are built from clusters of cells, called <em>nodes</em>, arrayed in three dimensions and connected using circuit motifs. <a href="articles/tutorial_SGT">Network activity</a> is simulated using an expanded version of the growth-transform (GT) membrane voltage time derivative introduced by <a href="https://doi.org/10.3389/fnins.2020.00425" class="external-link">Gangopadhyay and Chakrabartty</a>.</p>
+<p>The package is built around several C++ object classes for building networks:</p>
 <ul>
 <li>
-<strong>neuron</strong>: For modeling the spiking of single neurons with dichotomized Gaussians.</li>
+<span class="code_variable">cell_type</span>: A <span class="code_variable">struc</span> for specifying cell characteristics related to membrane electrical properties and kinetics, axon transmission speed, synaptic transmission, and axon and dendrite arborization.</li>
 <li>
-<strong>network</strong>: For simulating spiking neural networks with Growth-transform dynamical systems.</li>
+<span class="code_variable">cell_arbors</span>: A <span class="code_variable">struc</span> for efficiently storing and manipulating large branching tree structures representing axonal and dendritic arbors.</li>
 <li>
-<strong>motif</strong>: For specifying general patterns of connectivity between neurons in a circuit, i.e., a “circuit motif” or “network topology”.</li>
+<span class="code_variable">motif</span>: A <span class="code_variable">class</span> for specifying general patterns of connectivity between cells in a circuit, relative to an indexical pre-synaptic home column.</li>
+<li>
+<span class="code_variable">network</span>: A <span class="code_variable">class</span> for simulating spiking neural networks with GT dynamical systems.</li>
 </ul>
+<p>Networks are built using motifs, which ultimately specify a matrix of transconductances (synaptic weights) between cells. The raison d’être of networks is to compute signal transmission lag between cells from their types and arbors and to compute the resulting network state from the GT membrane voltage time derivative <span class="math inline">\partial v/\partial t</span>.</p>
+<p>What is the “growth-transform” <span class="math inline">\partial v/\partial t</span>? The net metabolic power <span class="math inline">\mathcal{H}</span> used by a spiking neural network can be thought of as a cost function and the network itself can be thought of as a mathematical manifold <span class="math inline">v</span> of membrane voltage values, one per cell. <a href="https://doi.org/10.3389/fnins.2020.00425" class="external-link">Gangopadhyay and Chakrabartty</a> have shown how to apply the <a href="https://doi.org/10.1090/S0002-9904-1967-11751-8" class="external-link">Baum-Eagon inequality</a> to <span class="math inline">\mathcal{H}</span> on <span class="math inline">v</span> to derive a function <span class="math inline">\partial v/\partial t=\sigma:v\rightarrow v</span> that is guaranteed to monotonically decrease <span class="math inline">\mathcal{H}</span> over time. Such a function <span class="math inline">\sigma</span> is called a <em>growth transform</em>. Although this derivation of <span class="math inline">\partial v/\partial t</span> is purely mathematical without any reference to the biological phenomenon being modeled, the introductory tutorial to <a href="articles/tutorial_SGT">spatial growth-transform models</a> provides a biologically interpreted and motivated derivation.</p>
 <div class="figure">
-<p><img src="reference/figures/neurons_package.png" alt="Artistic rendering of a neuron" width="90%"></p>
+<img src="reference/figures/demo_network.png" alt="Example plot of 3D network topology producable with DACx" width="100%"><p class="caption">
+Example plot of 3D network topology producable with DACx.
+</p>
 </div>
-<p>Copyright (C) 2025, Michael Barkasi <a href="mailto:barkasi@wustl.edu" class="email">barkasi@wustl.edu</a></p>
+<div class="section level2">
+<h2 id="who-we-are">Who we are<a class="anchor" aria-label="anchor" href="#who-we-are"></a>
+</h2>
+<p>DACx is a collaboration between <a href="https://oviedolab.org/" class="external-link">Oviedo Lab</a> (Neuroscience) and the <a href="https://aimlab.wustl.edu/" class="external-link">AIM Lab</a> (Electrical &amp; Systems Engineering) at Washington University in St. Louis.</p>
+<p>Copyright (C) 2026, Michael Barkasi <a href="mailto:barkasi@wustl.edu" class="email">barkasi@wustl.edu</a></p>
+</div>
 </div>
   </main><aside class="col-md-3"><div class="license">
 <h2 data-toc-skip>License</h2>

@@ -11,7 +11,6 @@ add.cell.type(
   temporal_modulation_timeconstant = 1,
   temporal_modulation_amplitude = 0.005,
   transmission_velocity = 30000,
-  coupling_scaling_factor = 1e-07,
   spine_density = 0,
   axon_target = "dendrite_shaft",
   v_bound = 85,
@@ -39,8 +38,6 @@ add.cell.type(
 \item{temporal_modulation_amplitude}{Temporal modulation time (in ms) cutoff for each neuron type. Default value is 5e-3.}
 
 \item{transmission_velocity}{Transmission velocity (in microns/ms) for each neuron type. Default value is 30e3.}
-
-\item{coupling_scaling_factor}{Controls how energy used in synaptic transmission compares to that used in spiking. Default value is 1e-7, meaning that synaptic transmission uses 0.00001 percent of the energy used in spiking.}
 
 \item{spine_density}{Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0.}
 

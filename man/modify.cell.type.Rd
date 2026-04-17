@@ -11,7 +11,6 @@ modify.cell.type(
   temporal_modulation_timeconstant = NULL,
   temporal_modulation_amplitude = NULL,
   transmission_velocity = NULL,
-  coupling_scaling_factor = NULL,
   spine_density = NULL,
   axon_target = NULL,
   v_bound = NULL,
@@ -40,8 +39,6 @@ modify.cell.type(
 
 \item{transmission_velocity}{Transmission velocity (in microns/ms) for each neuron type}
 
-\item{coupling_scaling_factor}{Controls how energy used in synaptic transmission compares to that used in spiking}
-
 \item{spine_density}{Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0.}
 
 \item{axon_target}{Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".}
@@ -67,6 +64,8 @@ modify.cell.type(
 \item{branch_spread}{Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma. Default is 0.5.}
 
 \item{apical_target_layer}{Character string giving target layer for apical dendrites. Default: "none".}
+
+\item{coupling_scaling_factor}{Controls how energy used in synaptic transmission compares to that used in spiking}
 }
 \value{
 Nothing.

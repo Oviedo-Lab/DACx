@@ -17,8 +17,8 @@ set.network.structure(
   layer_separation_factor = 2.5,
   column_separation_factor = 2.5,
   patch_separation_factor = 2.5,
-  neurons_per_node = 30,
-  recurrence_factors = 0.5,
+  neurons_per_node = 10,
+  local_synaptic_conductance = 1e-10,
   synaptic_neighborhood = 10
 )
 }
@@ -49,7 +49,7 @@ set.network.structure(
 
 \item{neurons_per_node}{Matrix giving number of neurons of each type per node in each layer; dimensions must match n_layers (rows) and length of neuron_types (columns).}
 
-\item{recurrence_factors}{List of matrices giving local recurrence factors for each layer; each matrix must have dimensions matching length of neuron_types (rows and columns).}
+\item{local_synaptic_conductance}{List (one entry per layer) of matrices giving synaptic conductance in millisiemens for local connections by cell-type; each matrix must have dimensions matching length of neuron_types (rows and columns).}
 
 \item{synaptic_neighborhood}{Numeric giving the radius (in microns) within which an axon node will trigger a synapse when near a dendrite node (default: 10.0).}
 

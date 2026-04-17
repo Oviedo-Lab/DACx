@@ -15,7 +15,6 @@ modify.cell.type(
   temporal_modulation_timeconstant = NULL,
   temporal_modulation_amplitude = NULL,
   transmission_velocity = NULL,
-  coupling_scaling_factor = NULL,
   spine_density = NULL,
   axon_target = NULL,
   v_bound = NULL,
@@ -58,11 +57,6 @@ modify.cell.type(
 - transmission_velocity:
 
   Transmission velocity (in microns/ms) for each neuron type
-
-- coupling_scaling_factor:
-
-  Controls how energy used in synaptic transmission compares to that
-  used in spiking
 
 - spine_density:
 
@@ -124,6 +118,11 @@ modify.cell.type(
 
   Character string giving target layer for apical dendrites. Default:
   "none".
+
+- coupling_scaling_factor:
+
+  Controls how energy used in synaptic transmission compares to that
+  used in spiking
 
 ## Value
 

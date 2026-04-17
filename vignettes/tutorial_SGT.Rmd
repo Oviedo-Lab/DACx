@@ -12,18 +12,29 @@ knitr::opts_chunk$set(class.output = "scroll-output", cache = TRUE)
 
 <h2>Introduction</h2>
 
-The simplest mathematical models of neural networks are built from homogeneous McCulloch-Pitts neurons with scalar-weight connections between them. Biological neural networks, such as those in patches of cortex, are far more complex. They contain different types of neurons each with their own electrical behavior and spatially extended connections. 
+The simplest mathematical models of neural networks are built from homogeneous McCulloch-Pitts neurons with scalar-weight connections between them. Biological neural networks, such as those in the mammalian cortex, are far more complex. They contain different types of neurons each with their own electrical behavior and spatially extended connections. 
 
-Computational neuroscientists standardly model biological neural networks as [dynamical systems](https://philpapers.org/rec/ELIMBM-3). [Growth-transform](https://doi.org/10.3389/fnins.2020.00425) (GT) models, introduced by Gangopadhyay and Chakrabartty, are one example. Instead of a one-dimensional weight between two homogeneous neurons, GT models use both a transconductance parameter and a temporal modulation factor to determine network behavior. Roughly, the transconductance parameter is the inverse of a traditional weight, while the temporal modulation factor allows for capturing the electrodynamics $\partial v/\partial t$ of different neuron types at a single spatial point. 
+<div class="figure">
+  <img src="fig_MPN.png" alt="Example diagram of a simple neural network from the original 1943 paper by McCulloch and Pitts" width="65%">
+  <p class="caption">A sample neural network diagram from the original [1943 paper](https://link.springer.com/article/10.1007/BF02478259) by McCulloch and Pitts.</p>
+</div>
 
-The GT models implemented in this package add a third aspect of biological realism not captured by the original formulation of Gangopadhyay and Chakrabartty: a transmission velocity parameter for each neuron type. While the temporal modulation factor controls membrane voltage over time at a *single* spatial point, the transmission velocity parameter determines the rate at which changes in membrane voltage *propagate between neurons*. 
+Computational neuroscientists standardly model biological neural networks as [dynamical systems](https://philpapers.org/rec/ELIMBM-3). [Growth-transform](https://doi.org/10.3389/fnins.2020.00425) (GT) models, introduced by Gangopadhyay and Chakrabartty, are one example. These models treat the change in membrane potential over time, $\partial v/\partial t$, as a growth-transform of the membrane potentials $v$ on the net metabolic energy $\mathcal{H}$ of a network, in the sense that it's assumed that $\partial v/\partial t$ satisfies the [Baum-Eagon inequality](https://doi.org/10.1090/S0002-9904-1967-11751-8): 
+\[\mathcal{H}(v)\leq \mathcal{H}(v + \partial v/\partial t)\]
+In other words: 
+\[\frac{\partial\mathcal{H}}{\partial v}\frac{\partial v}{\partial t} \leq 0\]
+Thus, GT models are essentially energy-minimization models of neural dynamics.
+
+In practical terms, instead of a one-dimensional weight between two homogeneous neurons, GT models use both a transconductance parameter and a temporal modulation factor to determine network behavior. Roughly, the transconductance parameter is the inverse of a traditional weight, while the temporal modulation factor allows for capturing the electrodynamics $\partial v/\partial t$ of different neuron types at a single spatial point. 
+
+The GT models implemented in the DACx package add a third aspect of biological realism not captured by the original formulation of Gangopadhyay and Chakrabartty: a transmission velocity parameter for each neuron type. While the temporal modulation factor controls membrane voltage over time at a *single* spatial point, the transmission velocity parameter determines the rate at which changes in membrane voltage *propagate between neurons*. 
 For this reason, we refer to our GT models as *spatial GT* (SGT) models. 
 
 SGT models thus allow for network topologies that not only capture connection strengths between neurons, but also the different types of neurons and their electrodynamics across both time *and space*. A [separate tutorial](tutorial_network_topology.html) demonstrates how to build network topologies for these models from circuit motifs. This tutorial explains SGT models in more detail. 
 
 <h2>Network nodes</h2>
 
-Let's set up the R environment by clearing the workspace, setting a random-number generator seed, and loading the neurons package.
+Let's set up the R environment by clearing the workspace, setting a random-number generator seed, and loading the DACx package.
 
 ```{r Rsetup}
 # Clear the R workspace to start fresh
@@ -39,74 +50,133 @@ library(DACx, quietly = TRUE)
 Next, we create a new network object with the <span class = "function">new.network</span> function. 
 
 ```{r make_cortical_patch}
-cortical.patch <- new.network()
+network.node <- new.network()
 ```
 
-The object initialized by <span class = "function">new.network</span> is a minimal single-node network. In this context, "node" does not mean a single neuron, but rather a cluster of nearby neurons with local recurrent connections. For this tutorial, we will follow the topology of the node model of [Park and Geffen (2020)](https://doi.org/10.1371/journal.pcbi.1008016), which includes three distinct neuron types: excitatory principal pyramidal neurons and two inhibitory types, parvalbumin (PV) and somatostatin (SST) interneurons. This topology specifies that these nodes are expected to be (approximately) fully connected, with cells of each type synapsing into cells of all other types. (Note that while we keep the topology and node structure of the Park and Geffen model, they use a different dynamical systems framework to model spiking behavior.)
+The object initialized by <span class = "function">new.network</span> is a minimal single-node network. In this context, "node" does not mean a single neuron, but rather a cluster of nearby neurons with local recurrent connections (e.g., see [Park and Geffen, 2020](https://doi.org/10.1371/journal.pcbi.1008016)). For this tutorial, our nodes will include three distinct neuron types: an excitatory type, layer 4 principal neurons (spiny stellates), and two inhibitory types, parvalbumin (PV) and somatostatin (SST) interneurons. These nodes are expected to be (approximately) fully connected, with cells of each type synapsing into cells of all other types. 
 
-<div class="figure">
-  <img src="fig_local_network_node.png" alt="Image showing the general schema of a local network node." width="50%">
-  <p class="caption">The basic structure of a local network node, as modeled by [Park and Geffen (2020)](https://doi.org/10.1371/journal.pcbi.1008016).</p>
-</div>
-
-At this low level of structure, nodes are defined by neuron types, neuron type valence ($1$ for excitatory, $-1$ for inhibitory), node size (mean number of neurons per type), and local connection density (the average fraction of neurons in the node that connect to other neurons in the same node). At the highest level of structure, <span class = "code_variable">network</span> objects are built from nodes arrayed into layers and columns, mimicking the structure of the cortex -- although in this tutorial we will only work with a single node. The [network-topology tutorial](tutorial_network_topology.html) provides more details on making layer-column structure. 
-
-With a network initialized, both low and high-level structure is set with the <span class = "function">set.network.structure</span> function. We will set up a fully connected single-node network with the three cell types from the [Park and Geffen (2020)](https://doi.org/10.1371/journal.pcbi.1008016) model, with a mean count of 10, 5, and 5, respectively. 
+Nodes are defined by their constitutive cell types and node size (expected number of neurons per type) and arrayed into layers and columns, mimicking the structure of the cortex. The [network-topology tutorial](tutorial_network_topology.html) provides more details on making layer-column structure. For now, it suffices to note that this structure is set with the <span class = "function">set.network.structure</span> function. We will set up a single-node network, with an expected count of 10 for the spiny stellates and 5 for each of the two inhibitory interneuron types.
 
 ```{r build_cortical_patch}
-cortical.patch <- set.network.structure(
-    cortical.patch,
-    neuron_types = c("principal", "PV", "SST"),
-    neurons_per_node = c(10, 5, 5),
-    recurrence_factors = 0.75,
-    pruning_threshold_factor = 0.1
+network.node <- set.network.structure(
+    network.node,
+    neuron_types = c("spiny_stellate", "PV", "SST"),
+    neurons_per_node = c(10, 5, 5)
   )
 ```
 
-By default, the <span class = "function">set.network.structure</span> function sets the number of rows and columns each to one, i.e., makes a single node, and initializes local recurrent connections within that node. The argument <span class = "code_variable">recurrence_factors</span> is used to set the local connection density; in this case, it's set to $0.75$, meaning each cell (in each layer-column combination) connects to approximately three-quarters of the cells of each type. The node we just created can be visualized with the <span class = "function">plot.network</span> function:
+By default, the <span class = "function">set.network.structure</span> function sets the number of rows and columns each to one, i.e., makes a single node, and initializes local recurrent connections within that node. The node we just created can be visualized with the <span class = "function">plot.network</span> function. To keep the plot clean, we can use the <span class = "code_variable">arbor_density</span> argument, which controls the proportion of cells for which the generated arbors are shown. 
 
 ```{r plot_cortical_patch_local_connections}
-plot.network(cortical.patch, cell_size_factor = 1.0)
+plt <- plot.network(network.node, arbor_density = 0.1)
+plt$plot
 ```
 
-As the axis labels indicate, SGT models assign to each neuron a 2D spatial coordinate giving its location along the laminar and columnar axes. These coordinates are continuous and real-valued and are used in conjunction with the transmission velocity parameter to simulate spike propagation.
+Here we see arbors for two cells, a spiny stellate and a SST interneuron. These arbors are generated via a biased random walk, the biasing factors fixed by cell type and controlling arbor shape. They include both axons and dendrites, which can be visualized explicitly by changing the arbor coloring. Although cells and arbors to-be-plotted are selected randomly, the <span class = "code_variable">plot.network</span> function returns masks for the cells and arbors plotted, and can take this information to re-plot the same data again under different settings, e.g., coloring by arbor type instead of by cell type: 
 
-<h2>Spatial coordinates</h2>
+```{r plot_cortical_patch_local_connections_axons}
+plt <- plot.network(
+    network.node, 
+    arbor_density = 0.1,
+    soma_mask = plt$soma_mask,
+    arbor_idx = plt$arbor_idx,
+    edge_color = "is_axon"
+    )
+plt$plot
+```
 
-As the axis labels in the previous plot also indicate, there is a physically meaningful unit attached to these distances: microns. Four parameters control the coordinates assigned to each neuron: <span class = "code_variable">column_width</span> ($c_{\mathrm{width}}$), <span class = "code_variable">layer_height</span> ($l_{\mathrm{height}}$), <span class = "code_variable">column_separation_factor</span> ($F_{\mathrm{column}}$), and <span class = "code_variable">layer_separation_factor</span> ($F_{\mathrm{layer}}$). A node is created for each combination of column integer-index $c$ and layer integer-index $l$. Each node is assigned a coordinate $\langle x_c,y_l\rangle$: 
-\[x_c = c \frac{c_{\mathrm{width}}F_{\mathrm{column}}}{2}\]
-\[y_l = l \frac{l_{\mathrm{height}}F_{\mathrm{layer}}}{2}\]
-Within each node, a coordinate $\langle x_n,y_n\rangle$ is assigned to each neuron $n$ by sampling from a normal distribution: 
-\[x_n \sim \mathcal{N}(x_c, \frac{c_{\mathrm{width}}}{2})\]
-\[y_n \sim \mathcal{N}(y_l, \frac{l_{\mathrm{height}}}{2})\]
+The existence and number of connections between cells -- synapses, colored orange -- are determined by the proximity of axons to dendrites. After the arbors are created, a separate algorithm looks for axon nodes within a certain small neighborhood of dendrite nodes and, if one is found, extends the axon to connect with the dendrite. 
+
+As the axis labels indicate, SGT models assign to each neuron a spatial coordinate giving its location along the laminar and columnar axes. While the above are 2D plots, there is in fact a third dimension, the "patch" dimension, which serves as a secondary columnar axis. All coordinates are continuous and real-valued and are used in conjunction with the transmission velocity parameter to simulate spike propagation over the axonal arbors. Here, for example, we can plot a 3D representation of our node including all arbors, colored by cell type: 
+
+```{r plot_cortical_patch_local_connections_all}
+plt <- plot.network(
+    network.node, 
+    arbor_density = 1.0,
+    threedim = TRUE
+  )
+plt$plot
+```
+
+As can be seen, even for a small single node, the arborization and number of synapses can be extensive. We can quantify the extent by calling the <span class = "function">fetch.network.components</span> function, which returns a list of all components of the network, including a print out of summary data: 
+
+```{r get_network_components}
+ntw <- fetch.network.components(network.node, include_arbors = TRUE)
+```
+
+As the axis labels in the previous plots also indicate, there is a physically meaningful unit attached to the dimensions: microns. The actual control and setting of spatial coordinates is discussed in the [network-topology tutorial](tutorial_network_topology.html). 
 
 <h2>Cell types</h2>
 
-The three cell types (principal, PV, and SST) of the node are pre-defined in the neurons package. To see all cell types known by the package in the current session, we use the <span class = "function">print.known.celltypes</span> function: 
+The three cell types (spiny stellates, PV, and SST) of the node are pre-defined in the neurons package. To see all cell types known by the package in the current session, we use the <span class = "function">print.known.celltypes</span> function: 
 
 ```{r print_known_celltypes}
 print.known.celltypes()
 ```
 
-As can be seen from the output, cell types are defined by a number of parameters: 
+As can be seen from the output, cell types are defined by a number of parameters.
 
-- *Valence:* 1 for excitatory cells, -1 for inhibitory cells. Code variable: <span class = "code_variable">valence</span>.
-- *Temporal modulation parameters:* The temporal modulation term $T$ controlling the responsiveness (size) of $\partial v/\partial t$ is determined by an exponential decay function with parameters: 
-  - *Temporal modulation bias:* The baseline value $b$ of $T$, in ms. Code variable: <span class = "code_variable">temporal_modulation_bias</span>.
-  - *Temporal modulation time constant:* The time constant $\tau$ of the exponential decay in $T$, in ms. Code variable: <span class = "code_variable">temporal_modulation_timeconstant</span>.
-  - *Temporal modulation amplitude:* The amplitude $A$ of the exponential decay in $T$, in ms. Code variable: <span class = "code_variable">temporal_modulation_amplitude</span>.
+<h3>Cell type parameters</h3>
+
+The parameters defining cell types in DACx are mostly biophysically interpretable and can be set with, or tested against, experimental data. 
+
+<h4>Parameters for transmitter type</h4>
+
+- *Valence:* $1$ for excitatory cells, $-1$ for inhibitory cells. Code variable: <span class = "code_variable">valence</span>.
+
+<h4>Temporal modulation parameters</h4> 
+
+The temporal modulation term $T$ controlling the responsiveness (size) of $\partial v/\partial t$ is determined by an exponential decay function with parameters: 
+
+- *Temporal modulation bias:* The baseline value $b$ of $T$, in ms. Code variable: <span class = "code_variable">temporal_modulation_bias</span>.
+- *Temporal modulation time constant:* The time constant $\tau$ of the exponential decay in $T$, in ms. Code variable: <span class = "code_variable">temporal_modulation_timeconstant</span>.
+- *Temporal modulation amplitude:* The amplitude $A$ of the exponential decay in $T$, in ms. Code variable: <span class = "code_variable">temporal_modulation_amplitude</span>. A value $>0$ induces bursting behavior, while a value of zero induces tonic (rhythmic) firing.
+
+Development note: The values of these parameters are 1/0.0001 times the intended values in ms, due to debugging. 
+
+<h4>Intercell transmission parameters</h4>
+
 - *Transmission velocity:* The speed of the action potential between neurons, in microns/ms. Code variable: <span class = "code_variable">transmission_velocity</span>.
-- *Potential bound:* The maximum absolute value $v_\mathrm{bound}$ of potential difference in electrical charge between the inside and outside of the cell, in mV. Code variable <span class = "code_variable">v_bound</span>. Theoretically, we assume this is the absolute value of the rest voltage, plus a little bit. All that really matters is that $-v_\mathrm{bound} \leq v \leq v_\mathrm{bound}$ for all possible membrane potentials $v$.
-- *Metabolic energy derivative bound:* Bound $\partial I_\mathrm{influx}$ on the absolute value of the derivative $\partial\mathcal{H}/\partial v$ of metabolic energy $\mathcal{H}$ with respect to potential $v$, such that $\partial I_\mathrm{influx} \geq |\partial\mathcal{H}/\partial v|$, in mA. Code variable: <span class = "code_variable">dHdv_bound</span>. Theoretically, we assume that this value is the change in current required to initiate a spike.
-- *Spike current:* The current of the action potential, i.e., the current crossing the membrane at a spot as a spike passes, in mA. Code variable: <span class = "code_variable">I_spike</span>.
-- *Coupling scaling factor* A unit-free scalar value controlling how power used in synaptic transmission compares to that used in spiking. Code variable: <span class = "code_variable">coupling_scaling_factor</span>.
-- *Spike potential:* The value $v_\mathrm{spike}$ of an action potential, in mV. Code variable: <span class = "code_variable">spike_potential</span>.
-- *Resting potential:* The potential difference $v_\mathrm{rest}$ in electrical charge between the inside and outside of the cell at rest, in mV. Code variable: <span class = "code_variable">resting_potential</span>.
-- *Threshold:* The potential difference $v_\mathrm{threshold}$ in electrical charge between the inside and outside of the cell at which an action potential is triggered, in mV. Code variable: <span class = "code_variable">threshold</span>.
+- *Spine density:* The proportion (a value between $0$ and $1$) of dendrite nodes expected to be spines. Code variable: <span class = "code_variable">spine_density</span>.
+- *Axon target:* The kind of nodes onto which the cell's axons can synapse. Possible values include "spine", "dendrite_shaft", "soma", and "axon_shaft". Code variable <span class = "code_variable">axon_target</span>. 
 
-Notice that these are mostly biophysically interpretable parameters which can be set with, or tested against, experimental data. 
+<h4>Membrane parameters</h4>
+
+- *Potential bound:* The maximum absolute value $v_\mathrm{bound}$ of potential difference in electrical charge between the inside and outside of the cell, in mV. Code variable <span class = "code_variable">v_bound</span>. Theoretically, we assume this is the absolute value of the rest voltage, plus a little bit. What matters is that $-v_\mathrm{bound} \leq v \leq v_\mathrm{bound}$ for all possible membrane potentials $v$. For example, $75$mV is a reasonable value. 
+- *Metabolic energy derivative bound:* Bound $\partial I_\mathrm{influx}$ on the absolute value of the derivative $\partial\mathcal{H}/\partial v$ of metabolic energy $\mathcal{H}$ with respect to potential $v$, such that $\partial I_\mathrm{influx} \geq |\partial\mathcal{H}/\partial v|$, in mA. Code variable: <span class = "code_variable">dHdv_bound</span>. Theoretically, we assume that this value is approximately the change in current when $v$ crosses the spike threshold, which we assume is approximately the spike current. In practice, we add 5\%. 
+- *Spike current:* The current of the action potential, i.e., the total current crossing the membrane over the entire area of the cell during a spike, in mA. Code variable: <span class = "code_variable">I_spike</span>. As a starting point, we assume this is $10^{-3}$mA, i.e., one mico amp.
+- *Spike potential:* The value $v_\mathrm{spike}$ of an action potential, in mV. Code variable: <span class = "code_variable">spike_potential</span>. The default is $35$mV. 
+- *Resting potential:* The potential difference $v_\mathrm{rest}$ in electrical charge between the inside and outside of the cell at rest, in mV. Code variable: <span class = "code_variable">resting_potential</span>. The default is $-70$mV.
+- *Threshold:* The potential difference $v_\mathrm{threshold}$ in electrical charge between the inside and outside of the cell at which an action potential is triggered, in mV. Code variable: <span class = "code_variable">threshold</span>. The default is $-55$mV.
+
+<h4>Parameters for process size and structure</h4>
+
+- *Axon branch count:* An integer value giving the expected number of nodes per branch in the axon arbor. Code variable: <span class = "code_variable">axon_branch_count</span>.
+- *Dendrite branch count:* Same as axon branch count, but for dendrites. Code variable: <span class = "code_variable">dendrite_branch_count</span>.
+- *Branch independence:* The expected proportion (a value between $0$ and $1$) of branches which connect directly to the soma, with $1$ meaning all branches connect directly to the soma and zero meaning that all branches connect to the soma from a single segment. Code variable: <span class = "code_variable">branch_independence</span>.
+- *Branch spread:* Scaled value between $0$ and $1$ controlling the tendency of arbor branches to repel away from the soma with $1$ meaning a straight line away from the soma and $0$ meaning no bias with respect to soma position. Code variable: <span class = "code_variable">branch_spread</span>.
+
+<h4>Apical dendrite parameters</h4>
+
+- *Apical target layer:* Character string giving the name of the layer to which apical dendrite is expected to grow, if any; if none, "none". Intended for modeling the circuit topology of pyramidal neurons. Code variable: <span class = "code_variable">apical_target_layer</span>.
+
+<h3>Synaptic conductance</h3>
+
+There is one important cell-type property not controlled directly through the <span class = "code_variable">cell_type</span> structure: synaptic conductance. Synaptic conductance is the ease with which current flows into a synapse, and thus represents synaptic "strength". Of course, the strength of any one synapse is determined by a history of activity -- or, from a modeling point of view, training. However, these values need to be initialized in some way and we can expect certain combinations of cell type, layer, and projection to be biased in certain directions for synaptic strength. These initialization biases are controlled through arguments in the <span class = "function">set.network.structure</span> function and the <span class = "code_variable">load.projection.into.motif</span> function. The former controls synaptic conductance biases within nodes (local connections) and the latter controls synaptic conductance biases between nodes (meso-scale connections). In both cases, the value is specified in millisiemens (mS) and is set to $10^{-10}$mS by default, which is equivalent to a $5$ pico amp synaptic current at a $50$mV potential.
+
+<h3>Modifying cell types</h3>
 
 Cell types themselves are technically a C++ <span class = "code_variable">struc</span>. Defined cell types are stored in an unordered map in C++ that's accessible via three R wrapper functions. The function <span class = "function">add.cell.type</span> can be used to add a new cell type to the map. The function <span class = "function">modify.cell.type</span> can be used to modify an existing cell type. The function <span class = "function">fetch.cell.type.params</span> will return the parameters of the named cell type as an R list. 
+
+<h3>Principal neurons</h3>
+
+The DACx package includes a special cell type, "principal", which can be called as well. This call doesn't refer to any predefined cell type, but instead triggers a layer-dependent lookup of known principal cell types. The term "principal" simply means the primary cell type in a region. We can see known principal cell types by calling the <span class = "code_variable">principal.neurons</span> function: 
+
+```{r print_principal_neurons}
+principal.neurons(print_nicely = TRUE)
+```
+
+As can be seen, spiny stellates are the principal cell for layer 4. We have used them for this demonstration because, unlike pyramidal cells, they do not extend apical dendrites out of their home layer. 
 
 <h2>SGT simulations</h2>
 
@@ -114,16 +184,14 @@ The function <span class = "function">run.SGT</span> runs a simulation of spikin
 
   1. <span class = "code_variable">network</span>: A network created by the <span class = "function">new.network</span> function and structured by the <span class = "function">set.network.structure</span> function.
   2. <span class = "code_variable">stimulus_current_matrix</span>: A matrix of input currents (in mA) over the duration of the simulation, rows representing neurons and columns representing time bins. 
-  3. <span class = "code_variable">dt</span>: Time-step size for simulation, in ms. Default is $1\mathrm{e}-3$.
+  3. <span class = "code_variable">dt</span>: Time-step size for simulation, in ms. Default is $10^{-3}$.
 
 The number of columns of <span class = "code_variable">stimulus_current_matrix</span> determines the length of the simulation. In essence, the function <span class = "function">run.SGT</span> answers the question: How would the network respond to this stimulus current over this amount of time?
 
-For example, let's create a $50$ms simulation for the node we created above. To fashion a stimulus current matrix, we first need to figure out how many neurons are in our single-node network: 
+For example, let's create a $50$ms simulation for the node we created above. From the above call to <span class = "code_variable">fetch.network.components</span>, we know there are $25$ neurons in our network. We can load this value directly from the function output:
 
-```{r find_n_neurons}
-cortical.patch.comps <- cortical.patch$fetch_network_components()
-n_neurons <- cortical.patch.comps$n_neurons
-cat("Number of neurons in the network:", n_neurons)
+```{r load_n_neurons}
+n_neurons <- ntw$n_neurons
 ```
 
 This gives us the number of rows needed in our stimulus current matrix. For the number of columns, we need to know the number of time steps required: 
@@ -135,7 +203,7 @@ n_steps <- stim_time_ms/dt
 cat("Number of time steps in the simulation:", n_steps)
 ```
 
-Now, suppose we want our simulation to involve a $20$ms input current to just the principal neurons, starting at $10$ms. We can compute the initial and final time steps of this current, plus a mask for the principal neurons, as follows: 
+Now, suppose we want our simulation to involve a $20$ms input current to just the spiny stellates, starting at $10$ms. We can compute the initial and final time steps of this current, plus a mask for the spiny stellates, as follows: 
 
 ```{r find_time_steps_and_principals}
 # Set stimulus start and length
@@ -146,22 +214,22 @@ stim_length <- stim_length_ms / dt
 stim_start <- stim_start_ms / dt 
 stim_end <- stim_start + stim_length - 1
 # Find mask for principal neurons
-principal_mask <- cortical.patch.comps$neuron_type_name == "principal"
+spiny_stellate_mask <- ntw$neuron_type_name == "spiny_stellate"
 ```
 
-A final question is how much current to apply. For this simulation, we'll use a constant current of one pico amp ($1\mathrm{e}-9$mA) to the principal neurons during the stimulus period. It might be natural to leave the input current at zero outside of the stimulus period, but there is endogenous background activity even without exogenous input to the network. So, we'll specify a baseline input current of $0.1$ pico amps ($1\mathrm{e}-10$mA) to all neurons throughout the entire stimulation period: 
+A final question is how much current to apply. For this simulation, we'll use a constant current of $100$ pico amp ($100\times 10^{-9}$mA) to the spiny stellates during the stimulus period. It might be natural to leave the input current at zero outside of the stimulus period, but there is endogenous background activity even without exogenous input to the network. So, we'll specify a baseline input current of $10$ pico amps ($10\times 10^{-9}$mA) to all neurons throughout the entire stimulation period: 
 
 ```{r set_up_stimulus_current_matrix}
-rest_current <- 1e-10 # 0.1 pico amp
+rest_current <- rnorm(n_neurons * n_steps, 0, 10 * 1e-9) # 10 pico amp expected
 stimulus_current_matrix <- matrix(rest_current, nrow = n_neurons, ncol = n_steps)
-stimulus_current_matrix[principal_mask, stim_start:stim_end] <- 1e-9 # one pico amp
+stimulus_current_matrix[spiny_stellate_mask, stim_start:stim_end] <- stimulus_current_matrix[spiny_stellate_mask, stim_start:stim_end] + 100 * 1e-9 # ten pico amps
 ```
 
 With the stimulus current matrix in hand, we can run the simulation:
 
 ```{r run_SGT_simulation}
 sim_results <- run.SGT(
-    cortical.patch,
+    network.node,
     stimulus_current_matrix,
     dt
   )
@@ -184,19 +252,17 @@ print(head(sim_results$spike_counts))
 The neurons package also includes the function <span class = "function">plot.network.traces</span>, which takes a network object with a trace matrix and produces a plot of the traces, putting all neurons of the same type together. 
 
 ```{r}
-plot.network.traces(cortical.patch)
+plot.network.traces(network.node)
 ```
 
 We can manually add the start and end of the stimulus period to the plot with vertical lines:
 
 ```{r traces_with_stim}
-plt <- plot.network.traces(cortical.patch, return_plot = TRUE)  +
+plt <- plot.network.traces(network.node, return_plot = TRUE)  +
   ggplot2::geom_vline(xintercept = stim_end * dt, linewidth = 1) +
   ggplot2::geom_vline(xintercept = stim_start * dt, linewidth = 1)
 print(plt)
 ```
-
-Notice how there's spontaneous spiking throughout the simulation time, not just during the stimulus period. This is both because of the rest current being injected into all cells, and because of recurrent connections between the cells. Also note that the cells are not all firing synchronously. This is both because of the stochastic connections and connection weights between cells, but also (and more importantly, for a network this small) because of the temporal delay from spatial distance between neurons. Finally, notice the different spiking behaviors. The principal neurons largly fire in a tonic, i.e., rhythmic manner, while the inhibitory interneurons (the PV and SST) fire in bursts. This difference is directly due to the difference in temporal modulation amplitude: An amplitude of zero leads to no bursting, while positive non-zero amplitude creates a bursting pattern. 
 
 <h2>Mathematics of SGT models</h2>
 
@@ -204,7 +270,7 @@ GT models are hybrids, in so far as they directly model *subthreshold* membrane 
 
 Suppose our network has $n$ neurons $N$. We want to run a simulation of the membrane potential $v(t)$ of each neuron $N$ over time $t$. Naturally, the system evolves so that: 
 \[v(t+1) = v(t) + \left.\frac{\partial v}{\partial t}\right|_{t+1}\]
-The hard part, of course, is to compute $\partial v/\partial t$. That is, how do membrane potentials evolve over time? 
+The hard part, of course, is to compute $\partial v/\partial t$. That is, how do membrane potentials evolve over time? [Gangopadhyay and Chakrabartty](https://doi.org/10.3389/fnins.2020.00425) answered this question by applying the [Baum-Eagon inequality](https://doi.org/10.1090/S0002-9904-1967-11751-8) to $\mathcal{H}$ on $v$ to derive $\partial v/\partial t$ as a growth-transform. This amounts to assuming that net metabolic power $\mathcal{H}$ is minimized over time. In this section, we will work directly from this minimization assumption and use a biologically inspired interpretation of the variables. 
 
 <h3>Power minimization</h3>
 

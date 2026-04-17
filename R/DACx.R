@@ -143,7 +143,6 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 #' @param temporal_modulation_timeconstant Temporal modulation time (in ms) step for each neuron type. Default value is 1e0.
 #' @param temporal_modulation_amplitude Temporal modulation time (in ms) cutoff for each neuron type. Default value is 5e-3.
 #' @param transmission_velocity Transmission velocity (in microns/ms) for each neuron type. Default value is 30e3.
-#' @param coupling_scaling_factor Controls how energy used in synaptic transmission compares to that used in spiking. Default value is 1e-7, meaning that synaptic transmission uses 0.00001 percent of the energy used in spiking.
 #' @param spine_density Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0. 
 #' @param axon_target Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".
 #' @param v_bound Potential bound, such that -v_bound <= v_traces <= v_bound, in unit_potential (mV), for each neuron in the network, based on its type. Default value is 85.0.
@@ -166,7 +165,6 @@ add.cell.type <- function(
     temporal_modulation_timeconstant = 1e0,
     temporal_modulation_amplitude = 5e-3,
     transmission_velocity = 30e3,
-    coupling_scaling_factor = 1e-7,
     spine_density = 0.0,
     axon_target = "dendrite_shaft",
     v_bound = 85.0,
@@ -188,7 +186,6 @@ add.cell.type <- function(
       temporal_modulation_timeconstant, 
       temporal_modulation_amplitude, 
       transmission_velocity, 
-      coupling_scaling_factor, 
       spine_density,
       axon_target,
       v_bound, 
@@ -215,7 +212,6 @@ add.cell.type <- function(
 #' @param temporal_modulation_timeconstant Temporal modulation time (in ms) step for each neuron type
 #' @param temporal_modulation_amplitude Temporal modulation time (in ms) cutoff for each neuron type
 #' @param transmission_velocity Transmission velocity (in microns/ms) for each neuron type
-#' @param coupling_scaling_factor Controls how energy used in synaptic transmission compares to that used in spiking. Default value is 1e-7, meaning that synaptic transmission uses 0.00001 percent of the energy used in spiking.
 #' @param axon_target Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".
 #' @param spine_density Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0. 
 #' @param v_bound Potential bound, such that -v_bound <= v_traces <= v_bound, in mV, for each neuron in the network, based on its type
@@ -239,7 +235,6 @@ modify.cell.type <- function(
     temporal_modulation_timeconstant = NULL,
     temporal_modulation_amplitude = NULL,
     transmission_velocity = NULL,
-    coupling_scaling_factor = NULL,
     spine_density = NULL,
     axon_target = NULL, 
     v_bound = NULL,
@@ -260,7 +255,6 @@ modify.cell.type <- function(
     if (is.null(temporal_modulation_timeconstant)) temporal_modulation_timeconstant <- existing_params$temporal_modulation_timeconstant
     if (is.null(temporal_modulation_amplitude)) temporal_modulation_amplitude <- existing_params$temporal_modulation_amplitude
     if (is.null(transmission_velocity)) transmission_velocity <- existing_params$transmission_velocity
-    if (is.null(coupling_scaling_factor)) coupling_scaling_factor <- existing_params$coupling_scaling_factor
     if (is.null(spine_density)) spine_density <- existing_params$spine_density
     if (is.null(axon_target)) axon_target <- existing_params$axon_target
     if (is.null(v_bound)) v_bound <- existing_params$v_bound
@@ -281,7 +275,6 @@ modify.cell.type <- function(
       temporal_modulation_timeconstant, 
       temporal_modulation_amplitude, 
       transmission_velocity, 
-      coupling_scaling_factor, 
       spine_density,
       axon_target,
       v_bound, 
@@ -309,7 +302,7 @@ modify.cell.type <- function(
 #' @export
 principal.neurons <- function(print_nicely = FALSE) {
     p_list <- list(
-      layer = "pyramidal",
+      layer = "spiny_stellate",
       L1 = "Neurogliaform_cell",
       L2 = "pyramidal",
       L3 = "pyramidal",
@@ -335,7 +328,7 @@ principal.neurons <- function(print_nicely = FALSE) {
 #' @param motif Motif object into which to load the projection.
 #' @param presynaptic_layer Character string giving layer of presynaptic neuron, e.g. "L1", "L2", "L3", "L4", etc.
 #' @param postsynaptic_layer Character string, or vector of character strings, giving layer of postsynaptic neuron.
-#' @param connection_strength Numeric giving overall strength of the projection (default: 0.5).
+#' @param projection_conductance Numeric giving overall strength of the projection, as synaptic conductance in units of millisiemens (default: 1e-10).
 #' @param presynaptic_type Character string giving type of presynaptic neuron, e.g. "excitatory", "inhibitory", etc. (default: "principal").
 #' @param postsynaptic_type Character string giving type of postsynaptic neuron, e.g. "excitatory", "inhibitory", etc. (default: "principal").
 #' @param max_col_shift_up Maximum number of columns upwards (increasing columnar indexes) that the projection can reach (default: 0, should be positive integer).
@@ -346,7 +339,7 @@ load.projection.into.motif <- function(
     motif,
     presynaptic_layer,
     postsynaptic_layer,
-    connection_strength = 0.5,
+    projection_conductance = 1e-10,
     presynaptic_type = "principal",
     postsynaptic_type = "principal",
     max_col_shift_up = 0,
@@ -386,7 +379,7 @@ load.projection.into.motif <- function(
         proj,
         as.integer(max_col_shift_up),
         as.integer(max_col_shift_down),
-        connection_strength
+        projection_conductance
       )
     }
     
@@ -413,7 +406,7 @@ load.projection.into.motif <- function(
 #' @param column_separation_factor Numeric giving mean distance between columns as a fraction of column diameter (default: 2.5).
 #' @param patch_separation_factor Numeric giving mean distance between network patches as a fraction of column diameter (default: 2.5). 
 #' @param neurons_per_node Matrix giving number of neurons of each type per node in each layer; dimensions must match n_layers (rows) and length of neuron_types (columns).
-#' @param recurrence_factors List of matrices giving local recurrence factors for each layer; each matrix must have dimensions matching length of neuron_types (rows and columns).
+#' @param local_synaptic_conductance List (one entry per layer) of matrices giving synaptic conductance in millisiemens for local connections by cell-type; each matrix must have dimensions matching length of neuron_types (rows and columns).
 #' @param synaptic_neighborhood Numeric giving the radius (in microns) within which an axon node will trigger a synapse when near a dendrite node (default: 10.0).
 #' @return The updated network object with the specified structure and local nodes generated.
 #' @export
@@ -430,11 +423,11 @@ set.network.structure <- function(
     layer_separation_factor = 2.5,
     column_separation_factor = 2.5,
     patch_separation_factor = 2.5,
-    neurons_per_node = 30,
-    recurrence_factors = 0.5,
+    neurons_per_node = 10,
+    local_synaptic_conductance = 1e-10,
     synaptic_neighborhood = 10.0
   ) {
-   
+    
     # Check layer names
     if (length(layer_names) != n_layers) {
       if (n_layers > length(layer_names) && length(layer_names) == 1) {
@@ -479,14 +472,14 @@ set.network.structure <- function(
         }
       }
       
-      # ... remake recurrence_factors
-      if (!("list" %in% class(recurrence_factors))) {
+      # ... remake local_synaptic_conductance
+      if (!("list" %in% class(local_synaptic_conductance))) {
         
         # Given a single matrix or numeric value
-        if ("matrix" %in% class(recurrence_factors) || "numeric" %in% class(recurrence_factors)) {
-          rm <- as.matrix(recurrence_factors)
+        if ("matrix" %in% class(local_synaptic_conductance) || "numeric" %in% class(local_synaptic_conductance)) {
+          rm <- as.matrix(local_synaptic_conductance)
           rm_new <- matrix(0, nrow = n_t, ncol = n_t)
-          recurrence_factors <- list()
+          local_synaptic_conductance <- list()
           for (l in seq_len(n_layers)) {
             if (length(rm) != n_types_old^2) {
               if (length(rm) == 1) {
@@ -500,7 +493,7 @@ set.network.structure <- function(
                   }
                 }
               } else {
-                stop("Dimensions of recurrence_factors matrix must match length of neuron_types, or be a single numeric scalar.")
+                stop("Dimensions of local_synaptic_conductance matrix must match length of neuron_types, or be a single numeric scalar.")
               }
             } else {
               # Remake the matrix
@@ -513,27 +506,27 @@ set.network.structure <- function(
                 }
               }
             }
-            recurrence_factors[[l]] <- rm_new
+            local_synaptic_conductance[[l]] <- rm_new
           }
           
         } else {
-          stop("recurrence_factors must be a list of matrices, a single matrix, or a single numeric scalar.")
+          stop("local_synaptic_conductance must be a list of matrices, a single matrix, or a single numeric scalar.")
         }
         
       } else { 
         
         # Given a list (... hopefully of matrices)
-        for (l in seq_along(recurrence_factors)) {
-          rm <- recurrence_factors[[l]]
+        for (l in seq_along(local_synaptic_conductance)) {
+          rm <- local_synaptic_conductance[[l]]
           rm_new <- matrix(0, nrow = n_t, ncol = n_t)
           # Check if we have a matrix
           if (length(dim(rm)) != 2) {
-            stop(paste0("recurrence_factors[[", l, "]] must be a matrix."))
+            stop(paste0("local_synaptic_conductance[[", l, "]] must be a matrix."))
           }
           # Check dimensions 
           if (ncol(rm) != n_types_old) {
             if (ncol(rm) != nrow(rm)) {
-              stop(paste0("Dimensions of recurrence_factors[[", l, "]] must match length of neuron_types."))
+              stop(paste0("Dimensions of local_synaptic_conductance[[", l, "]] must match length of neuron_types."))
             }
           }
           # Set new recurrence matrix 
@@ -545,13 +538,13 @@ set.network.structure <- function(
               rm_new[c((n_p + 1):n_t), t] <- rm[-principal_idx, principal_idx]
             }
           }
-          recurrence_factors[[l]] <- rm_new
+          local_synaptic_conductance[[l]] <- rm_new
         }
         
       }
       
     }
-    
+   
     # Grab number of neuron types
     n_neuron_types <- length(neuron_types)
     
@@ -578,10 +571,10 @@ set.network.structure <- function(
       stop("Dimensions of neurons_per_node must match n_layers and length of neuron_types.")
     }
     
-    # Check recurrence factors
-    if (!("list" %in% class(recurrence_factors))) {
-      if ("matrix" %in% class(recurrence_factors) || "numeric" %in% class(recurrence_factors)) {
-        rm <- as.matrix(recurrence_factors)
+    # Check conductance values
+    if (!("list" %in% class(local_synaptic_conductance))) {
+      if ("matrix" %in% class(local_synaptic_conductance) || "numeric" %in% class(local_synaptic_conductance)) {
+        rm <- as.matrix(local_synaptic_conductance)
         if (length(rm) != n_neuron_types^2) {
           if (length(rm) == 1) {
             rm <- matrix(
@@ -590,24 +583,24 @@ set.network.structure <- function(
               ncol = n_neuron_types
             )
           } else {
-            stop("Dimensions of recurrence_factors matrix must match length of neuron_types, or be a single numeric scalar.")
+            stop("Dimensions of local_synaptic_conductance matrix must match length of neuron_types, or be a single numeric scalar.")
           }
         }
-        recurrence_factors <- list()
-        for (l in seq_len(n_layers)) recurrence_factors[[l]] <- rm
+        local_synaptic_conductance <- list()
+        for (l in seq_len(n_layers)) local_synaptic_conductance[[l]] <- rm
       } else {
-        stop("recurrence_factors must be a list of matrices, a single matrix, or a single numeric scalar.")
+        stop("local_synaptic_conductance must be a list of matrices, a single matrix, or a single numeric scalar.")
       }
-    } else if (length(recurrence_factors) != n_layers) {
-      stop("Length of recurrence_factors list must match n_layers.") 
+    } else if (length(local_synaptic_conductance) != n_layers) {
+      stop("Length of local_synaptic_conductance list must match n_layers.") 
     } else {
       for (l in seq_len(n_layers)) {
-        rf_dim <- dim(recurrence_factors[[l]])
-        if (length(rf_dim) != 2) {
-          stop(paste0("recurrence_factors[[", l, "]] must be a matrix."))
+        sc_dim <- dim(local_synaptic_conductance[[l]])
+        if (length(sc_dim) != 2) {
+          stop(paste0("local_synaptic_conductance[[", l, "]] must be a matrix."))
         }
-        if (any(rf_dim != c(n_neuron_types, n_neuron_types))) {
-          stop(paste0("Dimensions of recurrence_factors[[", l, "]] must match length of neuron_types."))
+        if (any(sc_dim != c(n_neuron_types, n_neuron_types))) {
+          stop(paste0("Dimensions of local_synaptic_conductance[[", l, "]] must match length of neuron_types."))
         }
       }
     }
@@ -626,12 +619,14 @@ set.network.structure <- function(
       column_separation_factor,
       patch_separation_factor,
       neurons_per_node,
-      recurrence_factors,
+      local_synaptic_conductance,
       synaptic_neighborhood
     )
+    
     # Make local nodes and return
     network$make_local_nodes()
     return(network)
+    
   }
 
 #' Fetch network components

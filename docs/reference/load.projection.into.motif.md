@@ -10,7 +10,7 @@ load.projection.into.motif(
   motif,
   presynaptic_layer,
   postsynaptic_layer,
-  connection_strength = 0.5,
+  projection_conductance = 1e-10,
   presynaptic_type = "principal",
   postsynaptic_type = "principal",
   max_col_shift_up = 0,
@@ -34,9 +34,10 @@ load.projection.into.motif(
   Character string, or vector of character strings, giving layer of
   postsynaptic neuron.
 
-- connection_strength:
+- projection_conductance:
 
-  Numeric giving overall strength of the projection (default: 0.5).
+  Numeric giving overall strength of the projection, as synaptic
+  conductance in units of millisiemens (default: 1e-10).
 
 - presynaptic_type:
 
