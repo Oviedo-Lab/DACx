@@ -11,8 +11,8 @@ date: "`r Sys.Date()`"
 
 ```bash
 rm -f src/*.o src/*.so
-rm -rf neurons.Rcheck
-rm -f neurons_*.tar.gz
+rm -rf DACx.Rcheck
+rm -f DACx_*.tar.gz
 ./build_install.sh
 ```
 
