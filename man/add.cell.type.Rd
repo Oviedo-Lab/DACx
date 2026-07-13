@@ -43,7 +43,7 @@ add.cell.type(
 
 \item{axon_target}{Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".}
 
-\item{v_bound}{Potential bound, such that -v_bound <= v_traces <= v_bound, in unit_potential (mV), for each neuron in the network, based on its type. Default value is 85.0.}
+\item{v_bound}{Potential bound, such that -v_bound <= v_traces <= v_bound, in the implicit potential units of the network (e.g., mV), for each neuron in the network, based on its type. Default value is 85.0.}
 
 \item{dHdv_bound}{Bound on derivative of metabolic energy wrt potential, such that dHdv_bound > abs(dHdv), in mA, for each neuron in the network, based on its type. Default value is 1.05e-6.}
 

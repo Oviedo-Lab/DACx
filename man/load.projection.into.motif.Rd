@@ -22,7 +22,7 @@ load.projection.into.motif(
 
 \item{postsynaptic_layer}{Character string, or vector of character strings, giving layer of postsynaptic neuron.}
 
-\item{projection_conductance}{Numeric giving overall strength of the projection, as synaptic conductance in units of millisiemens (default: 1e-10).}
+\item{projection_conductance}{Numeric giving overall strength of the projection, as synaptic conductance (default: 1e-10, which assumes implicit units of millisiemens).}
 
 \item{presynaptic_type}{Character string giving type of presynaptic neuron, e.g. "excitatory", "inhibitory", etc. (default: "principal").}
 

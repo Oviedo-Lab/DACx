@@ -274,8 +274,8 @@ IntegerMatrix to_IntMat(
 // Membrane potential barrier function
 VectorXd v_barrier(
     const VectorXd& v_input,        // Column vector of membrane potentials for a network of neurons at one time step
-    const VectorXd& threshold,      // Spike threshold, in unit_potential, for each neuron in network
-    const VectorXd& I_out           // Spike current, in unit_current, for each neuron in network
+    const VectorXd& threshold,      // Spike threshold, in the implicit potential units of the network (e.g., mV), for each neuron in network
+    const VectorXd& I_out           // Spike current, in the implicit current units of the network (e.g., mA), for each neuron in network
   ) {
     // Initialize output vector
     VectorXd output(v_input.size());
@@ -314,12 +314,12 @@ MatrixXd lagged_traces(
 
 // Gradient of total dissipated metabolic power in network, w.r.t. membrane potential
 VectorXd network_power_dissipation_gradient(
-    const MatrixXd& v_traces_lagged,  // n_neuron x n_neuron matrix giving membrane potentials, in unit_potential, with each column j giving the membrane potentials of all neurons as seen by neuron j at this time step
-    const VectorXd& v_traces,         // n_neuron x 1 matrix (column vector) of membrane potentials, in unit_potential, from which to calculate derivative
-    const VectorXd& stimulus_current, // n_neuron x 1 matrix (column vector) of stimulus currents, in unit_current, from which to calculate derivative
+    const MatrixXd& v_traces_lagged,  // n_neuron x n_neuron matrix giving membrane potentials, in the implicit potential units of the network (e.g., mV), with each column j giving the membrane potentials of all neurons as seen by neuron j at this time step
+    const VectorXd& v_traces,         // n_neuron x 1 matrix (column vector) of membrane potentials, in the implicit potential units of the network (e.g., mV), from which to calculate derivative
+    const VectorXd& stimulus_current, // n_neuron x 1 matrix (column vector) of stimulus currents, in the implicit current units of the network (e.g., mA), from which to calculate derivative
     const MatrixXd& transconductance, // n_neuron x n_neuron transconductance matrix, giving connections between neurons
-    const VectorXd& I_spike,          // spike current, in unit_current
-    const VectorXd& threshold         // spike threshold, in unit_potential
+    const VectorXd& I_spike,          // spike current, in the implicit current units of the network (e.g., mA)
+    const VectorXd& threshold         // spike threshold, in the implicit potential units of the network (e.g., mV)
   ) {  
     // Change dH in total dissipated metabolic power in network (a current) from small change dv in membrane potential, 
     //  given the membrane potential at time step n, for each neuron in network
@@ -399,20 +399,20 @@ std::unordered_map<std::string, cell_type> cell_types;
 void init_known_celltypes() {
   // Defaults ...
   // Membrane kinetics (burst control)
-  double temporal_modulation_bias = 10;        // temporal modulation time (in unit_time) bias for each neuron type
-  double temporal_modulation_timeconstant = 10;       // temporal modulation time (in unit_time) step for each neuron type
-  double temporal_modulation_amplitude = 10;          // temporal modulation time (in unit_time) cutoff for each neuron type
+  double temporal_modulation_bias = 10;        // temporal modulation time (units left implicit, but matter for interpretion) bias for each neuron type
+  double temporal_modulation_timeconstant = 10;       // temporal modulation time (units left implicit, but matter for interpretion) step for each neuron type
+  double temporal_modulation_amplitude = 10;          // temporal modulation time (units left implicit, but matter for interpretion) cutoff for each neuron type
   // Intercell transmission
   double transmission_velocity = 30e3;         // microns/ms ... 30 m/s = 30e6 micron/s = 30e6 micron/ 1e3 ms = 30e3 micron/ms
   double spine_density = 0.0;                  // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
   std::string axon_target = "dendrite_shaft";  // "spine", "dendrite_shaft", "soma", and "axon_shaft"
   // Membrane characteristics
-  double v_bound = 75.0;                       // potential bound, in unit_potential
-  double dHdv_bound = 1.05e-3;                 // bound the derivative of metabolic energy wrt potential, in unit_current
-  double I_spike = 1e-3;                       // spike current, in unit_current (by default, unit_current is a mA, so this is 1 micro amp)
-  double spike_potential = 35.0;               // Magnitude of each spike, in unit_potential
-  double resting_potential = -70.0;            // resting potential, in unit_potential
-  double threshold = -55.0;                    // spike threshold, in unit_potential
+  double v_bound = 75.0;                       // potential bound, in the implicit potential units of the network (e.g., mV)
+  double dHdv_bound = 1.05e-3;                 // bound the derivative of metabolic energy wrt potential, in the implicit current units of the network (e.g., mA)
+  double I_spike = 1e-3;                       // spike current, in the implicit current units of the network (default of 1e-3 is 1 micro amp, assuming implicit units of mA)
+  double spike_potential = 35.0;               // Magnitude of each spike, in the implicit potential units of the network (e.g., mV)
+  double resting_potential = -70.0;            // resting potential, in the implicit potential units of the network (e.g., mV)
+  double threshold = -55.0;                    // spike threshold, in the implicit potential units of the network (e.g., mV)
   // Process size and structure parameters
   int axon_branch_count = 10;                  // Sets n_branches in make_arbor, in terms of expected number of branches per process length
   int dendrite_branch_count = 10;              // Sets n_branches in make_arbor, in terms of expected number of branches per process length
@@ -574,12 +574,12 @@ void add_cell_type(
     const double& transmission_velocity,
     const double& spine_density,                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
     const std::string& axon_target,             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
-    const double& v_bound,                      // potential bound, in unit_potential
-    const double& dHdv_bound,                   // bound on dHdv, in unit_current
-    const double& I_spike,                      // spike current, in unit_current
-    const double& spike_potential,              // Magnitude of each spike, in unit_potential
-    const double& resting_potential,            // resting potential, in unit_potential
-    const double& threshold,                    // spike threshold, in unit_potential
+    const double& v_bound,                      // potential bound, in the implicit potential units of the network (e.g., mV)
+    const double& dHdv_bound,                   // bound on dHdv, in in the implicit current units of the network (e.g., mA)
+    const double& I_spike,                      // spike current, in in the implicit current units of the network (e.g., mA)
+    const double& spike_potential,              // Magnitude of each spike, in the implicit potential units of the network (e.g., mV)
+    const double& resting_potential,            // resting potential, in the implicit potential units of the network (e.g., mV)
+    const double& threshold,                    // spike threshold, in the implicit potential units of the network (e.g., mV)
     const int& axon_branch_count,               // Expected number of axon branches 
     const int& dendrite_branch_count,           // Expected number of dendrite branches 
     const double& branch_independence,          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
@@ -617,12 +617,12 @@ void modify_cell_type(
     const double& transmission_velocity,
     const double& spine_density,                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
     const std::string& axon_target,             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
-    const double& v_bound,                      // potential bound, in unit_potential
-    const double& dHdv_bound,                   // bound on dHdv, in unit_current
-    const double& I_spike,                      // spike current, in unit_current
-    const double& spike_potential,              // Magnitude of each spike, in unit_potential
-    const double& resting_potential,            // resting potential, in unit_potential
-    const double& threshold,                    // spike threshold, in unit_potential
+    const double& v_bound,                      // potential bound, in in the implicit potential units of the network (e.g., mV)
+    const double& dHdv_bound,                   // bound on dHdv, in in the implicit current units of the network (e.g., mA)
+    const double& I_spike,                      // spike current, in in the implicit current units of the network (e.g., mA)
+    const double& spike_potential,              // Magnitude of each spike, in in the implicit potential units of the network (e.g., mV)
+    const double& resting_potential,            // resting potential, in in the implicit potential units of the network (e.g., mV)
+    const double& threshold,                    // spike threshold, in in the implicit potential units of the network (e.g., mV)
     const int& axon_branch_count,               // Expected number of axon branches 
     const int& dendrite_branch_count,           // Expected number of dendrite branches 
     const double& branch_independence,          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
@@ -670,40 +670,7 @@ motif::motif(
   }
 
 // Constructor, network
-network::network(
-    const std::string network_name, 
-    const std::string recording_name, 
-    const std::string type, 
-    const std::string genotype,
-    const std::string sex,
-    const std::string hemi,
-    const std::string region,
-    const std::string age,
-    const std::string unit_time, 
-    const std::string unit_sample_rate, 
-    const std::string unit_potential, 
-    const std::string unit_current,
-    const std::string unit_conductance,
-    const std::string unit_distance,
-    const double t_per_bin, 
-    const double sample_rate
-  ) : network_name(network_name), 
-    recording_name(recording_name), 
-    type(type), 
-    genotype(genotype),
-    sex(sex),
-    hemi(hemi), 
-    region(region),
-    age(age),
-    unit_time(unit_time), 
-    unit_sample_rate(unit_sample_rate), 
-    unit_potential(unit_potential), 
-    unit_current(unit_current),
-    unit_conductance(unit_conductance),
-    unit_distance(unit_distance),
-    t_per_bin(t_per_bin), 
-    sample_rate(sample_rate)
-  { 
+network::network() { 
       // No initialization operations
   }
 
@@ -782,8 +749,8 @@ void network::set_network_structure(
     
     // Set network components
     n_neuron_types = neuron_types.size();
-    int n_nodes = n_layers * n_columns * n_patches;
-    n_neurons = 0; // Compute total number of neurons as we go
+    int n_nodes    = n_layers * n_columns * n_patches;
+    n_neurons      = 0; // Compute total number of neurons as we go
     node_range_ends.assign(n_nodes, 0);
     node_coordinates_spatial.resize(n_nodes, 3);
     std::vector<double> neuron_temporal_modulation_bias;
@@ -796,7 +763,7 @@ void network::set_network_structure(
           int node_idx = p * (n_layers * n_columns) + l * n_columns + c;
           // Set global spatial coordinates for this node
           node_coordinates_spatial(node_idx, 0) = p * column_diameter/2.0 * patch_separation_factor;   // z
-          node_coordinates_spatial(node_idx, 1) = l * layer_height/2.0 * layer_separation_factor;      // y
+          node_coordinates_spatial(node_idx, 1) = l * layer_height   /2.0 * layer_separation_factor;   // y
           node_coordinates_spatial(node_idx, 2) = c * column_diameter/2.0 * column_separation_factor;  // x
           // ... was c = 0, l = 1, p = 2
           for (int t = 0; t < n_neuron_types; t++) {
@@ -821,20 +788,19 @@ void network::set_network_structure(
     }
     
     // Grab cell type parameters and convert into vectors of length n_neurons
-    v_bound = VectorXd::Zero(n_neurons);
-    dHdv_bound = VectorXd::Zero(n_neurons);
-    I_spike = VectorXd::Zero(n_neurons);
-    spike_potential = VectorXd::Zero(n_neurons);
+    v_bound           = VectorXd::Zero(n_neurons);
+    dHdv_bound        = VectorXd::Zero(n_neurons);
+    I_spike           = VectorXd::Zero(n_neurons);
+    spike_potential   = VectorXd::Zero(n_neurons);
     resting_potential = VectorXd::Zero(n_neurons);
-    threshold = VectorXd::Zero(n_neurons);
+    threshold         = VectorXd::Zero(n_neurons);
     for (int i = 0; i < n_neurons; i++) {
-      int type_idx = neuron_type_num[i];
-      v_bound(i) = neuron_types[type_idx].v_bound;
-      dHdv_bound(i) = neuron_types[type_idx].dHdv_bound;
-      I_spike(i) = neuron_types[type_idx].I_spike;
-      spike_potential(i) = neuron_types[type_idx].spike_potential;
-      resting_potential(i) = neuron_types[type_idx].resting_potential;
-      threshold(i) = neuron_types[type_idx].threshold;
+      v_bound(i)           = neuron_types[neuron_type_num[i]].v_bound;
+      dHdv_bound(i)        = neuron_types[neuron_type_num[i]].dHdv_bound;
+      I_spike(i)           = neuron_types[neuron_type_num[i]].I_spike;
+      spike_potential(i)   = neuron_types[neuron_type_num[i]].spike_potential;
+      resting_potential(i) = neuron_types[neuron_type_num[i]].resting_potential;
+      threshold(i)         = neuron_types[neuron_type_num[i]].threshold;
     }
     
     // Set length of the vectors holding cell processes
@@ -1690,7 +1656,6 @@ List network::fetch_network_components(
     for (double& v : coordinates_node_R) v++;
     
     return List::create(
-      _["network_name"] = network_name,
       _["n_neurons"] = n_neurons,
       _["n_neuron_types"] = n_neuron_types,
       _["n_nodes"] = node_range_ends.size(),
@@ -1708,15 +1673,7 @@ List network::fetch_network_components(
       _["edge_idx_by_type"] = edge_type_matrices, 
       _["edge_type_names"] = edge_type_names,
       _["sim_dt"] = sim_dt,
-      _["arbors"] = arbor_matrix, 
-      _["units"] = List::create(
-        _["time"] = unit_time,
-        _["sample_rate"] = unit_sample_rate,
-        _["potential"] = unit_potential,
-        _["current"] = unit_current,
-        _["conductance"] = unit_conductance,
-        _["distance"] = unit_distance
-      )
+      _["arbors"] = arbor_matrix
     );
    
   }
@@ -1727,7 +1684,7 @@ NumericVector network::fetch_spike_counts_R() const {return to_NumVec(spike_coun
 
 // Function to compute pairwise lags based on axon path lengths and membrane velocity
 MatrixXi network::find_pairwise_lags_by_axon(
-    double dt // time step length, in unit_time
+    double dt // time step length, in the implicit time unit of the network
   ) {
     
     // Initialize matrix to hold pairwise lags, with default value of 0 
@@ -1779,8 +1736,8 @@ MatrixXi network::find_pairwise_lags_by_axon(
 
 // Simulate network responses to input current using Growth Transform model
 void network::SGT(
-    const NumericMatrix& stimulus_current_R, // matrix of stimulus currents, in unit_current, n_neurons x n_steps
-    double               dt                  // time step length, in unit_time
+    const NumericMatrix& stimulus_current_R, // matrix of stimulus currents, in the implicit current unit of the network, n_neurons x n_steps
+    double               dt                  // time step length, in the implicit time unit of the network
   ) {
     
     /*
@@ -1839,7 +1796,7 @@ void network::SGT(
       MatrixXd v_traces_lagged = lagged_traces(t, pair_lags, v_traces);
       
       // Compute rate of change for total metabolic power dissipation in the network, w.r.t. each neuron
-      // ... units of dHdv are power/voltage, i.e., Watts/mV = mA
+      // ... units of dHdv are power/voltage, e.g., Watts/mV = mA
       // ... key idea? if a change dv in voltage in any one cell causes a spike, then H increases as well
       VectorXd dHdv = network_power_dissipation_gradient(
         v_traces_lagged,
@@ -1868,7 +1825,7 @@ void network::SGT(
       // ... normalize spike cost
       VectorXd normalized_spike_cost = spike_cost.array()/max_spike_cost.array(); 
       
-      // Multiple potential bound by normalized spike cost ... units: mV * W/W = mV
+      // Multiple potential bound by normalized spike cost ... example units: mV * W/W = mV
       VectorXd v_bound_fraction = v_bound.array() * normalized_spike_cost.array();
       
       // Set dvdt based on v_bound fraction
@@ -1921,7 +1878,7 @@ RCPP_MODULE(motif) {
 RCPP_EXPOSED_CLASS(network)
 RCPP_MODULE(network) {
   class_<network>("network")
-  .constructor<std::string, std::string, std::string, std::string, std::string, std::string, std::string, std::string, std::string, std::string, std::string, std::string, std::string, std::string, double, double>()
+  .constructor()
   .method("set_network_structure", &network::set_network_structure)
   .method("make_local_nodes", &network::make_local_nodes)
   .method("apply_circuit_motif", &network::apply_circuit_motif)

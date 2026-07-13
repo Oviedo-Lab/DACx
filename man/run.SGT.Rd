@@ -11,7 +11,7 @@ run.SGT(network, stimulus_current_matrix, dt = 0.001)
 
 \item{stimulus_current_matrix}{Matrix of input currents, with rows representing neurons and columns representing sample times.}
 
-\item{dt}{Time step length in the unit_time of the network (default: 1e-3, or 1 micosecond time steps).}
+\item{dt}{Time step length in the implicit time units of the network (default: 1e-3, which is 1 micosecond time steps, assuming an implicit time unit of ms).}
 }
 \value{
 List containing the following elements: \item{sim_traces}{Matrix of simulated spike traces for all neurons over time (neurons as rows, sample times as columns).} \item{spike_counts}{Vector of spike counts for each neuron in the network.}

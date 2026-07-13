@@ -35,11 +35,11 @@ set.network.structure(
 
 \item{patch_depth}{Integer giving the number of "patches" (n_layers x n_columns sheets) in the network.}
 
-\item{layer_height}{Numeric giving height of each layer (in units specified at network creation, default unit is microns, default value is 180.0).}
+\item{layer_height}{Numeric giving height of each layer (default value is 180.0, which assumes an implicit unit of micron).}
 
-\item{column_diameter}{Numeric giving diameter of each column (in units specified at network creation, default unit is microns, default value is 120.0).}
+\item{column_diameter}{Numeric giving diameter of each column (default value is 120.0, which assumes an implicit unit of micron).}
 
-\item{segment_length}{Numeric giving expected length of each segment in the axonal and dendritic processes of each neuron (in units specified at network creation, default unit is microns, default value is 20.0).}
+\item{segment_length}{Numeric giving expected length of each segment in the axonal and dendritic processes of each neuron (default value is 20.0, which assumes an implicit unit of micron).}
 
 \item{layer_separation_factor}{Numeric giving mean distance between layers as a fraction of layer height (default: 2.5).}
 
@@ -52,10 +52,6 @@ set.network.structure(
 \item{local_synaptic_conductance}{List (one entry per layer) of matrices giving synaptic conductance in millisiemens for local connections by cell-type; each matrix must have dimensions matching length of neuron_types (rows and columns).}
 
 \item{synaptic_neighborhood}{Numeric giving the radius (in microns) within which an axon node will trigger a synapse when near a dendrite node (default: 10.0).}
-
-\item{neuron_type_valences}{Numeric vector giving valences of each neuron type, e.g. c(1, -1) for excitatory and inhibitory neurons.}
-
-\item{neuron_type_temporal_modulation}{Numeric matrix giving temporal modulation time components (for modulation time in the unit_time of the network) for each neuron type: bias, step size, and count cutoff (rows as neuron types, columns as components). Will example a single value or a vector of length three.}
 }
 \value{
 The updated network object with the specified structure and local nodes generated.

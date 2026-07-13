@@ -1,7 +1,7 @@
 ---
 title: "Dependency licenses"
 author: "Michael Barkasi"
-date: "`r Sys.Date()`"
+date: "July 13, 2026 (v1.0)"
 ---
 
 This package uses code from the following packages, which are distributed under the licenses listed below.

@@ -4,57 +4,7 @@
 \alias{new.network}
 \title{Initialize neuron network}
 \usage{
-new.network(
-  network_name = "not_provided",
-  recording_name = "not_provided",
-  type = "Growth_Transform",
-  genotype = "WT",
-  sex = "not_provided",
-  hemi = "not_provided",
-  region = "not_provided",
-  age = "not_provided",
-  unit_time = "ms",
-  unit_sample_rate = "Hz",
-  unit_potential = "mV",
-  unit_current = "mA",
-  unit_conductance = "mS",
-  unit_distance = "micron",
-  t_per_bin = 1,
-  sample_rate = 10000
-)
-}
-\arguments{
-\item{network_name}{Character string giving name of the network (default: "not_provided").}
-
-\item{recording_name}{Character string giving name of the recording on which this network is based (default: "not_provided").}
-
-\item{type}{Character string giving type of network; "Growth_Transform" is the only option available (default: "Growth_Transform").}
-
-\item{genotype}{Character string giving genotype of the animal from which the modelled network comes, e.g. "WT", "KO", "MECP2", "transgenic", etc. (default: "not_provided").}
-
-\item{sex}{Character string giving sex of the animal from which the modelled network comes (default: "not_provided").}
-
-\item{hemi}{Character string giving hemisphere of the animal from which the modelled network comes, e.g. "left", "right" (default: "not_provided").}
-
-\item{region}{Character string giving brain region of the animal from which the modelled network comes, e.g. "V1", "M1", "CA1", "PFC", etc. (default: "not_provided").}
-
-\item{age}{Character string giving age of the animal from which the modelled network comes, e.g. "P0", "P7", "P14", "adult", etc. (default: "not_provided").}
-
-\item{unit_time}{Character string giving unit of time for spike raster or other recording data on which the model is based or being compared, e.g. "ms", "s", etc. (default: "ms").}
-
-\item{unit_sample_rate}{Character string giving unit of sample rate for recording data on which the model is based or being compared, e.g. "Hz", "kHz", etc. (default: "Hz").}
-
-\item{unit_potential}{Character string giving unit of cell-membrane potential for recording data on which the model is based or being compared, e.g. "mV", "uV", etc. (default: "mV").}
-
-\item{unit_current}{Character string giving unit of cell current for recording data on which the model is based or being compared, e.g. "mA", "uA", etc. (default: "mA").}
-
-\item{unit_conductance}{Character string giving unit of axon and dendrite conductance for recording data on which the model is based or being compared, e.g. "mS", "uS", etc. (default: "mS").}
-
-\item{unit_distance}{Character string giving unit of distance axon and dendrite measurements on which the model is based or being compared, e.g. "micron", "mm", etc. (default: "micron").}
-
-\item{t_per_bin}{Time (in above units) per bin, e.g., 1 ms per bin (default: 10.0).}
-
-\item{sample_rate}{Sample rate (in above units), e.g., 1e4 Hz (default: 1e4).}
+new.network()
 }
 \value{
 A new network object.

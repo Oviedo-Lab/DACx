@@ -52,6 +52,8 @@ plot.network(
 \item{return_plot}{Logical indicating whether to return the ggplot object or print the plot directly (default: TRUE).}
 
 \item{return_cell_arbor_idx}{Logical indicating whether to return the soma_mask and arbor_idx used for plotting or not (default: TRUE).}
+
+\item{units_distance}{Character string giving the units of distance, value only used to label the plot (Default: "micron").}
 }
 \value{
 Either prints the plot directly or returns the ggplot object, depending on the value of return_plot.

@@ -10,6 +10,10 @@ plot.network.traces(network, return_plot)
 \item{network}{Network object with SGT simulation traces to plot.}
 
 \item{return_plot}{Logical indicating whether to return the ggplot object (TRUE) or print it (FALSE) (default: FALSE).}
+
+\item{units_time}{Character string giving the units of time, value only used to label the plot (Default: "ms").}
+
+\item{units_potential}{Character string giving units of potential, value only used to label plots (Default: "mV").}
 }
 \value{
 A ggplot object showing spike traces for all neurons in the network over time.

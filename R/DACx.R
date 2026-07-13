@@ -54,63 +54,9 @@ new.motif <- function(
 #' 
 #' Long-range projections: Connections (edges) between points in different nodes are determined by a long-range projection motif and labelled with the same of that motif. 
 #' 
-#' @param network_name Character string giving name of the network (default: "not_provided").
-#' @param recording_name Character string giving name of the recording on which this network is based (default: "not_provided").
-#' @param type Character string giving type of network; "Growth_Transform" is the only option available (default: "Growth_Transform").
-#' @param genotype Character string giving genotype of the animal from which the modelled network comes, e.g. "WT", "KO", "MECP2", "transgenic", etc. (default: "not_provided").
-#' @param sex Character string giving sex of the animal from which the modelled network comes (default: "not_provided").
-#' @param hemi Character string giving hemisphere of the animal from which the modelled network comes, e.g. "left", "right" (default: "not_provided").
-#' @param region Character string giving brain region of the animal from which the modelled network comes, e.g. "V1", "M1", "CA1", "PFC", etc. (default: "not_provided").
-#' @param age Character string giving age of the animal from which the modelled network comes, e.g. "P0", "P7", "P14", "adult", etc. (default: "not_provided").
-#' @param unit_time Character string giving unit of time for spike raster or other recording data on which the model is based or being compared, e.g. "ms", "s", etc. (default: "ms").
-#' @param unit_sample_rate Character string giving unit of sample rate for recording data on which the model is based or being compared, e.g. "Hz", "kHz", etc. (default: "Hz").
-#' @param unit_potential Character string giving unit of cell-membrane potential for recording data on which the model is based or being compared, e.g. "mV", "uV", etc. (default: "mV").
-#' @param unit_current Character string giving unit of cell current for recording data on which the model is based or being compared, e.g. "mA", "uA", etc. (default: "mA").
-#' @param unit_conductance Character string giving unit of axon and dendrite conductance for recording data on which the model is based or being compared, e.g. "mS", "uS", etc. (default: "mS").
-#' @param unit_distance Character string giving unit of distance axon and dendrite measurements on which the model is based or being compared, e.g. "micron", "mm", etc. (default: "micron").
-#' @param t_per_bin Time (in above units) per bin, e.g., 1 ms per bin (default: 10.0).
-#' @param sample_rate Sample rate (in above units), e.g., 1e4 Hz (default: 1e4).
 #' @return A new network object.
 #' @export
-new.network <- function(
-    network_name = "not_provided", 
-    recording_name = "not_provided", 
-    type = "Growth_Transform", 
-    genotype = "WT",
-    sex = "not_provided",
-    hemi = "not_provided",
-    region = "not_provided",
-    age = "not_provided",
-    unit_time = "ms", 
-    unit_sample_rate = "Hz", 
-    unit_potential = "mV", 
-    unit_current = "mA",
-    unit_conductance = "mS",
-    unit_distance = "micron",
-    t_per_bin = 1.0, 
-    sample_rate = 1e4
-  ) {
-    network <- new(
-      network, 
-      network_name,
-      recording_name,
-      type,
-      genotype,
-      sex,
-      hemi,
-      region,
-      age,
-      unit_time,
-      unit_sample_rate,
-      unit_potential,
-      unit_current,
-      unit_conductance,
-      unit_distance,
-      t_per_bin,
-      sample_rate
-    )
-    return(network)
-  }
+new.network <- function() {new(network)}
 
 # Functions for network cell types #####################################################################################
 
@@ -145,7 +91,7 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 #' @param transmission_velocity Transmission velocity (in microns/ms) for each neuron type. Default value is 30e3.
 #' @param spine_density Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0. 
 #' @param axon_target Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".
-#' @param v_bound Potential bound, such that -v_bound <= v_traces <= v_bound, in unit_potential (mV), for each neuron in the network, based on its type. Default value is 85.0.
+#' @param v_bound Potential bound, such that -v_bound <= v_traces <= v_bound, in the implicit potential units of the network (e.g., mV), for each neuron in the network, based on its type. Default value is 85.0.
 #' @param dHdv_bound Bound on derivative of metabolic energy wrt potential, such that dHdv_bound > abs(dHdv), in mA, for each neuron in the network, based on its type. Default value is 1.05e-6.
 #' @param I_spike Spike current, in mA. Default value is 1e-6 (i.e., 1 nA).
 #' @param spike_potential Magnitude of each spike, in mV. Default value is 35.0.
@@ -328,7 +274,7 @@ principal.neurons <- function(print_nicely = FALSE) {
 #' @param motif Motif object into which to load the projection.
 #' @param presynaptic_layer Character string giving layer of presynaptic neuron, e.g. "L1", "L2", "L3", "L4", etc.
 #' @param postsynaptic_layer Character string, or vector of character strings, giving layer of postsynaptic neuron.
-#' @param projection_conductance Numeric giving overall strength of the projection, as synaptic conductance in units of millisiemens (default: 1e-10).
+#' @param projection_conductance Numeric giving overall strength of the projection, as synaptic conductance (default: 1e-10, which assumes implicit units of millisiemens).
 #' @param presynaptic_type Character string giving type of presynaptic neuron, e.g. "excitatory", "inhibitory", etc. (default: "principal").
 #' @param postsynaptic_type Character string giving type of postsynaptic neuron, e.g. "excitatory", "inhibitory", etc. (default: "principal").
 #' @param max_col_shift_up Maximum number of columns upwards (increasing columnar indexes) that the projection can reach (default: 0, should be positive integer).
@@ -393,15 +339,13 @@ load.projection.into.motif <- function(
 #' 
 #' @param network Network object to configure.
 #' @param neuron_types Character vector giving types of neurons in the network. Known types can be accessed using \code{print.known.celltypes()}. Default is "principal", which will assign the most common neuron type for each layer, as defined in \code{principal.neurons()}.
-#' @param neuron_type_valences Numeric vector giving valences of each neuron type, e.g. c(1, -1) for excitatory and inhibitory neurons.
-#' @param neuron_type_temporal_modulation Numeric matrix giving temporal modulation time components (for modulation time in the unit_time of the network) for each neuron type: bias, step size, and count cutoff (rows as neuron types, columns as components). Will example a single value or a vector of length three. 
 #' @param layer_names Character vector giving names of layers in the network, ordered deepest to most superficial, e.g. c("L6", "L5", "L4", "L3", "L2", "L1").
 #' @param n_layers Integer giving number of layers in the network.
 #' @param n_columns Integer giving number of columns in the network.
 #' @param patch_depth Integer giving the number of "patches" (n_layers x n_columns sheets) in the network.
-#' @param layer_height Numeric giving height of each layer (in units specified at network creation, default unit is microns, default value is 180.0).
-#' @param column_diameter Numeric giving diameter of each column (in units specified at network creation, default unit is microns, default value is 120.0).
-#' @param segment_length Numeric giving expected length of each segment in the axonal and dendritic processes of each neuron (in units specified at network creation, default unit is microns, default value is 20.0).
+#' @param layer_height Numeric giving height of each layer (default value is 180.0, which assumes an implicit unit of micron).
+#' @param column_diameter Numeric giving diameter of each column (default value is 120.0, which assumes an implicit unit of micron).
+#' @param segment_length Numeric giving expected length of each segment in the axonal and dendritic processes of each neuron (default value is 20.0, which assumes an implicit unit of micron).
 #' @param layer_separation_factor Numeric giving mean distance between layers as a fraction of layer height (default: 2.5).
 #' @param column_separation_factor Numeric giving mean distance between columns as a fraction of column diameter (default: 2.5).
 #' @param patch_separation_factor Numeric giving mean distance between network patches as a fraction of column diameter (default: 2.5). 
@@ -663,7 +607,7 @@ fetch.network.components <- function(
     
     # Print summary
     if (verbose) {
-      cat("Summary of network:", network.components$network_name, "\n")
+      cat("Summary of network:\n")
       cat("\tNumber of neurons:", network.components$n_neurons, "\n")
       if (include_arbors) {
         cat("\tNumber of synapses:", sum(network.components$arbors[,"is_synapse"]), "\n")
@@ -740,6 +684,7 @@ apply.circuit.motif <- function(
 #' @param soma_size_factor Numeric value controlling how cell size in the plot scales to the number of cells. 
 #' @param return_plot Logical indicating whether to return the ggplot object or print the plot directly (default: TRUE).
 #' @param return_cell_arbor_idx Logical indicating whether to return the soma_mask and arbor_idx used for plotting or not (default: TRUE).
+#' @param units_distance Character string giving the units of distance, value only used to label the plot (Default: "micron").
 #' @return Either prints the plot directly or returns the ggplot object, depending on the value of return_plot.
 #' @export
 plot.network <- function(
@@ -757,7 +702,8 @@ plot.network <- function(
     soma_color = "layer",
     soma_size_factor = 1.0,
     return_plot = TRUE,
-    return_cell_arbor_idx = TRUE
+    return_cell_arbor_idx = TRUE,
+    units_distance = "microns"
   ) {
     
     # Get network components
@@ -792,15 +738,8 @@ plot.network <- function(
    
     # Set plot title 
     if (is.null(title)) {
-      if (ntw$network_name == "not_provided") {
-        title <- "Network Topology"
-      } else {
-        title <- ntw$network_name
-      }
+      title <- "Network Topology"
     }
-    
-    # Get unit information
-    network_units <- ntw$units
     
     if (is.null(soma_mask)) {
       # Get number of cell bodies to plot 
@@ -1134,8 +1073,8 @@ plot.network <- function(
         ggplot2::theme_minimal() +
         ggplot2::labs(
           title = title, 
-          x = paste0("columnar coordinate (", network_units$distance, ")"), 
-          y = paste0("laminar coordinate (", network_units$distance, ")")
+          x = paste0("columnar coordinate (", units_distance, ")"), 
+          y = paste0("laminar coordinate (", units_distance, ")")
         ) + 
         ggplot2::scale_colour_manual(
           name = "Types",
@@ -1192,11 +1131,15 @@ plot.network <- function(
 #' @usage plot.network.traces(network, return_plot)
 #' @param network Network object with SGT simulation traces to plot.
 #' @param return_plot Logical indicating whether to return the ggplot object (TRUE) or print it (FALSE) (default: FALSE).
+#' @param units_time Character string giving the units of time, value only used to label the plot (Default: "ms").
+#' @param units_potential Character string giving units of potential, value only used to label plots (Default: "mV").
 #' @return A ggplot object showing spike traces for all neurons in the network over time.
 #' @export
 plot.network.traces <- function(
     network,
-    return_plot = FALSE
+    return_plot = FALSE, 
+    units_time = "ms",
+    units_potential = "mV"
   ) {
     
     # Get the traces to print
@@ -1239,8 +1182,8 @@ plot.network.traces <- function(
         legend.position = "none") +
       ggplot2::labs(
         title = "SGT Simulation Traces",
-        x = paste0("Time (", ntw$units$time, ")"),
-        y = paste0("Membrane Potential (", ntw$units$potential, ")")
+        x = paste0("Time (", units_time, ")"),
+        y = paste0("Membrane Potential (", units_potential, ")")
       )
     
     if (return_plot) {
@@ -1258,7 +1201,7 @@ plot.network.traces <- function(
 #' 
 #' @param network Network object on which to run the simulation.
 #' @param stimulus_current_matrix Matrix of input currents, with rows representing neurons and columns representing sample times.
-#' @param dt Time step length in the unit_time of the network (default: 1e-3, or 1 micosecond time steps).
+#' @param dt Time step length in the implicit time units of the network (default: 1e-3, which is 1 micosecond time steps, assuming an implicit time unit of ms).
 #' @return List containing the following elements: \item{sim_traces}{Matrix of simulated spike traces for all neurons over time (neurons as rows, sample times as columns).} \item{spike_counts}{Vector of spike counts for each neuron in the network.} 
 #' @export
 run.SGT <- function(
