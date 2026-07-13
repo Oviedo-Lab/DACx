@@ -5,7 +5,6 @@
 /*
  * Sections: 
  * - Helper functions
- * - Probability distribution functions
  * - Growth-transform helper functions
  * - Matrix and vector operations
  * - Cell types and related functions
@@ -22,7 +21,7 @@
 const double Inf = 1e20;
 
 // Return logical vector giving elements of left which match right
-LogicalVector eq_left_broadcast(
+LogicalVector Rmask(
     const CharacterVector& left,
     const String& right
   ) {
@@ -34,7 +33,7 @@ LogicalVector eq_left_broadcast(
     return out;
   }
 // ... overload 
-LogicalVector eq_left_broadcast(
+LogicalVector Rmask(
     const CharacterVector& left,
     const std::string& right
   ) {
@@ -46,7 +45,7 @@ LogicalVector eq_left_broadcast(
     return out;
   }
 // ... overload
-LogicalVector eq_left_broadcast(
+LogicalVector Rmask(
     const std::vector<int>& left,
     const int& right
   ) {
@@ -58,7 +57,7 @@ LogicalVector eq_left_broadcast(
     return out;
   }
 // ... overload
-LogicalVector eq_left_broadcast(
+LogicalVector Rmask(
     const VectorXi& left,
     const int& right
   ) {
@@ -267,54 +266,6 @@ IntegerMatrix to_IntMat(
     return X;
   }
 
-// Make random walk
-NumericVector random_walk(
-  const int& n_steps,
-  const double& step_size,
-  const unsigned int& seed
-  ) {
-    // Set up the random number generator
-    pcg32 rng(seed);
-    // Initialize vector to hold walk
-    NumericVector walk(n_steps);
-    // Start at zero
-    walk(0) = 0; 
-    // Take steps in walk
-    for (int i = 1; i < n_steps; i++) {
-      walk(i) = pcg_rnorm(walk(i - 1), step_size, rng);
-    }
-    // Return the random walk
-    return walk;
-  }
-
-// Better normal distribution function, with PCG and Box-Muller
-double pcg_rnorm(
-    double mean, 
-    double sd,
-    pcg32& rng
-  ) {
-   
-    // Sample from a uniform random distribution between 0 and 1
-    int u_max = 1e9; 
-    int u1i, u2i;
-    do {u1i = rng(u_max);} // randomly select integer between 0 and u_max
-    while (u1i == 0);
-    double u1 = (double)u1i/(double)u_max; // normalize to (0, 1)
-    u2i = rng(u_max);
-    double u2 = (double)u2i/(double)u_max; // normalize to (0, 1)
-    
-    const double two_pi = 2.0 * M_PI;
-    
-    //compute z0 and z1
-    double mag = sd * sqrt(-2.0 * log(u1));
-    double z0  = mag * cos(two_pi * u2) + mean;
-    //double z1  = mag * sin(two_pi * u2) + mean;
-   
-    //return std::make_pair(z0, z1);
-    return z0; // return only one value, for now
-    
-  } 
-
 /*
  * ***********************************************************************************
  * Growth-transform helper functions
@@ -379,9 +330,9 @@ VectorXd network_power_dissipation_gradient(
     // ... v_traces_lagged.transpose()(i, j) = neuron j's membrane potential as seen by neuron i at this time step
     // ... so, row-wise sum gives power dissipation from input into i
     VectorXd dHdv = 
-      lagged_power_dissipation -                        // power dissipation (electrical current) from coupling between neurons
-      stimulus_current +                                // power injected into the system (electrical current) from external stimulation
-      v_barrier(v_traces, threshold, I_spike);          // power dissipated (electrical current) from neural responses (namely, spikes)
+      lagged_power_dissipation -                // power dissipation (electrical current) from coupling between neurons
+      stimulus_current +                        // power injected into the system (electrical current) from external stimulation
+      v_barrier(v_traces, threshold, I_spike);  // power dissipated (electrical current) from neural responses (namely, spikes)
     return dHdv;
     
     /*
@@ -405,28 +356,6 @@ VectorXd network_power_dissipation_gradient(
  * Matrix and vector operations
  */
 
-// Function to make a matrix positive definite
-NumericMatrix makePositiveDefinite(
-    const NumericMatrix& NumX
-  ) {
-    
-    MatrixXd X = to_eMat(NumX);
-    SelfAdjointEigenSolver<MatrixXd> solver(X);
-    VectorXd eigenvalues = solver.eigenvalues();
-    MatrixXd eigenvectors = solver.eigenvectors();
-    
-    // Ensure all eigenvalues are positive
-    for (int i = 0; i < eigenvalues.size(); ++i) {
-      if (eigenvalues(i) < 1e-10) {  // Adjust small or negative values
-        eigenvalues(i) = 1e-10;
-      }
-    }
-    
-    // Reconstruct the matrix
-    return to_NumMat(MatrixXd(eigenvectors * eigenvalues.asDiagonal() * eigenvectors.transpose()));
-    
-  }
-
 // Find first neighbor 
 std::vector<int> find_first_neighbor(
     const std::vector<Vector3d>& b_active, // Branch searching for neighbor
@@ -446,64 +375,6 @@ std::vector<int> find_first_neighbor(
       }
     }
     return {-1, -1}; // Return -1 if no neighbor is found within the radius
-  }
-
-// Find pairwise Euclidean distances for a set of points
-MatrixXd pairwise_distances(
-    const MatrixXd& points   // Rows as points, columns as dimensions: columns z (patch), y (layer), x (column)
-  ) {
-    int N = points.rows();
-    MatrixXd D(N, N);
-    for (int i = 0; i < N; ++i) {
-      const auto vi = points.row(i);
-      D(i,i) = 0.0;
-      for (int j = i + 1; j < N; ++j) {
-        const auto vj = points.row(j);
-        const double dz = vi[0] - vj[0];
-        const double dy = vi[1] - vj[1];
-        const double dx = vi[2] - vj[2];
-        const double d = std::sqrt(dz*dz + dy*dy + dx*dx);
-        D(i,j) = d;
-        D(j,i) = d;
-      }
-    }
-    return D;
-  }
-
-// Find pairwise Euclidean distances for a set of points and convert directly into integer lags
-MatrixXi pairwise_lags_by_edges(
-    const MatrixXd& coordinates_spatial,      // N x 3 (rows = neurons), columns z (patch), y (layer), x (column)
-    const VectorXd& neuron_transmission_velocity,
-    double dt
-  ) {
-    const int N = coordinates_spatial.rows();
-    MatrixXi pair_lags(N, N);
-    
-    // Precompute reciprocals
-    const VectorXd inv_vel = neuron_transmission_velocity.cwiseInverse();
-    const double inv_dt = 1.0 / dt;
-    
-    for (int i = 0; i < N; ++i) {
-      const auto vi = coordinates_spatial.row(i);
-      pair_lags(i, i) = 0;
-      
-      for (int j = i + 1; j < N; ++j) {
-        const auto vj = coordinates_spatial.row(j);
-        
-        const double dz = vi[0] - vj[0];
-        const double dy = vi[1] - vj[1];
-        const double dx = vi[2] - vj[2];
-        const double dist_ij = std::sqrt(dz*dz + dy*dy + dx*dx);
-        
-        const double lag_ij = dist_ij * inv_vel[i] * inv_dt;
-        const double lag_ji = dist_ij * inv_vel[j] * inv_dt;
-        
-        pair_lags(i, j) = static_cast<int>(std::round(lag_ij));
-        pair_lags(j, i) = static_cast<int>(std::round(lag_ji));
-      }
-    }
-    
-    return pair_lags;
   }
 
 /*
@@ -857,18 +728,18 @@ void motif::load_projection(
 void network::set_network_structure(
     CharacterVector nrn_types,
     CharacterVector lyr_names,
-    int n_lyr,
-    int n_cls,
-    int n_pch,
-    double lyr_height,
-    double cls_diameter,
-    double seg_length,
-    double lyr_separation_factor,
-    double cls_separation_factor,
-    double pch_separation_factor,
-    IntegerMatrix nrn_per_node,
-    List local_con,
-    double synaptic_neighborhood_radius
+    int             n_lyr,
+    int             n_cls,
+    int             n_pch,
+    double          lyr_height,
+    double          cls_diameter,
+    double          seg_length,
+    double          lyr_separation_factor,
+    double          cls_separation_factor,
+    double          pch_separation_factor,
+    double          synaptic_neighborhood_radius,
+    IntegerMatrix   nrn_per_node,
+    List            local_con
   ) {
    
     // Check layer names (needed for motifs)
@@ -896,18 +767,18 @@ void network::set_network_structure(
     }
     
     // Set other network parameters
-    layer_names = lyr_names;
-    n_layers = n_lyr;
-    n_columns = n_cls;
-    n_patches = n_pch;
-    layer_height = lyr_height;
-    column_diameter = cls_diameter;
-    segment_length = seg_length;
-    layer_separation_factor = lyr_separation_factor;
+    layer_names              = lyr_names;
+    n_layers                 = n_lyr;
+    n_columns                = n_cls;
+    n_patches                = n_pch;
+    layer_height             = lyr_height;
+    column_diameter          = cls_diameter;
+    segment_length           = seg_length;
+    layer_separation_factor  = lyr_separation_factor;
     column_separation_factor = cls_separation_factor;
-    patch_separation_factor = pch_separation_factor;
-    neurons_per_node = to_eiMat(nrn_per_node);
-    synaptic_neighborhood = synaptic_neighborhood_radius;
+    patch_separation_factor  = pch_separation_factor;
+    neurons_per_node         = to_eiMat(nrn_per_node);
+    synaptic_neighborhood    = synaptic_neighborhood_radius;
     
     // Set network components
     n_neuron_types = neuron_types.size();
@@ -971,28 +842,28 @@ void network::set_network_structure(
     
     // Resize synapse index matrices and set all values to -1
     synapse_arbor_idx = MatrixXi::Constant(n_neurons, n_neurons, -1);
-    synapse_node_idx = MatrixXi::Constant(n_neurons, n_neurons, -1);
+    synapse_node_idx  = MatrixXi::Constant(n_neurons, n_neurons, -1);
     
     // Convert neuron temporal modulation to Eigen matrix
-    neuron_temporal_modulation = MatrixXd::Zero(n_neurons, 3);
-    neuron_temporal_modulation.col(0) = Map<VectorXd>(neuron_temporal_modulation_bias.data(), neuron_temporal_modulation_bias.size());
+    neuron_temporal_modulation        = MatrixXd::Zero(n_neurons, 3);
+    neuron_temporal_modulation.col(0) = Map<VectorXd>(neuron_temporal_modulation_bias.data(),         neuron_temporal_modulation_bias.size());
     neuron_temporal_modulation.col(1) = Map<VectorXd>(neuron_temporal_modulation_timeconstant.data(), neuron_temporal_modulation_timeconstant.size());
-    neuron_temporal_modulation.col(2) = Map<VectorXd>(neuron_temporal_modulation_amplitude.data(), neuron_temporal_modulation_amplitude.size());
+    neuron_temporal_modulation.col(2) = Map<VectorXd>(neuron_temporal_modulation_amplitude.data(),    neuron_temporal_modulation_amplitude.size());
     
     // Convert neuron transmission delay to Eigen vector
     neuron_transmission_velocity = Map<VectorXd>(neuron_transmission_velocity_tmp.data(), neuron_transmission_velocity_tmp.size());
     
     // Resize network coordinate components 
     coordinates_spatial = MatrixXd::Zero(n_neurons, 3); 
-    coordinates_node = MatrixXi::Zero(n_neurons, 3); // patch (z), layer (y), column (x)
+    coordinates_node    = MatrixXi::Zero(n_neurons, 3); // patch (z), layer (y), column (x)
     
   };
 
 // Function to make axon and dendrite branches
 void network::make_arbor_branch(
-    const int& cell_idx,                                // Number of neuron for which to make processes
-    const bool& is_axon,                                // Whether to make axon (true) or dendrite (false)
-    int parent_branch_idx,                              // Index of parent branch, if this is a branch off of a main process; otherwise, -1 for new process arbor
+    int             cell_idx,                           // Number of neuron for which to make processes
+    bool            is_axon,                            // Whether to make axon (true) or dendrite (false)
+    int             parent_branch_idx,                  // Index of parent branch, if this is a branch off of a main process; otherwise, -1 for new process arbor
     const Vector3d& attractor_point                     // z (patch), y (layer), x (column); if all zeros, no attractor bias; otherwise, bias branch growth toward this point
   ) {
     
@@ -1157,10 +1028,10 @@ void network::make_arbor_branch(
 
 // Function to make axon and dendrite arbors
 void network::make_arbor(
-    const int& cell_idx,                                // Number of neuron for which to make processes
-    int n_branches,                                     // Expected number of branches, including the main process 
-    const bool& is_axon,                                // Whether to make axon (true) or dendrite (false)
-    int parent_branch_idx,                              // Index of parent branch, if this is a branch off of a main process; otherwise, -1 for new process arbor
+    int                          cell_idx,              // Number of neuron for which to make processes
+    int                          n_branches,            // Expected number of branches, including the main process 
+    bool                         is_axon,               // Whether to make axon (true) or dendrite (false)
+    int                          parent_branch_idx,     // Index of parent branch, if this is a branch off of a main process; otherwise, -1 for new process arbor
     const std::vector<Vector3d>& attractor_points       // z (patch), y (layer), x (column); if all zeros, no attractor bias; otherwise, bias branch growth toward this point
   ) {
     
@@ -1307,7 +1178,7 @@ void network::make_local_nodes() {
             
             // Create apical dendrite, if any 
             if (apical_target_layer != "none") {
-              LogicalVector layer_mask = eq_left_broadcast(layer_names, apical_target_layer);
+              LogicalVector layer_mask = Rmask(layer_names, apical_target_layer);
               if (any_true(layer_mask)) {
                 // MB: Much of this code duplicated from apply_motif; create function??
                 
@@ -1392,63 +1263,12 @@ void network::make_local_nodes() {
     
   }
 
-// Function to compute pairwise lags based on axon path lengths and membrane velocity
-MatrixXi network::find_pairwise_lags_by_axon(
-    const double& dt // time step length, in unit_time
-  ) {
-    
-    // Initialize matrix to hold pairwise lags, with default value of 0 
-    MatrixXi pairwise_lags = MatrixXi::Constant(n_neurons, n_neurons, 0);
-    
-    // Precompute reciprocals
-    const VectorXd inv_vel = neuron_transmission_velocity.cwiseInverse();
-    const double inv_dt = 1.0 / dt;
-    
-    // For each neuron, find the lag to each other neuron based on axonal path length, synapse location, and transmission velocity
-    for (int idx_pre = 0; idx_pre < n_neurons; ++idx_pre) {
-     
-      // Confirm there are axons for this cell
-      if (!any_true(arbors[idx_pre].axon)) {continue;}
-      
-      // For each post-synaptic neuron, check for synapses and set lag if found
-      for (int idx_post = 0; idx_post < n_neurons; ++idx_post) {
-        
-        // Get axon and node idx
-        int axon_idx = synapse_arbor_idx(idx_pre, idx_post);
-        if (axon_idx < 0) {continue;} // No synapse from this pre to this post
-        int node_idx = synapse_node_idx(idx_pre, idx_post);
-        
-        // Grab all nodes along the axon and their parents
-        std::vector<Vector3d> axon_coordinates = arbors[idx_pre].coordinates[axon_idx];
-        std::vector<int> axon_node_parents = arbors[idx_pre].parents[axon_idx];
-        double dist = 0;
-        int parent_node_idx = axon_node_parents[node_idx];
-        while (parent_node_idx >= 0) {
-          Vector3d node = axon_coordinates[node_idx];
-          Vector3d parent_node = axon_coordinates[parent_node_idx];
-          dist += (node - parent_node).norm();
-          node_idx = parent_node_idx; 
-          parent_node_idx = axon_node_parents[node_idx];
-        }
-        
-        // Convert distance into simulation time-step lag
-        const double lag = dist * inv_vel[idx_pre] * inv_dt;
-        pairwise_lags(idx_pre, idx_post) = static_cast<int>(std::round(lag));
-        
-      }
-      
-    }
-    
-    return pairwise_lags;
-    
-  }
-
 // Function to find synapses and return transconductance into post-synaptic cell 
 double network::find_synapse(
-    const int& idx_pre,
-    const int& idx_post,
-    const double& val_pre,
-    const double& transductance_bias
+    int    idx_pre,
+    int    idx_post,
+    double val_pre,
+    double transductance_bias
   ) {
    
     // Check if this pre-post pair already has a synapse
@@ -1522,7 +1342,7 @@ double network::compute_expected_node_radius() {
 // Function to apply circuit motif
 void network::apply_circuit_motif(
     const motif& cmot,
-    const bool& verbose
+    bool         verbose
   ) {
     
     if (verbose) {
@@ -1543,13 +1363,13 @@ void network::apply_circuit_motif(
     // Pre-make all column masks 
     LogicalMatrix column_masks(n_neurons, n_columns);
     for (int c = 0; c < n_columns; c++) {
-      column_masks(_, c) = eq_left_broadcast(coordinates_node(Eigen::all,2), c); // column 2 is the column
+      column_masks(_, c) = Rmask(coordinates_node(Eigen::all,2), c); // column 2 is the column
     }
     
     // Pre-make all patch masks 
     LogicalMatrix patch_masks(n_neurons, n_patches);
     for (int p = 0; p < n_patches; p++) {
-      patch_masks(_, p) = eq_left_broadcast(coordinates_node(Eigen::all,0), p); // column 0 is the patch
+      patch_masks(_, p) = Rmask(coordinates_node(Eigen::all,0), p); // column 0 is the patch
     }
     
     // Compute expected node radius 
@@ -1570,8 +1390,8 @@ void network::apply_circuit_motif(
       // Get indices for neuron_types in this network
       CharacterVector type_names(neuron_types.size());
       for (int i = 0; i < neuron_types.size(); i++) {type_names[i] = neuron_types[i].type_name;}
-      LogicalVector pre_type_exists = eq_left_broadcast(type_names, pre_type_name);
-      LogicalVector post_type_exists = eq_left_broadcast(type_names, post_type_name);
+      LogicalVector pre_type_exists = Rmask(type_names, pre_type_name);
+      LogicalVector post_type_exists = Rmask(type_names, post_type_name);
       if (!(any_true(pre_type_exists) && any_true(post_type_exists))) {
         if (verbose) {
           Rcpp::Rcout << "Projection " << pj << " in motif " << cmot.motif_name << " has pre- or post-synaptic type that does not exist in this network." << std::endl
@@ -1584,8 +1404,8 @@ void network::apply_circuit_motif(
       int t_pre = Rwhich(pre_type_exists)[0];
       int t_post = Rwhich(post_type_exists)[0];
       // ... and make masks for neurons in this network
-      LogicalVector pre_type_mask = eq_left_broadcast(neuron_type_num, t_pre);
-      LogicalVector post_type_mask = eq_left_broadcast(neuron_type_num, t_post);
+      LogicalVector pre_type_mask = Rmask(neuron_type_num, t_pre);
+      LogicalVector post_type_mask = Rmask(neuron_type_num, t_post);
       
       // Grab pre-synaptic valence and axon characteristics
       int val_pre = neuron_types[t_pre].valence;
@@ -1595,8 +1415,8 @@ void network::apply_circuit_motif(
       int dendrite_branch_count = neuron_types[t_post].dendrite_branch_count;
       
       // Grab pre and post layers
-      LogicalVector pre_layer_exists = eq_left_broadcast(layer_names, proj.pre_layer);
-      LogicalVector post_layer_exists = eq_left_broadcast(layer_names, proj.post_layer);
+      LogicalVector pre_layer_exists = Rmask(layer_names, proj.pre_layer);
+      LogicalVector post_layer_exists = Rmask(layer_names, proj.post_layer);
       if (!(any_true(pre_layer_exists) && any_true(post_layer_exists))) {
         if (verbose) {
           Rcpp::Rcout << "Projection " << 
@@ -1608,8 +1428,8 @@ void network::apply_circuit_motif(
       int layer_pre = Rwhich(pre_layer_exists)[0];
       int layer_post = Rwhich(post_layer_exists)[0];
       // ... and make masks 
-      LogicalVector pre_layer_mask = pre_type_mask & eq_left_broadcast(coordinates_node(Eigen::all,1), layer_pre); // column 1 is the layer
-      LogicalVector post_layer_mask = post_type_mask & eq_left_broadcast(coordinates_node(Eigen::all,1), layer_post);
+      LogicalVector pre_layer_mask = pre_type_mask & Rmask(coordinates_node(Eigen::all,1), layer_pre); // column 1 is the layer
+      LogicalVector post_layer_mask = post_type_mask & Rmask(coordinates_node(Eigen::all,1), layer_post);
       
       // Grab max shifts
       int max_up = cmot.max_col_shift_up[pj];
@@ -1761,7 +1581,7 @@ void network::apply_circuit_motif(
 
 // Method to fetch network components 
 List network::fetch_network_components(
-    const bool& include_arbors
+    bool include_arbors
   ) const {
    
     // Convert transconductances into list of NumericMatrix
@@ -1905,10 +1725,62 @@ List network::fetch_network_components(
 NumericMatrix network::fetch_sim_traces_R() const {return to_NumMat(sim_traces);}
 NumericVector network::fetch_spike_counts_R() const {return to_NumVec(spike_counts);}
 
+// Function to compute pairwise lags based on axon path lengths and membrane velocity
+MatrixXi network::find_pairwise_lags_by_axon(
+    double dt // time step length, in unit_time
+  ) {
+    
+    // Initialize matrix to hold pairwise lags, with default value of 0 
+    MatrixXi pairwise_lags = MatrixXi::Constant(n_neurons, n_neurons, 0);
+    
+    // Precompute reciprocals
+    const VectorXd inv_vel = neuron_transmission_velocity.cwiseInverse();
+    const double inv_dt = 1.0 / dt;
+    
+    // For each neuron, find the lag to each other neuron based on axonal path length, synapse location, and transmission velocity
+    for (int idx_pre = 0; idx_pre < n_neurons; ++idx_pre) {
+     
+      // Confirm there are axons for this cell
+      if (!any_true(arbors[idx_pre].axon)) {continue;}
+      
+      // For each post-synaptic neuron, check for synapses and set lag if found
+      for (int idx_post = 0; idx_post < n_neurons; ++idx_post) {
+        
+        // Get axon and node idx
+        int axon_idx = synapse_arbor_idx(idx_pre, idx_post);
+        if (axon_idx < 0) {continue;} // No synapse from this pre to this post
+        int node_idx = synapse_node_idx(idx_pre, idx_post);
+        
+        // Grab all nodes along the axon and their parents
+        std::vector<Vector3d> axon_coordinates = arbors[idx_pre].coordinates[axon_idx];
+        std::vector<int> axon_node_parents = arbors[idx_pre].parents[axon_idx];
+        double dist = 0;
+        int parent_node_idx = axon_node_parents[node_idx];
+        while (parent_node_idx >= 0) {
+          Vector3d node = axon_coordinates[node_idx];
+          Vector3d parent_node = axon_coordinates[parent_node_idx];
+          dist += (node - parent_node).norm();
+          node_idx = parent_node_idx; 
+          parent_node_idx = axon_node_parents[node_idx];
+        }
+        
+        // Convert distance into simulation time-step lag
+        const double lag = dist * inv_vel[idx_pre] * inv_dt;
+        pairwise_lags(idx_pre, idx_post) = static_cast<int>(std::round(lag));
+        
+      }
+      
+    }
+    
+    return pairwise_lags;
+    
+  }
+
+
 // Simulate network responses to input current using Growth Transform model
 void network::SGT(
     const NumericMatrix& stimulus_current_R, // matrix of stimulus currents, in unit_current, n_neurons x n_steps
-    const double& dt                         // time step length, in unit_time
+    double               dt                  // time step length, in unit_time
   ) {
     
     /*

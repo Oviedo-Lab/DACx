@@ -618,9 +618,9 @@ set.network.structure <- function(
       layer_separation_factor,
       column_separation_factor,
       patch_separation_factor,
+      synaptic_neighborhood,
       neurons_per_node,
-      local_synaptic_conductance,
-      synaptic_neighborhood
+      local_synaptic_conductance
     )
     
     # Make local nodes and return
