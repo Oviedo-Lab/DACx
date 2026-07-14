@@ -91,7 +91,7 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 #' @param transmission_velocity Transmission velocity (in microns/ms) for each neuron type. Default value is 30e3.
 #' @param spine_density Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0. 
 #' @param axon_target Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".
-#' @param v_bound Potential bound, such that -v_bound <= v_traces <= v_bound, in the implicit potential units of the network (e.g., mV), for each neuron in the network, based on its type. Default value is 85.0.
+#' @param v_bound Potential bound, such that -v_bound <= v_traces <= v_bound, in the implicit potential units of the network (e.g., mV), for each neuron in the network, based on its type. Default value is 75.0.
 #' @param dHdv_bound Bound on derivative of metabolic energy wrt potential, such that dHdv_bound > abs(dHdv), in mA, for each neuron in the network, based on its type. Default value is 1.05e-6.
 #' @param I_spike Spike current, in mA. Default value is 1e-6 (i.e., 1 nA).
 #' @param spike_potential Magnitude of each spike, in mV. Default value is 35.0.
@@ -113,7 +113,7 @@ add.cell.type <- function(
     transmission_velocity = 30e3,
     spine_density = 0.0,
     axon_target = "dendrite_shaft",
-    v_bound = 85.0,
+    v_bound = 75.0,
     dHdv_bound = 1.05e-6,
     I_spike = 1e-6,
     spike_potential = 35.0,
@@ -393,6 +393,7 @@ set.network.structure <- function(
       neuron_types <- c(principals, neuron_types[-principal_idx])
       n_p <- length(principals)
       n_t <- length(neuron_types)
+      nn_p_range <- c(min(n_p + 1, n_t):n_t)
       n_types_old <- n_t - n_p + 1
       
       # ... remake neurons_per_node
@@ -428,12 +429,12 @@ set.network.structure <- function(
             if (length(rm) != n_types_old^2) {
               if (length(rm) == 1) {
                 # Remake the matrix
-                rm_new[c((n_p + 1):n_t, c((n_p + 1):n_t))] <- rm
+                rm_new[nn_p_range, nn_p_range] <- rm
                 for (t in seq_along(principals)) {
                   if (principals[t] == principal.neurons()[[layer_names[l]]]) {
                     rm_new[t, t] <- rm
-                    rm_new[t, c((n_p + 1):n_t)] <- rm
-                    rm_new[c((n_p + 1):n_t), t] <- rm
+                    rm_new[t, nn_p_range] <- rm
+                    rm_new[nn_p_range, t] <- rm
                   }
                 }
               } else {
@@ -441,12 +442,14 @@ set.network.structure <- function(
               }
             } else {
               # Remake the matrix
-              rm_new[c((n_p + 1):n_t, c((n_p + 1):n_t))] <- rm[-principal_idx, -principal_idx]
-              for (t in seq_along(principals)) {
-                if (principals[t] == principal.neurons()[[layer_names[l]]]) {
-                  rm_new[t, t] <- rm[principal_idx, principal_idx]
-                  rm_new[t, c((n_p + 1):n_t)] <- rm[principal_idx, -principal_idx]
-                  rm_new[c((n_p + 1):n_t), t] <- rm[-principal_idx, principal_idx]
+              if (length(rm[-principal_idx, -principal_idx]) > 0) {
+                rm_new[nn_p_range, nn_p_range] <- rm[-principal_idx, -principal_idx]
+                for (t in seq_along(principals)) {
+                  if (principals[t] == principal.neurons()[[layer_names[l]]]) {
+                    rm_new[t, t] <- rm[principal_idx, principal_idx]
+                    rm_new[t, nn_p_range] <- rm[principal_idx, -principal_idx]
+                    rm_new[nn_p_range, t] <- rm[-principal_idx, principal_idx]
+                  }
                 }
               }
             }
@@ -474,12 +477,12 @@ set.network.structure <- function(
             }
           }
           # Set new recurrence matrix 
-          rm_new[c((n_p + 1):n_t, c((n_p + 1):n_t))] <- rm[-principal_idx, -principal_idx]
+          rm_new[nn_p_range, nn_p_range] <- rm[-principal_idx, -principal_idx]
           for (t in seq_along(principals)) {
             if (principals[t] == principal.neurons()[[layer_names[l]]]) {
               rm_new[t, t] <- rm[principal_idx, principal_idx]
-              rm_new[t, c((n_p + 1):n_t)] <- rm[principal_idx, -principal_idx]
-              rm_new[c((n_p + 1):n_t), t] <- rm[-principal_idx, principal_idx]
+              if (ncol(rm[principal_idx, -principal_idx]) > 0) rm_new[t, nn_p_range] <- rm[principal_idx, -principal_idx]
+              if (nrow(rm[-principal_idx, principal_idx]) > 0) rm_new[nn_p_range, t] <- rm[-principal_idx, principal_idx]
             }
           }
           local_synaptic_conductance[[l]] <- rm_new

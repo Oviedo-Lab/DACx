@@ -208,11 +208,11 @@ Now, suppose we want our simulation to involve a $20$ms input current to just th
 ```{r find_time_steps_and_principals}
 # Set stimulus start and length
 stim_length_ms <- 20
-stim_start_ms <- 10
+stim_start_ms  <- 10
 # Find start and end steps of the input stimulus current
-stim_length <- stim_length_ms / dt
-stim_start <- stim_start_ms / dt 
-stim_end <- stim_start + stim_length - 1
+stim_length    <- stim_length_ms / dt
+stim_start     <- stim_start_ms / dt 
+stim_end       <- stim_start + stim_length - 1
 # Find mask for principal neurons
 spiny_stellate_mask <- ntw$neuron_type_name == "spiny_stellate"
 ```
@@ -220,9 +220,13 @@ spiny_stellate_mask <- ntw$neuron_type_name == "spiny_stellate"
 A final question is how much current to apply. For this simulation, we'll use a constant current of $100$ pico amp ($100\times 10^{-9}$mA) to the spiny stellates during the stimulus period. It might be natural to leave the input current at zero outside of the stimulus period, but there is endogenous background activity even without exogenous input to the network. So, we'll specify a baseline input current of $10$ pico amps ($10\times 10^{-9}$mA) to all neurons throughout the entire stimulation period: 
 
 ```{r set_up_stimulus_current_matrix}
-rest_current <- rnorm(n_neurons * n_steps, 0, 10 * 1e-9) # 10 pico amp expected
-stimulus_current_matrix <- matrix(rest_current, nrow = n_neurons, ncol = n_steps)
-stimulus_current_matrix[spiny_stellate_mask, stim_start:stim_end] <- stimulus_current_matrix[spiny_stellate_mask, stim_start:stim_end] + 100 * 1e-9 # ten pico amps
+pico_amp                   <- 1e-9 # 1e-9 is one pico amp, assuming units are mA
+baseline_synaptic_current  <- 10 * pico_amp
+expected_synapses_per_cell <- mean(ntw$synapse_info$n_synapses)
+baseline_active_synapses   <- 0.1 * expected_synapses_per_cell 
+rest_current               <- baseline_active_synapses * baseline_synaptic_current
+stimulus_current_matrix    <- matrix(rest_current, nrow = n_neurons, ncol = n_steps)
+#stimulus_current_matrix[spiny_stellate_mask, stim_start:stim_end] <- 0 # stimulus_current_matrix[spiny_stellate_mask, stim_start:stim_end] + 100 * 1e-9 # ten pico amps
 ```
 
 With the stimulus current matrix in hand, we can run the simulation:
@@ -280,7 +284,7 @@ For simplicity, let us assume that $\partial\mathcal{H}/\partial t = 0$, i.e., t
 
 It's plausible that the membrane potential $v$ is a scalar multiple $fv_\mathrm{rest}$ of the resting potential $v_\mathrm{rest}$, where the scale factor $f$ is a function of $\partial\mathcal{H}/\partial v$. In other words, we assume that the scale factor $f$ depends on how a small change $\partial v$ in membrane potential would change the metabolic power $\mathcal{H}$. Hence, we have that: 
 \[v(t+1) =  v(t) + \left.\frac{\partial v}{\partial t}\right|_{t+1} = f\left(\left.\frac{\partial\mathcal{H}}{\partial v}\right|_{t+1}\right)v_\mathrm{rest}\]
-Actually, in practice [Gangopadhyay and Chakrabartty](https://doi.org/10.3389/fnins.2020.00425) assume that the quantity of which $v$ is a multiple is a positive value $v_\mathrm{bound}$. The only constraint on this value is that it must bound $v$ from above and below, i.e., $-v_\mathrm{bound} \leq v \leq v_\mathrm{bound}$. Thus, it would be more mathematically accurate to say that $v$ is a scalar multiple of the absolute value of $v_\mathrm{rest}$. Within the simulation code, the relevant variable is <span class = "code_variable">v_bound</span> with a default value of 85 mV, slightly higher than the absolute value of $v_\mathrm{rest}$. 
+Actually, in practice [Gangopadhyay and Chakrabartty](https://doi.org/10.3389/fnins.2020.00425) assume that the quantity of which $v$ is a multiple is a positive value $v_\mathrm{bound}$. The only constraint on this value is that it must bound $v$ from above and below, i.e., $-v_\mathrm{bound} \leq v \leq v_\mathrm{bound}$. Thus, it would be more mathematically accurate to say that $v$ is a scalar multiple of the absolute value of $v_\mathrm{rest}$. Within the simulation code, the relevant variable is <span class = "code_variable">v_bound</span> with a default value of $75$ mV, slightly higher than the absolute value of $v_\mathrm{rest}$. 
 
 <h3>Scale factor</h3>
 

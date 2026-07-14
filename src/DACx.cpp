@@ -399,20 +399,20 @@ std::unordered_map<std::string, cell_type> cell_types;
 void init_known_celltypes() {
   // Defaults ...
   // Membrane kinetics (burst control)
-  double temporal_modulation_bias = 10;        // temporal modulation time (units left implicit, but matter for interpretion) bias for each neuron type
-  double temporal_modulation_timeconstant = 10;       // temporal modulation time (units left implicit, but matter for interpretion) step for each neuron type
-  double temporal_modulation_amplitude = 10;          // temporal modulation time (units left implicit, but matter for interpretion) cutoff for each neuron type
+  double temporal_modulation_bias = 10;        // Temporal modulation time (units left implicit, but matter for interpretion) bias for each neuron type
+  double temporal_modulation_timeconstant = 10;       // Temporal modulation time (units left implicit, but matter for interpretion) step for each neuron type
+  double temporal_modulation_amplitude = 10;          // Temporal modulation time (units left implicit, but matter for interpretion) cutoff for each neuron type
   // Intercell transmission
-  double transmission_velocity = 30e3;         // microns/ms ... 30 m/s = 30e6 micron/s = 30e6 micron/ 1e3 ms = 30e3 micron/ms
+  double transmission_velocity = 30e3;         // Microns/ms ... 30 m/s = 30e6 micron/s = 30e6 micron/ 1e3 ms = 30e3 micron/ms
   double spine_density = 0.0;                  // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
   std::string axon_target = "dendrite_shaft";  // "spine", "dendrite_shaft", "soma", and "axon_shaft"
   // Membrane characteristics
-  double v_bound = 75.0;                       // potential bound, in the implicit potential units of the network (e.g., mV)
-  double dHdv_bound = 1.05e-3;                 // bound the derivative of metabolic energy wrt potential, in the implicit current units of the network (e.g., mA)
-  double I_spike = 1e-3;                       // spike current, in the implicit current units of the network (default of 1e-3 is 1 micro amp, assuming implicit units of mA)
+  double v_bound = 75.0;                       // Potential bound, in the implicit potential units of the network (e.g., mV)
+  double dHdv_bound = 1.05e-6;                 // Bound on the derivative of metabolic energy wrt potential, in the implicit current units of the network (e.g., mA)
+  double I_spike = 1e-6;                       // Spike current, in the implicit current units of the network (default of 1e-6 is 1 nano amp, assuming implicit units of mA)
   double spike_potential = 35.0;               // Magnitude of each spike, in the implicit potential units of the network (e.g., mV)
-  double resting_potential = -70.0;            // resting potential, in the implicit potential units of the network (e.g., mV)
-  double threshold = -55.0;                    // spike threshold, in the implicit potential units of the network (e.g., mV)
+  double resting_potential = -70.0;            // Resting potential, in the implicit potential units of the network (e.g., mV)
+  double threshold = -55.0;                    // Spike threshold, in the implicit potential units of the network (e.g., mV)
   // Process size and structure parameters
   int axon_branch_count = 10;                  // Sets n_branches in make_arbor, in terms of expected number of branches per process length
   int dendrite_branch_count = 10;              // Sets n_branches in make_arbor, in terms of expected number of branches per process length
@@ -1737,7 +1737,7 @@ MatrixXi network::find_pairwise_lags_by_axon(
 // Simulate network responses to input current using Growth Transform model
 void network::SGT(
     const NumericMatrix& stimulus_current_R, // matrix of stimulus currents, in the implicit current unit of the network, n_neurons x n_steps
-    double               dt                  // time step length, in the implicit time unit of the network
+    double dt                                // time step length, in the implicit time unit of the network
   ) {
     
     /*
@@ -1769,9 +1769,9 @@ void network::SGT(
     MatrixXi pair_lags = find_pairwise_lags_by_axon(dt);
     
     // Extract temporal modulation values 
-    VectorXd neuron_temporal_modulation_bias = neuron_temporal_modulation.col(0);
+    VectorXd neuron_temporal_modulation_bias         = neuron_temporal_modulation.col(0);
     VectorXd neuron_temporal_modulation_timeconstant = neuron_temporal_modulation.col(1);
-    VectorXd neuron_temporal_modulation_amplitude = neuron_temporal_modulation.col(2);
+    VectorXd neuron_temporal_modulation_amplitude    = neuron_temporal_modulation.col(2);
     
     // Resize matrix to hold simulated spike traces (membrane potential plus spike)
     sim_traces.resize(n_neurons, n_steps);
