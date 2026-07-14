@@ -13,12 +13,11 @@ modify.cell.type(
   transmission_velocity = NULL,
   spine_density = NULL,
   axon_target = NULL,
-  v_bound = NULL,
-  dHdv_bound = NULL,
   I_spike = NULL,
   spike_potential = NULL,
   resting_potential = NULL,
   threshold = NULL,
+  leak_conductance = NULL,
   axon_branch_count = NULL,
   dendrite_branch_count = NULL,
   branch_independence = NULL,
@@ -43,17 +42,15 @@ modify.cell.type(
 
 \item{axon_target}{Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".}
 
-\item{v_bound}{Potential bound, such that -v_bound <= v_traces <= v_bound, in mV, for each neuron in the network, based on its type}
-
-\item{dHdv_bound}{Bound on derivative of metabolic energy wrt potential, such that dHdv_bound > abs(dHdv), in mA, for each neuron in the network, based on its type}
-
-\item{I_spike}{Spike current, in mA}
+\item{I_spike}{Spike current, in pA; absolute value (plus a little bit) used as \code{dHdv_bound}, i.e., the bound on derivative of metabolic energy wrt potential, such that \code{dHdv_bound > abs(dHdv)}, for each neuron in the network, based on its type}
 
 \item{spike_potential}{Magnitude of each spike, in mV}
 
-\item{resting_potential}{Resting potential, in mV}
+\item{resting_potential}{Resting potential, in mV; absolute value (plus a little bit) used as \code{v_bound}, i.e., the bound on membrane potential, such that \code{-v_bound <= v_traces <= v_bound}, for each neuron in the network, based on its type}
 
 \item{threshold}{Spike threshold, in mV}
+
+\item{leak_conductance}{Conductance controlling the leak current, \code{I_leak = leak_conductance (resting_potential - v)}, in the implicit conductance units of the simulation (e.g., nS). Default value is 10 nS.}
 
 \item{axon_branch_count}{Expected number of axon branches}
 

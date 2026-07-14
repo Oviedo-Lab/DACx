@@ -13,11 +13,11 @@ fetch_cell_type_params <- function(type_name) {
     .Call(`_DACx_fetch_cell_type_params`, type_name)
 }
 
-add_cell_type <- function(type_name, valence, temporal_modulation_bias, temporal_modulation_timeconstant, temporal_modulation_amplitude, transmission_velocity, spine_density, axon_target, v_bound, dHdv_bound, I_spike, spike_potential, resting_potential, threshold, axon_branch_count, dendrite_branch_count, branch_independence, branch_spread, apical_target_layer) {
-    invisible(.Call(`_DACx_add_cell_type`, type_name, valence, temporal_modulation_bias, temporal_modulation_timeconstant, temporal_modulation_amplitude, transmission_velocity, spine_density, axon_target, v_bound, dHdv_bound, I_spike, spike_potential, resting_potential, threshold, axon_branch_count, dendrite_branch_count, branch_independence, branch_spread, apical_target_layer))
+add_cell_type <- function(type_name, valence, temporal_modulation_bias, temporal_modulation_timeconstant, temporal_modulation_amplitude, transmission_velocity, spine_density, axon_target, I_spike, spike_potential, resting_potential, threshold, leak_conductance, axon_branch_count, dendrite_branch_count, branch_independence, branch_spread, apical_target_layer) {
+    invisible(.Call(`_DACx_add_cell_type`, type_name, valence, temporal_modulation_bias, temporal_modulation_timeconstant, temporal_modulation_amplitude, transmission_velocity, spine_density, axon_target, I_spike, spike_potential, resting_potential, threshold, leak_conductance, axon_branch_count, dendrite_branch_count, branch_independence, branch_spread, apical_target_layer))
 }
 
-modify_cell_type <- function(type_name, valence, temporal_modulation_bias, temporal_modulation_timeconstant, temporal_modulation_amplitude, transmission_velocity, spine_density, axon_target, v_bound, dHdv_bound, I_spike, spike_potential, resting_potential, threshold, axon_branch_count, dendrite_branch_count, branch_independence, branch_spread, apical_target_layer) {
-    invisible(.Call(`_DACx_modify_cell_type`, type_name, valence, temporal_modulation_bias, temporal_modulation_timeconstant, temporal_modulation_amplitude, transmission_velocity, spine_density, axon_target, v_bound, dHdv_bound, I_spike, spike_potential, resting_potential, threshold, axon_branch_count, dendrite_branch_count, branch_independence, branch_spread, apical_target_layer))
+modify_cell_type <- function(type_name, valence, temporal_modulation_bias, temporal_modulation_timeconstant, temporal_modulation_amplitude, transmission_velocity, spine_density, axon_target, I_spike, spike_potential, resting_potential, threshold, leak_conductance, axon_branch_count, dendrite_branch_count, branch_independence, branch_spread, apical_target_layer) {
+    invisible(.Call(`_DACx_modify_cell_type`, type_name, valence, temporal_modulation_bias, temporal_modulation_timeconstant, temporal_modulation_amplitude, transmission_velocity, spine_density, axon_target, I_spike, spike_potential, resting_potential, threshold, leak_conductance, axon_branch_count, dendrite_branch_count, branch_independence, branch_spread, apical_target_layer))
 }
 

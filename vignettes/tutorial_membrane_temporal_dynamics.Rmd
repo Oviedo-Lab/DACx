@@ -1,0 +1,245 @@
+---
+title: "Single-cell temporal dynamics"
+author: "Michael Barkasi"
+date: "July 13, 2026 (v1.0)"
+---
+
+```{r Rmdsetup, echo=FALSE}
+# Set max width of markdown code outputs
+options(width = 10000)
+knitr::opts_chunk$set(class.output = "scroll-output", cache = TRUE)
+```
+
+<h2>Introduction</h2>
+
+
+
+<h2>Single-cell network</h2>
+
+Let's set up the R environment by clearing the workspace, setting a random-number generator seed, and loading the DACx package.
+
+```{r Rsetup}
+# Clear the R workspace to start fresh
+rm(list = ls())
+
+# Set seed for reproducibility
+set.seed(12345) 
+
+# Load DACx package
+library(DACx, quietly = TRUE) 
+```
+
+Next, we create a new network object with the <span class = "function">new.network</span> function. 
+
+```{r initialize_network}
+nonspiking_cell <- new.network()
+```
+
+Set up cell
+
+The parameters defining cell types in DACx are mostly biophysically interpretable and can be set with, or tested against, experimental data. 
+
+<h4>Parameters for transmitter type</h4>
+
+- *Valence:* $1$ for excitatory cells, $-1$ for inhibitory cells. Code variable: <span class = "code_variable">valence</span>.
+
+<h4>Temporal modulation parameters</h4> 
+
+The temporal modulation term $T$ controlling the responsiveness (size) of $\partial v/\partial t$ is determined by an exponential decay function with parameters: 
+
+- *Temporal modulation bias:* The baseline value $b$ of $T$, in ms. Code variable: <span class = "code_variable">temporal_modulation_bias</span>.
+- *Temporal modulation time constant:* The time constant $\tau$ of the exponential decay in $T$, in ms. Code variable: <span class = "code_variable">temporal_modulation_timeconstant</span>.
+- *Temporal modulation amplitude:* The amplitude $A$ of the exponential decay in $T$, in ms. Code variable: <span class = "code_variable">temporal_modulation_amplitude</span>. A value $>0$ induces bursting behavior, while a value of zero induces tonic (rhythmic) firing.
+
+Development note: The values of these parameters are 1/0.0001 times the intended values in ms, due to debugging. 
+
+<h4>Intercell transmission parameters</h4>
+
+- *Transmission velocity:* The speed of the action potential between neurons, in microns/ms. Code variable: <span class = "code_variable">transmission_velocity</span>.
+- *Spine density:* The proportion (a value between $0$ and $1$) of dendrite nodes expected to be spines. Code variable: <span class = "code_variable">spine_density</span>.
+- *Axon target:* The kind of nodes onto which the cell's axons can synapse. Possible values include "spine", "dendrite_shaft", "soma", and "axon_shaft". Code variable <span class = "code_variable">axon_target</span>. 
+
+<h4>Membrane parameters</h4>
+
+- *Potential bound:* The maximum absolute value $v_\mathrm{bound}$ of potential difference in electrical charge between the inside and outside of the cell, in mV. Code variable <span class = "code_variable">v_bound</span>. Theoretically, we assume this is the absolute value of the rest voltage, plus a little bit. What matters is that $-v_\mathrm{bound} \leq v \leq v_\mathrm{bound}$ for all possible membrane potentials $v$. For example, $75$mV is a reasonable value. 
+- *Metabolic energy derivative bound:* Bound $\partial I_\mathrm{influx}$ on the absolute value of the derivative $\partial\mathcal{H}/\partial v$ of metabolic energy $\mathcal{H}$ with respect to potential $v$, such that $\partial I_\mathrm{influx} \geq |\partial\mathcal{H}/\partial v|$, in mA. Code variable: <span class = "code_variable">dHdv_bound</span>. Theoretically, we assume that this value is approximately the change in current when $v$ crosses the spike threshold, which we assume is approximately the spike current. In practice, we add 5\%. 
+- *Spike current:* The current of the action potential, i.e., the total current crossing the membrane over the entire area of the cell during a spike, in mA. Code variable: <span class = "code_variable">I_spike</span>. As a starting point, we assume this is $10^{-3}$mA, i.e., one mico amp.
+- *Spike potential:* The value $v_\mathrm{spike}$ of an action potential, in mV. Code variable: <span class = "code_variable">spike_potential</span>. The default is $35$mV. 
+- *Resting potential:* The potential difference $v_\mathrm{rest}$ in electrical charge between the inside and outside of the cell at rest, in mV. Code variable: <span class = "code_variable">resting_potential</span>. The default is $-70$mV.
+- *Threshold:* The potential difference $v_\mathrm{threshold}$ in electrical charge between the inside and outside of the cell at which an action potential is triggered, in mV. Code variable: <span class = "code_variable">threshold</span>. The default is $-55$mV.
+
+<h4>Parameters for process size and structure</h4>
+
+- *Axon branch count:* An integer value giving the expected number of nodes per branch in the axon arbor. Code variable: <span class = "code_variable">axon_branch_count</span>.
+- *Dendrite branch count:* Same as axon branch count, but for dendrites. Code variable: <span class = "code_variable">dendrite_branch_count</span>.
+- *Branch independence:* The expected proportion (a value between $0$ and $1$) of branches which connect directly to the soma, with $1$ meaning all branches connect directly to the soma and zero meaning that all branches connect to the soma from a single segment. Code variable: <span class = "code_variable">branch_independence</span>.
+- *Branch spread:* Scaled value between $0$ and $1$ controlling the tendency of arbor branches to repel away from the soma with $1$ meaning a straight line away from the soma and $0$ meaning no bias with respect to soma position. Code variable: <span class = "code_variable">branch_spread</span>.
+
+<h4>Apical dendrite parameters</h4>
+
+- *Apical target layer:* Character string giving the name of the layer to which apical dendrite is expected to grow, if any; if none, "none". Intended for modeling the circuit topology of pyramidal neurons. Code variable: <span class = "code_variable">apical_target_layer</span>.
+
+```{r build_cell}
+add.cell.type(
+    "subthreshold_only",
+    valence = 1.0,
+    threshold = 1000 # Something large, so we suppress spiking
+  )
+
+nonspiking_cell <- set.network.structure(
+    nonspiking_cell, 
+    neuron_types = c("subthreshold_only"), 
+    neurons_per_node = 1
+  )
+```
+
+<h2>SGT simulations</h2>
+
+This gives us the number of rows needed in our stimulus current matrix. For the number of columns, we need to know the number of time steps required: 
+
+```{r find_n_steps}
+stim_time_ms <- 1000
+dt <- 1e-3
+n_steps <- stim_time_ms/dt
+cat("Number of time steps in the simulation:", n_steps)
+```
+
+Now, suppose we want our simulation to involve a $20$ms input current to just the spiny stellates, starting at $10$ms. We can compute the initial and final time steps of this current, plus a mask for the spiny stellates, as follows: 
+
+
+A final question is how much current to apply. For this simulation, we'll use a constant current of $100$ pico amp ($100\times 10^{-9}$mA) to the spiny stellates during the stimulus period. It might be natural to leave the input current at zero outside of the stimulus period, but there is endogenous background activity even without exogenous input to the network. So, we'll specify a baseline input current of $10$ pico amps ($10\times 10^{-9}$mA) to all neurons throughout the entire stimulation period: 
+
+```{r set_up_stimulus_current_matrix}
+pico_amp <- 1 # Assume units are pA
+no_stim  <- matrix(0, nrow = 1, ncol = n_steps)
+```
+
+With the stimulus current matrix in hand, we can run the simulation:
+
+```{r run_SGT_simulation_leak_only}
+nonspiking_cell_results <- run.SGT(
+    nonspiking_cell,
+    no_stim,
+    dt,
+    initial_potential = 0.0
+  )
+plot.network.traces(nonspiking_cell, input_matrix = no_stim)
+```
+
+
+```{r remake_cell}
+integrating_cell <- new.network()
+add.cell.type(
+    "leaky_integrator",
+    valence   = 1.0,     # excititory cell
+    threshold = -55    # the default, showing for clarity
+  )
+
+integrating_cell <- set.network.structure(
+    integrating_cell, 
+    neuron_types = c("leaky_integrator"), 
+    neurons_per_node = 1
+  )
+
+```
+
+
+```{r}
+# Set stimulus start and length
+stim_length_ms <- 30
+stim_start_ms  <- seq(from = 50, to = 950, by = 100)
+# Find start and end steps of the input stimulus current
+stim_length    <- stim_length_ms / dt
+stim_start     <- stim_start_ms / dt
+stim_end       <- stim_start + stim_length - 1
+short_stims    <- no_stim
+for (i in seq_along(stim_start)) {
+  short_stims[, stim_start[i]:stim_end[i]] <- 300 * pico_amp
+}
+```
+
+```{r SGT_integrating}
+integrating_cell_results <- run.SGT(
+  integrating_cell,
+  short_stims,
+  dt,
+  initial_potential = -70
+)
+plot.network.traces(integrating_cell, input_matrix = short_stims)
+```
+
+```{r bursting_cell}
+bursting_cell <- new.network()
+add.cell.type(
+    "bursting_cell",
+    valence          = 1.0,     # excititory cell
+    temporal_modulation_bias = 5.0, 
+    temporal_modulation_amplitude = 4.0,
+    threshold        = -55    # the default, showing for clarity
+  )
+
+bursting_cell <- set.network.structure(
+    bursting_cell, 
+    neuron_types = c("bursting_cell"), 
+    neurons_per_node = 1
+  )
+
+```
+
+```{r}
+# Set stimulus start and length
+stim_length_ms <- 100
+stim_start_ms  <- seq(from = 100, to = 700, by = 300)
+# Find start and end steps of the input stimulus current
+stim_length    <- stim_length_ms / dt
+stim_start     <- stim_start_ms / dt
+stim_end       <- stim_start + stim_length - 1
+long_stims     <- no_stim
+for (i in seq_along(stim_start)) {
+  long_stims[, stim_start[i]:stim_end[i]] <- 300 * pico_amp
+}
+```
+
+```{r SGT_bursting}
+bursting_cell_results <- run.SGT(
+  bursting_cell,
+  long_stims,
+  dt,
+  initial_potential = -70
+)
+plot.network.traces(bursting_cell, input_matrix = long_stims)
+```
+
+```{r}
+# Set stimulus start and length
+stim_length_ms  <- 800
+stim_start_ms   <- 100
+# Find start and end steps of the input stimulus current
+stim_length     <- stim_length_ms / dt
+stim_start      <- stim_start_ms / dt
+stim_end        <- stim_start + stim_length - 1
+continuous_stim <- no_stim
+for (i in seq_along(stim_start)) {
+  continuous_stim[, stim_start[i]:stim_end[i]] <- 300 * pico_amp
+}
+```
+
+```{r SGT_bursting_continuous}
+bursting_cell_results_long <- run.SGT(
+  bursting_cell,
+  continuous_stim,
+  dt,
+  initial_potential = -70
+)
+plot.network.traces(bursting_cell, input_matrix = continuous_stim)
+```
+
+```{r}
+integrating_cell_results <- run.SGT(
+  integrating_cell,
+  continuous_stim,
+  dt,
+  initial_potential = -70
+)
+plot.network.traces(integrating_cell, input_matrix = continuous_stim)
+```

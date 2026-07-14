@@ -57,8 +57,8 @@ IntegerMatrix to_IntMat(const MatrixXi& M);
 // Membrane potential barrier function
 VectorXd v_barrier(
     const VectorXd& v_input,      // Column vector of membrane potentials for a network of neurons at one time step
-    const VectorXd& threshold,    // Spike threshold, in the implicit potential units of the simulation (e.g., mV)
-    const VectorXd& I_out         // Spike current, in the implicit current units of the simulation (e.g., mA)
+    const VectorXd& threshold,    // Spike threshold, in mV
+    const VectorXd& I_out         // Spike current, in pA
   );
 
 // Create lagged voltage trace matrix to simulate transmission delays
@@ -70,12 +70,12 @@ MatrixXd lagged_traces(
 
 // Gradient of total dissipated metabolic power in network, w.r.t. membrane potential
 VectorXd network_power_dissipation_gradient(
-    const MatrixXd& v_traces_lagged,  // n_neuron x n_steps matrix of membrane potentials, in the implicit potential units of the simulation (e.g., mV), from which to calculate derivative
-    const VectorXd& v_traces_current, // n_neuron x 1 matrix (column vector) of membrane potentials, in the implicit potential units of the simulation (e.g., mV), from which to calculate derivative
-    const VectorXd& stimulus_current, // n_neuron x 1 matrix (column vector) of stimulus currents, in the implicit current units of the simulation (e.g., mA), from which to calculate derivative
-    const MatrixXd& transconductance, // n_neuron x n_neuron transconductance matrix, giving connections between neurons
-    const VectorXd& I_spike,          // spike current, in the implicit current units of the simulation (e.g., mA)
-    const VectorXd& threshold         // spike threshold, in the implicit potential units of the simulation (e.g., mV)
+    const MatrixXd& v_traces_lagged,  // n_neuron x n_steps matrix of membrane potentials, in mV, from which to calculate derivative
+    const VectorXd& v_traces_current, // n_neuron x 1 matrix (column vector) of membrane potentials, in mV, from which to calculate derivative
+    const VectorXd& membrane_current, // n_neuron x 1 matrix (column vector) of membrane currents, in pA, from which to calculate derivative
+    const MatrixXd& transconductance, // n_neuron x n_neuron transconductance matrix, giving connections between neurons, in nS
+    const VectorXd& I_spike,          // spike current, in pA
+    const VectorXd& threshold         // spike threshold, in mV
   );
 
 /*
@@ -103,20 +103,20 @@ struct cell_type {
     // Excitatory or inhibitory?
     int valence;                         // valence of each neuron type, +1 for excitatory, -1 for inhibitory
     // Membrane kinetics (burst control)
-    double temporal_modulation_bias;     // temporal modulation time (in the implicit time units of the simulation, e.g. ms) bias for each neuron type
-    double temporal_modulation_timeconstant;     // temporal modulation time (in the implicit time units of the simulation, e.g. ms) step for each neuron type
-    double temporal_modulation_amplitude;        // temporal modulation time (in the implicit time units of the simulation, e.g. ms) cutoff for each neuron type
+    double temporal_modulation_bias;     // temporal modulation time (ms) bias for each neuron type
+    double temporal_modulation_timeconstant;     // temporal modulation time (ms) step for each neuron type
+    double temporal_modulation_amplitude;        // temporal modulation time (ms) cutoff for each neuron type
+    double spike_recovery_rate;          // Number of spikes which can be "cleared" per ms
     // Intercell transmission
-    double transmission_velocity;        // transmission velocity (in distance/time) for each neuron type
+    double transmission_velocity;        // transmission velocity (in micron/ms) for each neuron type
     double spine_density;                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
     std::string axon_target;             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
     // Membrane characteristics
-    double v_bound;                      // potential bound, in the implicit potential units of the simulation, e.g. mV
-    double dHdv_bound;                   // bound the derivative of metabolic energy wrt potential, in the implicit current units of the simulation, e.g. mA
-    double I_spike;                      // spike current, in the implicit current units of the simulation, e.g. mA
-    double spike_potential;              // Magnitude of each spike, in the implicit potential units of the simulation, e.g. mV
-    double resting_potential;            // resting potential, in the implicit potential units of the simulation, e.g. mV
-    double threshold;                    // spike threshold, in the implicit potential units of the simulation, e.g. mV
+    double I_spike;                      // spike current, in pA; absolute value plus a little bit used as dHdv_bound
+    double spike_potential;              // Magnitude of each spike, in mV
+    double resting_potential;            // resting potential, in mV; absolute value plus a little bit used as v_bound
+    double threshold;                    // spike threshold, in mV
+    double leak_conductance;             // conductance controlling the leak current, I_leak = leak_conductance (resting_potential - v), in nS
     // Process size and structure parameters
     int axon_branch_count;               // Sets expected number n_branches in make_arbor for axons
     int dendrite_branch_count;           // Sets expected number n_branches in make_arbor for dendrites
@@ -142,15 +142,14 @@ void add_cell_type(
     const double& temporal_modulation_bias,
     const double& temporal_modulation_timeconstant,
     const double& temporal_modulation_amplitude,
+    const double& spike_recovery_rate, 
     const double& transmission_velocity,
     const double& spine_density,                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
     const std::string& axon_target,             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
-    const double& v_bound,                      // potential bound, in the implicit potential units of the simulation, e.g. mV
-    const double& dHdv_bound,                   // bound on dHdv, in the implicit current units of the simulation, e.g. mA
-    const double& I_spike,                      // spike current, in the implicit current units of the simulation, e.g. mA
-    const double& spike_potential,              // Magnitude of each spike, in the implicit potential units of the simulation, e.g. mV
-    const double& resting_potential,            // resting potential, in the implicit potential units of the simulation, e.g. mV
-    const double& threshold,                    // spike threshold, in the implicit potential units of the simulation, e.g. mV
+    const double& I_spike,                      // spike current, in pA; absolute value plus a little bit used as dHdv_bound
+    const double& spike_potential,              // Magnitude of each spike, in mV
+    const double& resting_potential,            // resting potential, in mV; absolute value plus a little bit used as v_bound
+    const double& threshold,                    // spike threshold, in mV
     const int& axon_branch_count,               // Expected number of axon branches 
     const int& dendrite_branch_count,           // Expected number of dendrite branches 
     const double& branch_independence,          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
@@ -165,15 +164,14 @@ void modify_cell_type(
     const double& temporal_modulation_bias,
     const double& temporal_modulation_timeconstant,
     const double& temporal_modulation_amplitude,
+    const double& spike_recovery_rate, 
     const double& transmission_velocity,
     const double& spine_density,                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
     const std::string& axon_target,             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
-    const double& v_bound,                      // potential bound, in the implicit potential units of the simulation, e.g. mV
-    const double& dHdv_bound,                   // bound on dHdv, in the implicit current units of the simulation, e.g. mA
-    const double& I_spike,                      // spike current, in the implicit current units of the simulation, e.g. mA
-    const double& spike_potential,              // Magnitude of each spike, in the implicit potential units of the simulation, e.g. mV
-    const double& resting_potential,            // resting potential, in the implicit potential units of the simulation, e.g. mV
-    const double& threshold,                    // spike threshold, in the implicit potential units of the simulation, e.g. mV
+    const double& I_spike,                      // spike current, in pA; absolute value plus a little bit used as dHdv_bound
+    const double& spike_potential,              // Magnitude of each spike, in mV
+    const double& resting_potential,            // resting potential, in mV; absolute value plus a little bit used as v_bound
+    const double& threshold,                    // spike threshold, in mV
     const int& axon_branch_count,               // Expected number of axon branches 
     const int& dendrite_branch_count,           // Expected number of dendrite branches 
     const double& branch_independence,          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
@@ -252,7 +250,7 @@ class motif {
 // Cortical network model
 class network {
   
-  // Suggest using values in units of ms (time), mV (potential), mA (current), mS (conductance), micron (distance)
+  // Suggest using values in units of ms (time), mV (potential), pA (current), nS (conductance), micron (distance)
   
   // private: Eventually move some of the public stuff in here? 
   
@@ -270,13 +268,13 @@ class network {
     int                    n_patches = 1;            // Number of patches (rows of columns, i.e., n_layers x n_columns sheets) in the network
     double                 layer_height;             // sd of the normal distribution for local y coordinates of the neurons
     double                 column_diameter;          // sd of the normal distribution for local x coordinates of the neurons
-    double                 segment_length;           // Expected length of segments in process arbors, in the implicit distance units of the simulation, e.g. micron
+    double                 segment_length;           // Expected length of segments in process arbors, in micron
     double                 layer_separation_factor;  // Factor to multiply layer height by to get the distance between layers
     double                 column_separation_factor; // Factor to multiply column diameter by to get the distance between columns
     double                 patch_separation_factor;  // Factor to multiply column diameter by to get the distance between patches (rows of columns)
     double                 synaptic_neighborhood;    // Radius of synapse-forming neighborhood; axon-dendrite node pairs within this distance initialize as synapses
     MatrixXi               neurons_per_node;         // Mean number of neurons in each layer (rows) by type (columns)
-    std::vector<MatrixXd>  local_conductance;        // Vector of matrices of sd of the normal distribution for local transconductances between neurons of each type, one matrix per layer
+    std::vector<MatrixXd>  local_conductance;        // Vector of matrices of sd of the normal distribution for local transconductances between neurons of each type, one matrix per layer, in nS
     
     // Network components 
     int                      n_neurons;              // Total number of neurons in the network
@@ -284,26 +282,28 @@ class network {
     MatrixXi                 synapse_arbor_idx;      // n_neuron x n_neuron matrix of synapse indexes, with -1 for no synapse and otherwise synapse_arbor_idx[i,j] = index ax in arbors[i].coordinates[ax] of the axon of cell i holding the synapse into cell j
     MatrixXi                 synapse_node_idx;       // n_neuron x n_neuron matrix of synapse indexes, with -1 for no synapse and otherwise synapse_node_idx[i,j] = index k in arbors[i].coordinates[ax][k] of the synapse from neuron i to neuron j
     std::vector<cell_arbors> arbors;                 // Vector of length n_neurons
-    std::vector<MatrixXd>    transconductances;      // Vector of square matrices, each giving the transconductance between each neuron in the network, rows are post-synaptic, columns are pre-synaptic
+    std::vector<MatrixXd>    transconductances;      // Vector of square matrices, each giving the transconductance between each neuron in the network, rows are post-synaptic, columns are pre-synaptic, in nS
     MatrixXd                 node_coordinates_spatial;  // Mx3 matrix giving the (z,y,x) spatial coordinates of each node in the network
     MatrixXd                 coordinates_spatial;    // n_neurons x 3 matrix giving the (z,y,x) spatial coordinates of each neuron in the network
     MatrixXi                 coordinates_node;       // n_neurons x 3 matrix giving the (patch, layer, column) node coordinates of each neuron in the network
-    VectorXd                 v_bound;                // Vector giving potential bound, such that -v_bound <= v_traces <= v_bound, in the implicit potential units of the simulation (e.g., mV), for each neuron in the network, based on its type
-    VectorXd                 dHdv_bound;             // Vector giving bound on derivative of metabolic energy wrt potential, such that dHdv_bound > abs(dHdv), in the implicit current units of the simulation (e.g., mA), for each neuron in the network, based on its type
-    VectorXd                 I_spike;                // Vector giving spike current, in the implicit current units of the simulation (e.g., mA), for each neuron in the network, based on its type
-    VectorXd                 spike_potential;        // Vector giving magnitude of each spike, in the implicit potential units of the simulation (e.g., mV), for each neuron in the network, based on its type
-    VectorXd                 resting_potential;      // Vector giving resting potential, in the implicit potential units of the simulation (e.g., mV), for each neuron in the network, based on its type
-    VectorXd                 threshold;              // Vector giving spike threshold, in the implicit potential units of the simulation (e.g., mV), for each neuron in the network, based on its type
-    MatrixXd                 neuron_temporal_modulation;    // n_neurons x 3 matrix giving the temporal modulation time (in the implicit time units of the simulation, e.g. ms) bias, step, and cutoff for each neuron in the network, based on its type
-    VectorXd                 neuron_transmission_velocity;  // Vector giving the transmission delay (in the implicit time units of the simulation, e.g. ms) for each neuron in the network, based on its type
+    VectorXd                 v_bound;                // Vector giving potential bound, such that -v_bound <= v_traces <= v_bound, in mV, for each neuron in the network, based on its type
+    VectorXd                 dHdv_bound;             // Vector giving bound on derivative of metabolic energy wrt potential, such that dHdv_bound > abs(dHdv), in pA, for each neuron in the network, based on its type
+    VectorXd                 I_spike;                // Vector giving spike current, in pA, for each neuron in the network, based on its type
+    VectorXd                 spike_potential;        // Vector giving magnitude of each spike, in mV, for each neuron in the network, based on its type
+    VectorXd                 resting_potential;      // Vector giving resting potential, in mV, for each neuron in the network, based on its type
+    VectorXd                 threshold;              // Vector giving spike threshold, in mV, for each neuron in the network, based on its type
+    VectorXd                 leak_conductance;       // Vector giving conductance controlling the leak current, I_leak = leak_conductance (resting_potential - v), in nS, for each neuron in the network, based on its type
+    MatrixXd                 tau_components;         // n_neurons x 3 matrix giving the temporal modulation time (ms) bias, step, and cutoff for each neuron in the network, based on its type
+    VectorXd                 spike_recovery_rate;    // Vector giving the number of spikes which can be "cleared" per ms, for each neuron in the network, based on its type
+    VectorXd                 transmission_velocity;  // Vector giving the transmission delay (ms) for each neuron in the network, based on its type
     CharacterVector          neuron_type_name;       // Vector giving the type of each neuron in the network, as a string
     std::vector<int>         neuron_type_num;        // Vector giving the type of each neuron in the network, as an integer index
     std::vector<int>         node_range_ends;        // Vector giving the ending neuron index for each node in the network
-    std::vector<MatrixXi>    edge_types;             // Vector of integer matrices giving all transconductance matrix coordinates for each edge type 
+    std::vector<MatrixXi>    edge_types;             // Vector of integer matrices giving all transconductance matrix coordinates for each edge type, in nS
     CharacterVector          edge_type_names = {"local connections"};  // Names of elements in edge_types
     
     // Data fields 
-    double   sim_dt;                                 // Time step for simulation, in the implicit time units of the simulation (e.g., ms)
+    double   sim_dt;                                 // Time step for simulation, in ms
     MatrixXd sim_traces;                             // NxT matrix of doubles, each column giving the simulated membrane potential of a neuron, each row giving a time-step in the simulation
     VectorXd spike_counts;                           // Vector of length n_neurons, giving the number of spikes for each neuron in the network during a simulation
     
@@ -365,11 +365,12 @@ class network {
     
     // Member functions for analysis and simulation 
     MatrixXi find_pairwise_lags_by_axon(
-      double dt                               // time step length, in the implicit time units of the simulation (e.g., ms)
+      double dt                                  // time step length, in ms
     );
     void SGT(
-      const NumericMatrix& stimulus_current,  // matrix of stimulus currents, in the implicit current units of the simulation (e.g., mA), n_neurons x n_steps
-      double dt                               // time step length, in the implicit time units of the simulation (e.g., ms)
+      const NumericMatrix& stimulus_current_R,   // matrix of stimulus currents, in pA, n_neurons x n_steps
+      double dt,                                 // time step length, in ms
+      double initial_potential                   // start all neurons with this membrane potential
     );
     
   };

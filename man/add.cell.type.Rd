@@ -7,18 +7,17 @@
 add.cell.type(
   type_name,
   valence,
-  temporal_modulation_bias = 0.001,
+  temporal_modulation_bias = 10,
   temporal_modulation_timeconstant = 1,
-  temporal_modulation_amplitude = 0.005,
+  temporal_modulation_amplitude = 0,
   transmission_velocity = 30000,
   spine_density = 0,
   axon_target = "dendrite_shaft",
-  v_bound = 75,
-  dHdv_bound = 1.05e-06,
-  I_spike = 1e-06,
+  I_spike = 1000,
   spike_potential = 35,
   resting_potential = -70,
   threshold = -55,
+  leak_conductance = 10,
   axon_branch_count = 10,
   dendrite_branch_count = 10,
   branch_independence = 0.5,
@@ -31,11 +30,11 @@ add.cell.type(
 
 \item{valence}{Valence of each neuron type, +1 for excitatory, -1 for inhibitory}
 
-\item{temporal_modulation_bias}{Temporal modulation time (in ms) bias for each neuron type. Default value is 1e-3.}
+\item{temporal_modulation_bias}{Temporal modulation time (in ms) bias for each neuron type. Default value is 10.}
 
-\item{temporal_modulation_timeconstant}{Temporal modulation time (in ms) step for each neuron type. Default value is 1e0.}
+\item{temporal_modulation_timeconstant}{Temporal modulation time (in ms) step for each neuron type. Default value is 1.}
 
-\item{temporal_modulation_amplitude}{Temporal modulation time (in ms) cutoff for each neuron type. Default value is 5e-3.}
+\item{temporal_modulation_amplitude}{Temporal modulation time (in ms) cutoff for each neuron type. Default value is 0.}
 
 \item{transmission_velocity}{Transmission velocity (in microns/ms) for each neuron type. Default value is 30e3.}
 
@@ -43,17 +42,15 @@ add.cell.type(
 
 \item{axon_target}{Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".}
 
-\item{v_bound}{Potential bound, such that -v_bound <= v_traces <= v_bound, in the implicit potential units of the network (e.g., mV), for each neuron in the network, based on its type. Default value is 75.0.}
-
-\item{dHdv_bound}{Bound on derivative of metabolic energy wrt potential, such that dHdv_bound > abs(dHdv), in mA, for each neuron in the network, based on its type. Default value is 1.05e-6.}
-
-\item{I_spike}{Spike current, in mA. Default value is 1e-6 (i.e., 1 nA).}
+\item{I_spike}{Spike current, in pA. Default value is 1e3 (i.e., 1 nA); absolute value (plus a little bit) used as \code{dHdv_bound}, i.e., the bound on derivative of metabolic energy wrt potential, such that \code{dHdv_bound > abs(dHdv)}, for each neuron in the network, based on its type}
 
 \item{spike_potential}{Magnitude of each spike, in mV. Default value is 35.0.}
 
-\item{resting_potential}{Resting potential, in mV. Default value is -70.0.}
+\item{resting_potential}{Resting potential, in mV. Default value is -70.0; absolute value (plus a little bit) used as \code{v_bound}, i.e., the bound on membrane potential, such that \code{-v_bound <= v_traces <= v_bound}, for each neuron in the network, based on its type}
 
 \item{threshold}{Spike threshold, in mV. Default value is -55.0.}
+
+\item{leak_conductance}{Conductance controlling the leak current, \code{I_leak = leak_conductance (resting_potential - v)}, in the implicit conductance units of the simulation (e.g., nS). Default value is 10 nS.}
 
 \item{axon_branch_count}{Expected number of axon branches. Default is 10.}
 
@@ -69,5 +66,5 @@ add.cell.type(
 Nothing.
 }
 \description{
-This function adds a user-defined cell type to the current session. It's just a wrapper for the Rcpp-exported \code{add_cell_type} function. Technically, \code{cell_type} is a \code{struc} defined in the Rcpp backend of the neurons package. They are essentially labeled lists with the following entries: \code{type_name}, \code{valence}, \code{temporal_modulation_bias}, \code{temporal_modulation_timeconstant}, \code{temporal_modulation_amplitude}, \code{transmission_velocity}, \code{v_bound}, \code{dHdv_bound}, \code{I_spike}, \code{coupling_scaling_factor}, \code{spike_potential}, \code{resting_potential}, and \code{threshold}. Each session stores cell types in the Rcpp backend in an \code{unordered_map} with \code{string} labels. All parameters come with biologically realistic (and mathematically workable) default values, except for \code{type_name} and \code{valence}.
+This function adds a user-defined cell type to the current session. It's just a wrapper for the Rcpp-exported \code{add_cell_type} function. Technically, \code{cell_type} is a \code{struc} defined in the Rcpp backend of the neurons package. They are essentially labeled lists with the following entries: \code{type_name}, \code{valence}, \code{temporal_modulation_bias}, \code{temporal_modulation_timeconstant}, \code{temporal_modulation_amplitude}, \code{transmission_velocity}, \code{I_spike}, \code{coupling_scaling_factor}, \code{spike_potential}, \code{resting_potential}, and \code{threshold}. Each session stores cell types in the Rcpp backend in an \code{unordered_map} with \code{string} labels. All parameters come with biologically realistic (and mathematically workable) default values, except for \code{type_name} and \code{valence}.
 }

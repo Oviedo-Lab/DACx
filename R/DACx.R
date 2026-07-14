@@ -81,22 +81,22 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 
 #' Add new cell type
 #' 
-#' This function adds a user-defined cell type to the current session. It's just a wrapper for the Rcpp-exported \code{add_cell_type} function. Technically, \code{cell_type} is a \code{struc} defined in the Rcpp backend of the neurons package. They are essentially labeled lists with the following entries: \code{type_name}, \code{valence}, \code{temporal_modulation_bias}, \code{temporal_modulation_timeconstant}, \code{temporal_modulation_amplitude}, \code{transmission_velocity}, \code{v_bound}, \code{dHdv_bound}, \code{I_spike}, \code{coupling_scaling_factor}, \code{spike_potential}, \code{resting_potential}, and \code{threshold}. Each session stores cell types in the Rcpp backend in an \code{unordered_map} with \code{string} labels. All parameters come with biologically realistic (and mathematically workable) default values, except for \code{type_name} and \code{valence}. 
+#' This function adds a user-defined cell type to the current session. It's just a wrapper for the Rcpp-exported \code{add_cell_type} function. Technically, \code{cell_type} is a \code{struc} defined in the Rcpp backend of the neurons package. They are essentially labeled lists with the following entries: \code{type_name}, \code{valence}, \code{temporal_modulation_bias}, \code{temporal_modulation_timeconstant}, \code{temporal_modulation_amplitude}, \code{spike_recovery_rate}, \code{transmission_velocity}, \code{I_spike}, \code{coupling_scaling_factor}, \code{spike_potential}, \code{resting_potential}, and \code{threshold}. Each session stores cell types in the Rcpp backend in an \code{unordered_map} with \code{string} labels. All parameters come with biologically realistic (and mathematically workable) default values, except for \code{type_name} and \code{valence}. 
 #' 
 #' @param type_name Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.
 #' @param valence Valence of each neuron type, +1 for excitatory, -1 for inhibitory
-#' @param temporal_modulation_bias Temporal modulation time (in ms) bias for each neuron type. Default value is 1e-3.
-#' @param temporal_modulation_timeconstant Temporal modulation time (in ms) step for each neuron type. Default value is 1e0.
-#' @param temporal_modulation_amplitude Temporal modulation time (in ms) cutoff for each neuron type. Default value is 5e-3.
+#' @param temporal_modulation_bias Temporal modulation time (in ms) bias for each neuron type. Default value is 10.
+#' @param temporal_modulation_timeconstant Temporal modulation time (in ms) step for each neuron type. Default value is 1.
+#' @param temporal_modulation_amplitude Temporal modulation time (in ms) cutoff for each neuron type. Default value is 0.
+#' @param spike_recovery_rate Number of spikes which can be "cleared" per ms.
 #' @param transmission_velocity Transmission velocity (in microns/ms) for each neuron type. Default value is 30e3.
 #' @param spine_density Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0. 
 #' @param axon_target Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".
-#' @param v_bound Potential bound, such that -v_bound <= v_traces <= v_bound, in the implicit potential units of the network (e.g., mV), for each neuron in the network, based on its type. Default value is 75.0.
-#' @param dHdv_bound Bound on derivative of metabolic energy wrt potential, such that dHdv_bound > abs(dHdv), in mA, for each neuron in the network, based on its type. Default value is 1.05e-6.
-#' @param I_spike Spike current, in mA. Default value is 1e-6 (i.e., 1 nA).
+#' @param I_spike Spike current, in pA. Default value is 1e3 (i.e., 1 nA); absolute value (plus a little bit) used as \code{dHdv_bound}, i.e., the bound on derivative of metabolic energy wrt potential, such that \code{dHdv_bound > abs(dHdv)}, for each neuron in the network, based on its type
 #' @param spike_potential Magnitude of each spike, in mV. Default value is 35.0.
-#' @param resting_potential Resting potential, in mV. Default value is -70.0.
+#' @param resting_potential Resting potential, in mV. Default value is -70.0; absolute value (plus a little bit) used as \code{v_bound}, i.e., the bound on membrane potential, such that \code{-v_bound <= v_traces <= v_bound}, for each neuron in the network, based on its type
 #' @param threshold Spike threshold, in mV. Default value is -55.0.
+#' @param leak_conductance Conductance controlling the leak current, \code{I_leak = leak_conductance (resting_potential - v)}, in the implicit conductance units of the simulation (e.g., nS). Default value is 10 nS.
 #' @param axon_branch_count Expected number of axon branches. Default is 10. 
 #' @param dendrite_branch_count Expected number of dendrite branches. Default is 10. 
 #' @param branch_independence Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma. Default is 0.5.
@@ -107,20 +107,20 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 add.cell.type <- function(
     type_name,
     valence,
-    temporal_modulation_bias = 1e-3,
-    temporal_modulation_timeconstant = 1e0,
-    temporal_modulation_amplitude = 5e-3,
+    temporal_modulation_bias = 10.0,
+    temporal_modulation_timeconstant = 1.0,
+    temporal_modulation_amplitude = 0.0,
+    spike_recovery_rate = 5.0, 
     transmission_velocity = 30e3,
     spine_density = 0.0,
     axon_target = "dendrite_shaft",
-    v_bound = 75.0,
-    dHdv_bound = 1.05e-6,
-    I_spike = 1e-6,
+    I_spike = 1e3,
     spike_potential = 35.0,
     resting_potential = -70.0,
     threshold = -55.0,
-    axon_branch_count = 10,
-    dendrite_branch_count = 10,
+    leak_conductance = 10.0, 
+    axon_branch_count = 10.0,
+    dendrite_branch_count = 10.0,
     branch_independence = 0.5,
     branch_spread = 0.5,
     apical_target_layer = "none"
@@ -131,15 +131,15 @@ add.cell.type <- function(
       temporal_modulation_bias, 
       temporal_modulation_timeconstant, 
       temporal_modulation_amplitude, 
+      spike_recovery_rate, 
       transmission_velocity, 
       spine_density,
       axon_target,
-      v_bound, 
-      dHdv_bound, 
       I_spike, 
       spike_potential, 
       resting_potential, 
       threshold,
+      leak_conductance,
       axon_branch_count,
       dendrite_branch_count,
       branch_independence,
@@ -157,16 +157,16 @@ add.cell.type <- function(
 #' @param temporal_modulation_bias Temporal modulation time (in ms) bias for each neuron type
 #' @param temporal_modulation_timeconstant Temporal modulation time (in ms) step for each neuron type
 #' @param temporal_modulation_amplitude Temporal modulation time (in ms) cutoff for each neuron type
+#' @param spike_recovery_rate Number of spikes which can be "cleared" per ms.
 #' @param transmission_velocity Transmission velocity (in microns/ms) for each neuron type
 #' @param axon_target Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".
 #' @param spine_density Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0. 
-#' @param v_bound Potential bound, such that -v_bound <= v_traces <= v_bound, in mV, for each neuron in the network, based on its type
-#' @param dHdv_bound Bound on derivative of metabolic energy wrt potential, such that dHdv_bound > abs(dHdv), in mA, for each neuron in the network, based on its type
-#' @param I_spike Spike current, in mA
+#' @param I_spike Spike current, in pA; absolute value (plus a little bit) used as \code{dHdv_bound}, i.e., the bound on derivative of metabolic energy wrt potential, such that \code{dHdv_bound > abs(dHdv)}, for each neuron in the network, based on its type
 #' @param coupling_scaling_factor Controls how energy used in synaptic transmission compares to that used in spiking
 #' @param spike_potential Magnitude of each spike, in mV
-#' @param resting_potential Resting potential, in mV
+#' @param resting_potential Resting potential, in mV; absolute value (plus a little bit) used as \code{v_bound}, i.e., the bound on membrane potential, such that \code{-v_bound <= v_traces <= v_bound}, for each neuron in the network, based on its type
 #' @param threshold Spike threshold, in mV
+#' @param leak_conductance Conductance controlling the leak current, \code{I_leak = leak_conductance (resting_potential - v)}, in the implicit conductance units of the simulation (e.g., nS). Default value is 10 nS.
 #' @param axon_branch_count Expected number of axon branches
 #' @param dendrite_branch_count Expected number of dendrite branches
 #' @param branch_independence Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma. Default is 0.5.
@@ -180,15 +180,15 @@ modify.cell.type <- function(
     temporal_modulation_bias = NULL,
     temporal_modulation_timeconstant = NULL,
     temporal_modulation_amplitude = NULL,
+    spike_recovery_rate = NULL,
     transmission_velocity = NULL,
     spine_density = NULL,
     axon_target = NULL, 
-    v_bound = NULL,
-    dHdv_bound = NULL,
     I_spike = NULL,
     spike_potential = NULL,
     resting_potential = NULL,
     threshold = NULL,
+    leak_conductance = NULL,
     axon_branch_count = NULL,
     dendrite_branch_count = NULL, 
     branch_independence = NULL, 
@@ -200,15 +200,15 @@ modify.cell.type <- function(
     if (is.null(temporal_modulation_bias)) temporal_modulation_bias <- existing_params$temporal_modulation_bias
     if (is.null(temporal_modulation_timeconstant)) temporal_modulation_timeconstant <- existing_params$temporal_modulation_timeconstant
     if (is.null(temporal_modulation_amplitude)) temporal_modulation_amplitude <- existing_params$temporal_modulation_amplitude
+    if (is.null(spike_recovery_rate)) spike_recovery_rate <- existing_params$spike_recovery_rate
     if (is.null(transmission_velocity)) transmission_velocity <- existing_params$transmission_velocity
     if (is.null(spine_density)) spine_density <- existing_params$spine_density
     if (is.null(axon_target)) axon_target <- existing_params$axon_target
-    if (is.null(v_bound)) v_bound <- existing_params$v_bound
-    if (is.null(dHdv_bound)) dHdv_bound <- existing_params$dHdv_bound
     if (is.null(I_spike)) I_spike <- existing_params$I_spike
     if (is.null(spike_potential)) spike_potential <- existing_params$spike_potential
     if (is.null(resting_potential)) resting_potential <- existing_params$resting_potential
     if (is.null(threshold)) threshold <- existing_params$threshold
+    if (is.null(leak_conductance)) leak_conductance <- existing_params$leak_conductance
     if (is.null(axon_branch_count)) axon_branch_count <- existing_params$axon_branch_count
     if (is.null(dendrite_branch_count)) dendrite_branch_count <- existing_params$dendrite_branch_count
     if (is.null(branch_independence)) branch_independence <- existing_params$branch_independence
@@ -220,15 +220,15 @@ modify.cell.type <- function(
       temporal_modulation_bias, 
       temporal_modulation_timeconstant, 
       temporal_modulation_amplitude, 
+      spike_recovery_rate, 
       transmission_velocity, 
       spine_density,
       axon_target,
-      v_bound, 
-      dHdv_bound, 
       I_spike, 
       spike_potential, 
       resting_potential, 
       threshold,
+      leak_conductance,
       axon_branch_count,
       dendrite_branch_count,
       branch_independence,
@@ -1134,15 +1134,13 @@ plot.network <- function(
 #' @usage plot.network.traces(network, return_plot)
 #' @param network Network object with SGT simulation traces to plot.
 #' @param return_plot Logical indicating whether to return the ggplot object (TRUE) or print it (FALSE) (default: FALSE).
-#' @param units_time Character string giving the units of time, value only used to label the plot (Default: "ms").
-#' @param units_potential Character string giving units of potential, value only used to label plots (Default: "mV").
+#' @param input_matrix Matrix of stimulus currents, with rows representing neurons and columns representing sample times. Presumably the one used to generate the traces. Options. If provided, will be added to the bottom of the plot. 
 #' @return A ggplot object showing spike traces for all neurons in the network over time.
 #' @export
 plot.network.traces <- function(
     network,
-    return_plot = FALSE, 
-    units_time = "ms",
-    units_potential = "mV"
+    return_plot  = FALSE, 
+    input_matrix = NULL
   ) {
     
     # Get the traces to print
@@ -1153,22 +1151,22 @@ plot.network.traces <- function(
     
     # Initialize R data frame for ggplot
     sim_traces_long <- data.frame()
-    time_seq <- seq(1, by = ntw$sim_dt, length.out = ncol(sim_traces))
-    sim_steps <- c(1:ncol(sim_traces))
+    time_seq        <- seq(1, by = ntw$sim_dt, length.out = ncol(sim_traces))
+    sim_steps       <- c(1:ncol(sim_traces))
     for (i in 1:nrow(sim_traces)) {
       neuron_trace <- data.frame(
-        time = time_seq,
+        time      = time_seq,
         potential = sim_traces[i, sim_steps],
-        id = i,
-        type = ntw$neuron_type_name[i]
+        id        = i,
+        type      = ntw$neuron_type_name[i]
       )
       sim_traces_long <- rbind(sim_traces_long, neuron_trace)
     }
     sim_traces_long$id <- as.character(sim_traces_long$id)
     
     # Make plot
-    title_size <- 14 
-    axis_size <- 12 
+    title_size  <- 14 
+    axis_size   <- 12 
     legend_size <- 10
     plt <- ggplot2::ggplot(sim_traces_long, ggplot2::aes(x = time, y = potential, group = id, color=id)) +
       ggplot2::geom_line() +
@@ -1177,17 +1175,48 @@ plot.network.traces <- function(
       ggplot2::theme(
         panel.background = ggplot2::element_rect(fill = "white", colour = NA),
         plot.background  = ggplot2::element_rect(fill = "white", colour = NA),
-        plot.title = ggplot2::element_text(hjust = 0.5, size = title_size),
-        axis.title = ggplot2::element_text(size = axis_size),
-        axis.text = ggplot2::element_text(size = axis_size),
-        legend.title = ggplot2::element_text(size = legend_size),
-        legend.text = ggplot2::element_text(size = legend_size),
-        legend.position = "none") +
+        plot.title       = ggplot2::element_text(hjust = 0.5, size = title_size),
+        axis.title       = ggplot2::element_text(size = axis_size),
+        axis.text        = ggplot2::element_text(size = axis_size),
+        legend.title     = ggplot2::element_text(size = legend_size),
+        legend.text      = ggplot2::element_text(size = legend_size),
+        legend.position  = "none") +
       ggplot2::labs(
         title = "SGT Simulation Traces",
-        x = paste0("Time (", units_time, ")"),
-        y = paste0("Membrane Potential (", units_potential, ")")
+        x     = paste0("Time (ms)"),
+        y     = paste0("Membrane Potential (mV)")
       )
+    
+    # Resize plot line, if only one neuron
+    if (nrow(sim_traces) == 1) plt$layers[[1]]$aes_params$linewidth <- 1.2
+    
+    # Add input matrix 
+    if (!is.null(input_matrix)) {
+      
+      # Remove x axis
+      plt <- plt +
+        ggplot2::theme(
+          axis.title.x = ggplot2::element_blank(),
+          axis.ticks.x = ggplot2::element_blank(),
+          axis.text.x  = ggplot2::element_blank()
+        )
+      
+      # Make stimulus plot
+      df <- data.frame(
+        t = rep(seq_len(ncol(input_matrix)) * ntw$sim_dt, each = nrow(input_matrix)), 
+        x = as.numeric(input_matrix)
+      )
+      
+      plt_stim <- ggplot2::ggplot(df, ggplot2::aes(t, x)) +
+        ggplot2::geom_line(linewidth = 0.6) +
+        ggplot2::theme_minimal() +
+        ggplot2::xlab("Time (ms)") +
+        ggplot2::ylab("Stimulus (pA)")
+      
+      # Stack them
+      plt <- patchwork::wrap_plots(plt, plt_stim, ncol = 1, heights = c(4, 1))
+      
+    }
     
     if (return_plot) {
       return(plt)
@@ -1200,22 +1229,21 @@ plot.network.traces <- function(
 
 #' Run Spatial Growth-Transform network simulation
 #' 
-#' This function uses a Spatial Growth-Transform (SGT) model to run a spike simulation on a given network object for a specified matrix of input currents over time. A matrix containing the spike traces of all neurons over time after the simulation (neurons as rows, sample times as columns) is saved in the network object, along with a vector of spike counts for each neuron in the network. Both are returned on the R side in a list.
+#' This function uses a Spatial Growth-Transform (SGT) model to run a spike simulation on a given network object for a specified matrix of membrane currents over time. A matrix containing the spike traces of all neurons over time after the simulation (neurons as rows, sample times as columns) is saved in the network object, along with a vector of spike counts for each neuron in the network. Both are returned on the R side in a list.
 #' 
 #' @param network Network object on which to run the simulation.
-#' @param stimulus_current_matrix Matrix of input currents, with rows representing neurons and columns representing sample times.
+#' @param stimulus_current_matrix Matrix of stimulus currents, with rows representing neurons and columns representing sample times.
 #' @param dt Time step length in the implicit time units of the network (default: 1e-3, which is 1 micosecond time steps, assuming an implicit time unit of ms).
+#' @param initial_potential Initial value for membrane potential, applied to all cells (Default is -70 mV).
 #' @return List containing the following elements: \item{sim_traces}{Matrix of simulated spike traces for all neurons over time (neurons as rows, sample times as columns).} \item{spike_counts}{Vector of spike counts for each neuron in the network.} 
 #' @export
 run.SGT <- function(
     network,
-    stimulus_current_matrix,    # matrix of input currents (rows: neurons, columns: time bins)
-    dt = 1e-3                   # time step length, in ms
+    stimulus_current_matrix, 
+    dt = 1e-3,  
+    initial_potential = -70.0
   ) {
-    network$SGT(
-      stimulus_current_matrix,
-      dt
-    )
+    network$SGT(stimulus_current_matrix, dt, initial_potential)
     sim_traces <- network$fetch_sim_traces_R()
     spike_counts <- network$fetch_spike_counts_R()
     return(list(sim_traces = sim_traces, spike_counts = spike_counts))

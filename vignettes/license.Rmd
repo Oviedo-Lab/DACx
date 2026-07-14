@@ -46,3 +46,21 @@ https://ggplot2.tidyverse.org/
 
 The MIT license  
 https://github.com/tidyverse/ggplot2
+
+<h1> patchwork </h1>
+
+by: Thomas Lin Pedersen
+
+https://patchwork.data-imaginist.com/
+
+The MIT license  
+https://github.com/tidyverse/ggplot2
+
+<h1> plotly </h1>
+
+by: Ram, Marianne Corvellec, Pedro Despouy, Salim Brüggemann, Plotly Technologies Inc.
+
+https://plotly-r.com
+
+The MIT license  
+https://github.com/tidyverse/ggplot2

@@ -274,8 +274,8 @@ IntegerMatrix to_IntMat(
 // Membrane potential barrier function
 VectorXd v_barrier(
     const VectorXd& v_input,        // Column vector of membrane potentials for a network of neurons at one time step
-    const VectorXd& threshold,      // Spike threshold, in the implicit potential units of the network (e.g., mV), for each neuron in network
-    const VectorXd& I_out           // Spike current, in the implicit current units of the network (e.g., mA), for each neuron in network
+    const VectorXd& threshold,      // Spike threshold in mV, for each neuron in network
+    const VectorXd& I_out           // Spike current in pA, for each neuron in network
   ) {
     // Initialize output vector
     VectorXd output(v_input.size());
@@ -314,25 +314,25 @@ MatrixXd lagged_traces(
 
 // Gradient of total dissipated metabolic power in network, w.r.t. membrane potential
 VectorXd network_power_dissipation_gradient(
-    const MatrixXd& v_traces_lagged,  // n_neuron x n_neuron matrix giving membrane potentials, in the implicit potential units of the network (e.g., mV), with each column j giving the membrane potentials of all neurons as seen by neuron j at this time step
-    const VectorXd& v_traces,         // n_neuron x 1 matrix (column vector) of membrane potentials, in the implicit potential units of the network (e.g., mV), from which to calculate derivative
-    const VectorXd& stimulus_current, // n_neuron x 1 matrix (column vector) of stimulus currents, in the implicit current units of the network (e.g., mA), from which to calculate derivative
-    const MatrixXd& transconductance, // n_neuron x n_neuron transconductance matrix, giving connections between neurons
-    const VectorXd& I_spike,          // spike current, in the implicit current units of the network (e.g., mA)
-    const VectorXd& threshold         // spike threshold, in the implicit potential units of the network (e.g., mV)
+    const MatrixXd& v_traces_lagged,  // n_neuron x n_neuron matrix giving membrane potentials in mV, with each column j giving the membrane potentials of all neurons as seen by neuron j at this time step
+    const VectorXd& v_traces,         // n_neuron x 1 matrix (column vector) of membrane potentials in mV, from which to calculate derivative
+    const VectorXd& membrane_current, // n_neuron x 1 matrix (column vector) of membrane currents in pA, from which to calculate derivative
+    const MatrixXd& transconductance, // n_neuron x n_neuron transconductance matrix, giving connections between neurons in nS
+    const VectorXd& I_spike,          // spike current in pA
+    const VectorXd& threshold         // spike threshold in mV
   ) {  
     // Change dH in total dissipated metabolic power in network (a current) from small change dv in membrane potential, 
     //  given the membrane potential at time step n, for each neuron in network
     //  ... Notice that this function implies that row indices represent post-synaptic neurons, column indices represent pre-synaptic neurons
-    VectorXd lagged_power_dissipation = (transconductance.array() * v_traces_lagged.transpose().array()).rowwise().sum();
+    VectorXd lagged_synaptic_power_dissipation = (transconductance.array() * v_traces_lagged.transpose().array()).rowwise().sum();
     // ... transconductance(i, j) = conductance from neuron j to neuron i
-    // ... v_traces_lagged(i, j) = neuron i's membrane potential as seen by neuron j at this time step
+    // ... v_traces_lagged(i, j)  = neuron i's membrane potential as seen by neuron j at this time step
     // ... v_traces_lagged.transpose()(i, j) = neuron j's membrane potential as seen by neuron i at this time step
     // ... so, row-wise sum gives power dissipation from input into i
     VectorXd dHdv = 
-      lagged_power_dissipation -                // power dissipation (electrical current) from coupling between neurons
-      stimulus_current +                        // power injected into the system (electrical current) from external stimulation
-      v_barrier(v_traces, threshold, I_spike);  // power dissipated (electrical current) from neural responses (namely, spikes)
+      lagged_synaptic_power_dissipation -       // power dissipation (electrical current) from coupling between neurons
+      membrane_current +                        // power dissipation (electrical current) from current across the membrane (negative because in-flowing positive current takes energy to pump out)
+      v_barrier(v_traces, threshold, I_spike);  // power dissipation (electrical current) from neural responses (namely, spikes)
     return dHdv;
     
     /*
@@ -350,6 +350,9 @@ VectorXd network_power_dissipation_gradient(
      */
     
   }
+
+// Derivative of depressive weight, from Schiff & Reyes 2012 (https://doi.org/10.1152/jn.00208.2011) 
+// ... insert here! 
 
 /*
  * ***********************************************************************************
@@ -397,22 +400,21 @@ std::unordered_map<std::string, cell_type> cell_types;
 // Known cell types
 // [[Rcpp::export]]
 void init_known_celltypes() {
-  // Defaults ...
-  // Membrane kinetics (burst control)
-  double temporal_modulation_bias = 10;        // Temporal modulation time (units left implicit, but matter for interpretion) bias for each neuron type
-  double temporal_modulation_timeconstant = 10;       // Temporal modulation time (units left implicit, but matter for interpretion) step for each neuron type
-  double temporal_modulation_amplitude = 10;          // Temporal modulation time (units left implicit, but matter for interpretion) cutoff for each neuron type
+  // Membrane channel kinetics
+  double temporal_modulation_bias = 10.0;        // Temporal modulation time (ms) bias for each neuron type
+  double temporal_modulation_timeconstant = 1.0;       // Temporal modulation time (ms) step for each neuron type
+  double temporal_modulation_amplitude = 5.0;          // Temporal modulation time (ms) cutoff for each neuron type
+  double spike_recovery_rate = 5.0;            // Number of spikes which can be "cleared" per ms
   // Intercell transmission
   double transmission_velocity = 30e3;         // Microns/ms ... 30 m/s = 30e6 micron/s = 30e6 micron/ 1e3 ms = 30e3 micron/ms
   double spine_density = 0.0;                  // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
   std::string axon_target = "dendrite_shaft";  // "spine", "dendrite_shaft", "soma", and "axon_shaft"
   // Membrane characteristics
-  double v_bound = 75.0;                       // Potential bound, in the implicit potential units of the network (e.g., mV)
-  double dHdv_bound = 1.05e-6;                 // Bound on the derivative of metabolic energy wrt potential, in the implicit current units of the network (e.g., mA)
-  double I_spike = 1e-6;                       // Spike current, in the implicit current units of the network (default of 1e-6 is 1 nano amp, assuming implicit units of mA)
-  double spike_potential = 35.0;               // Magnitude of each spike, in the implicit potential units of the network (e.g., mV)
-  double resting_potential = -70.0;            // Resting potential, in the implicit potential units of the network (e.g., mV)
-  double threshold = -55.0;                    // Spike threshold, in the implicit potential units of the network (e.g., mV)
+  double I_spike = 1e3;                        // Spike current in pA (default of 1e3 is 1 nano amp); the absolute value (plus a small bit) is used as the bound dHdv_bound on the derivative of metabolic energy wrt potential.
+  double spike_potential = 35.0;               // Magnitude of each spike in mV
+  double resting_potential = -70.0;            // Resting potential in mV; the absolute value (plus a small bit) is used as v_bound, the bound on membrane potential. 
+  double threshold = -55.0;                    // Spike threshold in mV
+  double leak_conductance = 10.0;              // conductance controlling the leak current, I_leak = leak_conductance (resting_potential - v) in nS
   // Process size and structure parameters
   int axon_branch_count = 10;                  // Sets n_branches in make_arbor, in terms of expected number of branches per process length
   int dendrite_branch_count = 10;              // Sets n_branches in make_arbor, in terms of expected number of branches per process length
@@ -422,36 +424,38 @@ void init_known_celltypes() {
   std::string apical_target_layer = "none";
 
   // Define excitatory cells
-  double tmb_fix = 0.0001;
   cell_types["pyramidal"] = cell_type{
     "pyramidal", 1,
-    35.0*tmb_fix, temporal_modulation_timeconstant*tmb_fix, // Slow responders, 10-50 ms
+    35.0, temporal_modulation_timeconstant, // Slow responders, 10-50 ms
     0.0, // No bursting
+    spike_recovery_rate, 
     transmission_velocity, 0.5, "spine",
-    v_bound, dHdv_bound, I_spike,
-    spike_potential, resting_potential, threshold,
+    I_spike,
+    spike_potential, resting_potential, threshold, leak_conductance,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
     "L1" // Harris2013a, for cells in L2, L3, and L5
   };
   cell_types["pyramidal_L6"] = cell_type{
     "pyramidal_L6", 1,
-    35.0*tmb_fix, temporal_modulation_timeconstant*tmb_fix,
+    35.0, temporal_modulation_timeconstant,
     0.0, // No bursting
+    spike_recovery_rate, 
     transmission_velocity, 0.5, "spine",
-    v_bound, dHdv_bound, I_spike,
-    spike_potential, resting_potential, threshold,
+    I_spike,
+    spike_potential, resting_potential, threshold, leak_conductance,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
     "L4" // Harris2013a: 
   };
   cell_types["spiny_stellate"] = cell_type{
     "spiny_stellate", 1,
-    15.0*tmb_fix, temporal_modulation_timeconstant*tmb_fix,
+    15.0, temporal_modulation_timeconstant,
     0.0, // No bursting
+    spike_recovery_rate, 
     transmission_velocity, 0.5, "spine",
-    v_bound, dHdv_bound, I_spike,
-    spike_potential, resting_potential, threshold,
+    I_spike,
+    spike_potential, resting_potential, threshold, leak_conductance,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.5, branch_spread * 1.5, // Increased branching
     apical_target_layer
@@ -459,44 +463,48 @@ void init_known_celltypes() {
   // Define inhibitory cells
   cell_types["Neurogliaform_cell"] = cell_type{
     "Neurogliaform_cell", -1,
-    temporal_modulation_bias*tmb_fix, temporal_modulation_timeconstant*tmb_fix,
-    temporal_modulation_amplitude*tmb_fix,
+    temporal_modulation_bias, temporal_modulation_timeconstant,
+    temporal_modulation_amplitude,
+    spike_recovery_rate, 
     transmission_velocity * 0.5, spine_density, axon_target, // Slower transmission for neurogliaform cells
-    v_bound, dHdv_bound, I_spike,
-    spike_potential, resting_potential, threshold,
+    I_spike,
+    spike_potential, resting_potential, threshold, leak_conductance,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.5, branch_spread * 1.5, // Increased branching
     apical_target_layer
   };
   cell_types["PV"] = cell_type{
     "PV", -1,
-    5.0*tmb_fix*2, temporal_modulation_timeconstant*tmb_fix, // Faster responders, 5 ms
+    5.0*2, temporal_modulation_timeconstant, // Faster responders, 5 ms
     0.0, // No bursting
+    spike_recovery_rate, 
     transmission_velocity, spine_density, "soma",
-    v_bound, dHdv_bound, I_spike,
-    spike_potential, resting_potential, threshold,
+    I_spike,
+    spike_potential, resting_potential, threshold, leak_conductance,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.25, branch_spread * 1.25, // Increased branching
     apical_target_layer
   };
   cell_types["SST"] = cell_type{
     "SST", -1,
-    10.0*tmb_fix, temporal_modulation_timeconstant*tmb_fix, // Slower responders, 10-30 ms
-    30*tmb_fix,
+    10.0, temporal_modulation_timeconstant, // Slower responders, 10-30 ms
+    30,
+    spike_recovery_rate, 
     transmission_velocity, spine_density, axon_target,
-    v_bound, dHdv_bound, I_spike,
-    spike_potential, resting_potential, threshold,
+    I_spike,
+    spike_potential, resting_potential, threshold, leak_conductance,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.5, branch_spread * 1.5, // Increased branching
     apical_target_layer
   };
   cell_types["VIP"] = cell_type{
     "VIP", -1,
-    15.0*tmb_fix, temporal_modulation_timeconstant*tmb_fix, // Slow responders, 15-40 ms
-    25*tmb_fix,
+    15.0, temporal_modulation_timeconstant, // Slow responders, 15-40 ms
+    25,
+    spike_recovery_rate, 
     transmission_velocity, spine_density, axon_target,
-    v_bound, dHdv_bound, I_spike,
-    spike_potential, resting_potential, threshold,
+    I_spike,
+    spike_potential, resting_potential, threshold, leak_conductance,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.25, branch_spread * 1.25, // Increased branching
     apical_target_layer
@@ -514,15 +522,15 @@ void print_known_celltypes() {
                 << "  Temporal modulation bias (ms): " << ct.temporal_modulation_bias << std::endl
                 << "  Temporal modulation time constant (ms): " << ct.temporal_modulation_timeconstant << std::endl
                 << "  Temporal modulation amplitude (ms): " << ct.temporal_modulation_amplitude << std::endl
+                << "  Spike recovery rate (spikes/ms): " << ct.spike_recovery_rate << std::endl; 
                 << "  Transmission velocity: " << ct.transmission_velocity << std::endl
                 << "  Spine density: " << ct.spine_density << std::endl
                 << "  Axon target: " << ct.axon_target << std::endl
-                << "  Potential bound (mV): " << ct.v_bound << std::endl
-                << "  Metabolic energy derivative dHdv bound (mA): " << ct.dHdv_bound << std::endl
-                << "  Spike current (mA): " << ct.I_spike << std::endl
+                << "  Spike current (pA): " << ct.I_spike << std::endl
                 << "  Spike potential (mV): " << ct.spike_potential << std::endl
                 << "  Resting potential (mV): " << ct.resting_potential << std::endl
                 << "  Threshold (mV): " << ct.threshold << std::endl
+                << "  Leak conductance (nS): " << ct.leak_conductance << std::endl
                 << "  Axon branch count: " << ct.axon_branch_count << std::endl
                 << "  Dendrite branch count: " << ct.dendrite_branch_count << std::endl
                 << "  Branch independence: " << ct.branch_independence << std::endl
@@ -545,15 +553,15 @@ List fetch_cell_type_params(const std::string& type_name) {
       Named("temporal_modulation_bias") = ct.temporal_modulation_bias,
       Named("temporal_modulation_timeconstant") = ct.temporal_modulation_timeconstant,
       Named("temporal_modulation_amplitude") = ct.temporal_modulation_amplitude,
+      Named("spike_recovery_rate") = ct.spike_recovery_rate, 
       Named("transmission_velocity") = ct.transmission_velocity,
       Named("spine_density") = ct.spine_density,
       Named("axon_target") = ct.axon_target,
-      Named("v_bound") = ct.v_bound,
-      Named("dHdv_bound") = ct.dHdv_bound,
       Named("I_spike") = ct.I_spike,
       Named("spike_potential") = ct.spike_potential,
       Named("resting_potential") = ct.resting_potential,
       Named("threshold") = ct.threshold,
+      Named("leak_conductance") = ct.leak_conductance, 
       Named("axon_branch_count") = ct.axon_branch_count,
       Named("dendrite_branch_count") = ct.dendrite_branch_count,
       Named("branch_independence") = ct.branch_independence,
@@ -571,15 +579,15 @@ void add_cell_type(
     const double& temporal_modulation_bias,
     const double& temporal_modulation_timeconstant,
     const double& temporal_modulation_amplitude,
+    const double& spike_recovery_rate, 
     const double& transmission_velocity,
     const double& spine_density,                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
     const std::string& axon_target,             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
-    const double& v_bound,                      // potential bound, in the implicit potential units of the network (e.g., mV)
-    const double& dHdv_bound,                   // bound on dHdv, in in the implicit current units of the network (e.g., mA)
-    const double& I_spike,                      // spike current, in in the implicit current units of the network (e.g., mA)
-    const double& spike_potential,              // Magnitude of each spike, in the implicit potential units of the network (e.g., mV)
-    const double& resting_potential,            // resting potential, in the implicit potential units of the network (e.g., mV)
-    const double& threshold,                    // spike threshold, in the implicit potential units of the network (e.g., mV)
+    const double& I_spike,                      // spike current in pA, absolute value plus a little bit used as dHdv_bound
+    const double& spike_potential,              // Magnitude of each spike in mV
+    const double& resting_potential,            // resting potential in mV, absolute value plus a little bit used as v_bound
+    const double& threshold,                    // spike threshold in mV
+    const double& leak_conductance,             // conductance controlling the leak current, I_leak = leak_conductance (resting_potential - v) in nS
     const int& axon_branch_count,               // Expected number of axon branches 
     const int& dendrite_branch_count,           // Expected number of dendrite branches 
     const double& branch_independence,          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
@@ -596,9 +604,10 @@ void add_cell_type(
         type_name, valence,
         temporal_modulation_bias, temporal_modulation_timeconstant,
         temporal_modulation_amplitude,
+        spike_recovery_rate, 
         transmission_velocity, spine_density, axon_target,
-        v_bound, dHdv_bound, I_spike,
-        spike_potential, resting_potential, threshold,
+        I_spike,
+        spike_potential, resting_potential, threshold, leak_conductance,
         axon_branch_count, dendrite_branch_count,
         branch_independence, branch_spread,
         apical_target_layer
@@ -614,15 +623,15 @@ void modify_cell_type(
     const double& temporal_modulation_bias,
     const double& temporal_modulation_timeconstant,
     const double& temporal_modulation_amplitude,
+    const double& spike_recovery_rate, 
     const double& transmission_velocity,
     const double& spine_density,                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
     const std::string& axon_target,             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
-    const double& v_bound,                      // potential bound, in in the implicit potential units of the network (e.g., mV)
-    const double& dHdv_bound,                   // bound on dHdv, in in the implicit current units of the network (e.g., mA)
-    const double& I_spike,                      // spike current, in in the implicit current units of the network (e.g., mA)
-    const double& spike_potential,              // Magnitude of each spike, in in the implicit potential units of the network (e.g., mV)
-    const double& resting_potential,            // resting potential, in in the implicit potential units of the network (e.g., mV)
-    const double& threshold,                    // spike threshold, in in the implicit potential units of the network (e.g., mV)
+    const double& I_spike,                      // spike current in pA, absolute value plus a little bit used as dHdv_bound
+    const double& spike_potential,              // Magnitude of each spike in mV
+    const double& resting_potential,            // resting potential in mV, absolute value plus a little bit used as v_bound
+    const double& threshold,                    // spike threshold in mV
+    const double& leak_conductance,             // conductance controlling the leak current, I_leak = leak_conductance (resting_potential - v) in nS
     const int& axon_branch_count,               // Expected number of axon branches 
     const int& dendrite_branch_count,           // Expected number of dendrite branches 
     const double& branch_independence,          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
@@ -637,15 +646,15 @@ void modify_cell_type(
       cell_types[type_name].temporal_modulation_bias = temporal_modulation_bias;
       cell_types[type_name].temporal_modulation_timeconstant = temporal_modulation_timeconstant;
       cell_types[type_name].temporal_modulation_amplitude = temporal_modulation_amplitude;
+      cell_types[type_name].spike_recovery_rate = spike_recovery_rate; 
       cell_types[type_name].transmission_velocity = transmission_velocity;
       cell_types[type_name].spine_density = spine_density;
       cell_types[type_name].axon_target = axon_target;
-      cell_types[type_name].v_bound = v_bound;
-      cell_types[type_name].dHdv_bound = dHdv_bound;
       cell_types[type_name].I_spike = I_spike;
       cell_types[type_name].spike_potential = spike_potential;
       cell_types[type_name].resting_potential = resting_potential;
       cell_types[type_name].threshold = threshold;
+      cell_types[type_name].leak_conductance = leak_conductance;
       cell_types[type_name].axon_branch_count = axon_branch_count;
       cell_types[type_name].dendrite_branch_count = dendrite_branch_count;
       cell_types[type_name].branch_independence = branch_independence;
@@ -753,10 +762,11 @@ void network::set_network_structure(
     n_neurons      = 0; // Compute total number of neurons as we go
     node_range_ends.assign(n_nodes, 0);
     node_coordinates_spatial.resize(n_nodes, 3);
-    std::vector<double> neuron_temporal_modulation_bias;
-    std::vector<double> neuron_temporal_modulation_timeconstant;
-    std::vector<double> neuron_temporal_modulation_amplitude;
-    std::vector<double> neuron_transmission_velocity_tmp;
+    std::vector<double> tau_bias;
+    std::vector<double> tau_timeconstant;
+    std::vector<double> tau_amplitude;
+    std::vector<double> spike_recovery_rate_tmp; 
+    std::vector<double> transmission_velocity_tmp;
     for (int p = 0; p < n_patches; p++) {
       for (int l = 0; l < n_layers; l++) {
         for (int c = 0; c < n_columns; c++) {
@@ -775,10 +785,11 @@ void network::set_network_structure(
             for (int i = 0; i < n; i++) {
               neuron_type_name.push_back(neuron_types[t].type_name);
               neuron_type_num.push_back(t);
-              neuron_temporal_modulation_bias.push_back(neuron_types[t].temporal_modulation_bias);
-              neuron_temporal_modulation_timeconstant.push_back(neuron_types[t].temporal_modulation_timeconstant);
-              neuron_temporal_modulation_amplitude.push_back(neuron_types[t].temporal_modulation_amplitude);
-              neuron_transmission_velocity_tmp.push_back(neuron_types[t].transmission_velocity);
+              tau_bias.push_back(neuron_types[t].temporal_modulation_bias);
+              tau_timeconstant.push_back(neuron_types[t].temporal_modulation_timeconstant);
+              tau_amplitude.push_back(neuron_types[t].temporal_modulation_amplitude);
+              spike_recovery_rate_tmp.pushback(neuron_types[t].spike_recovery_rate); 
+              transmission_velocity_tmp.push_back(neuron_types[t].transmission_velocity);
             }
           }
           // Save end-point index for this node
@@ -794,13 +805,15 @@ void network::set_network_structure(
     spike_potential   = VectorXd::Zero(n_neurons);
     resting_potential = VectorXd::Zero(n_neurons);
     threshold         = VectorXd::Zero(n_neurons);
+    leak_conductance  = VectorXd::Zero(n_neurons); 
     for (int i = 0; i < n_neurons; i++) {
-      v_bound(i)           = neuron_types[neuron_type_num[i]].v_bound;
-      dHdv_bound(i)        = neuron_types[neuron_type_num[i]].dHdv_bound;
+      v_bound(i)           = std::abs(neuron_types[neuron_type_num[i]].resting_potential) * 1.01;
+      dHdv_bound(i)        = std::abs(neuron_types[neuron_type_num[i]].I_spike)           * 1.01;
       I_spike(i)           = neuron_types[neuron_type_num[i]].I_spike;
       spike_potential(i)   = neuron_types[neuron_type_num[i]].spike_potential;
       resting_potential(i) = neuron_types[neuron_type_num[i]].resting_potential;
       threshold(i)         = neuron_types[neuron_type_num[i]].threshold;
+      leak_conductance(i)  = neuron_types[neuron_type_num[i]].leak_conductance; 
     }
     
     // Set length of the vectors holding cell processes
@@ -811,13 +824,14 @@ void network::set_network_structure(
     synapse_node_idx  = MatrixXi::Constant(n_neurons, n_neurons, -1);
     
     // Convert neuron temporal modulation to Eigen matrix
-    neuron_temporal_modulation        = MatrixXd::Zero(n_neurons, 3);
-    neuron_temporal_modulation.col(0) = Map<VectorXd>(neuron_temporal_modulation_bias.data(),         neuron_temporal_modulation_bias.size());
-    neuron_temporal_modulation.col(1) = Map<VectorXd>(neuron_temporal_modulation_timeconstant.data(), neuron_temporal_modulation_timeconstant.size());
-    neuron_temporal_modulation.col(2) = Map<VectorXd>(neuron_temporal_modulation_amplitude.data(),    neuron_temporal_modulation_amplitude.size());
+    tau_components        = MatrixXd::Zero(n_neurons, 3);
+    tau_components.col(0) = Map<VectorXd>(tau_bias.data(),         tau_bias.size());
+    tau_components.col(1) = Map<VectorXd>(tau_timeconstant.data(), tau_timeconstant.size());
+    tau_components.col(2) = Map<VectorXd>(tau_amplitude.data(),    tau_amplitude.size());
     
-    // Convert neuron transmission delay to Eigen vector
-    neuron_transmission_velocity = Map<VectorXd>(neuron_transmission_velocity_tmp.data(), neuron_transmission_velocity_tmp.size());
+    // Convert spike recovery rate and neuron transmission delay to Eigen vector
+    spike_recovery_rate   = Map<VectorXd>(spike_recovery_rate_tmp.data(), spike_recovery_rate_tmp.size()); 
+    transmission_velocity = Map<VectorXd>(transmission_velocity_tmp.data(), transmission_velocity_tmp.size());
     
     // Resize network coordinate components 
     coordinates_spatial = MatrixXd::Zero(n_neurons, 3); 
@@ -1684,14 +1698,14 @@ NumericVector network::fetch_spike_counts_R() const {return to_NumVec(spike_coun
 
 // Function to compute pairwise lags based on axon path lengths and membrane velocity
 MatrixXi network::find_pairwise_lags_by_axon(
-    double dt // time step length, in the implicit time unit of the network
+    double dt // time step length in ms
   ) {
     
     // Initialize matrix to hold pairwise lags, with default value of 0 
     MatrixXi pairwise_lags = MatrixXi::Constant(n_neurons, n_neurons, 0);
     
     // Precompute reciprocals
-    const VectorXd inv_vel = neuron_transmission_velocity.cwiseInverse();
+    const VectorXd inv_vel = transmission_velocity.cwiseInverse();
     const double inv_dt = 1.0 / dt;
     
     // For each neuron, find the lag to each other neuron based on axonal path length, synapse location, and transmission velocity
@@ -1736,8 +1750,9 @@ MatrixXi network::find_pairwise_lags_by_axon(
 
 // Simulate network responses to input current using Growth Transform model
 void network::SGT(
-    const NumericMatrix& stimulus_current_R, // matrix of stimulus currents, in the implicit current unit of the network, n_neurons x n_steps
-    double dt                                // time step length, in the implicit time unit of the network
+    const NumericMatrix& stimulus_current_R,  // matrix of stimulus currents in pA, n_neurons x n_steps
+    double dt,                                // time step length in ms
+    double initial_potential                  // start all neurons with this membrane potential
   ) {
     
     /*
@@ -1750,6 +1765,14 @@ void network::SGT(
     
     // Save dt
     sim_dt = dt;
+    
+    // Check temporal modulation values 
+    for (cell_type nt : neuron_types) {
+      if (nt.temporal_modulation_bias < dt) {Rcpp::stop("All temporal modulation bias values must be >= dt");}
+      if (nt.temporal_modulation_amplitude < 0.0) {Rcpp::stop("All temporal modulation amplitude values must be >= 0");}
+      if (nt.temporal_modulation_bias - nt.temporal_modulation_amplitude < dt) {Rcpp::stop("All temporal modulation amplitude values must be <= the bias minus dt");}
+      if (nt.temporal_modulation_timeconstant <= 0.0) {Rcpp::stop("All temporal modulation time constants must be > 0");}
+    }
     
     // Convert stimulus current to Eigen matrix
     MatrixXd stimulus_current = to_eMat(stimulus_current_R);
@@ -1769,25 +1792,34 @@ void network::SGT(
     MatrixXi pair_lags = find_pairwise_lags_by_axon(dt);
     
     // Extract temporal modulation values 
-    VectorXd neuron_temporal_modulation_bias         = neuron_temporal_modulation.col(0);
-    VectorXd neuron_temporal_modulation_timeconstant = neuron_temporal_modulation.col(1);
-    VectorXd neuron_temporal_modulation_amplitude    = neuron_temporal_modulation.col(2);
+    VectorXd tau_bias         = tau_components.col(0);
+    VectorXd tau_timeconstant = tau_components.col(1);
+    VectorXd tau_amplitude    = tau_components.col(2);
     
     // Resize matrix to hold simulated spike traces (membrane potential plus spike)
     sim_traces.resize(n_neurons, n_steps);
     sim_traces.setZero();
-    sim_traces.col(0) = resting_potential;
+    sim_traces.col(0).setConstant(initial_potential);
     
     // Initialize matrix to hold simulated sub-threshold membrane potential traces (without spike)
     MatrixXd v_traces = MatrixXd::Zero(n_neurons, n_steps);
-    v_traces.col(0) = resting_potential;
+    v_traces.col(0).setConstant(initial_potential);
     
     // Resize spike_counts vector
     spike_counts.resize(n_neurons);
     spike_counts.setZero();
+    // ... and make a local copy for tracking recent spikes 
+    VectorXd spike_counts_recent(n_neurons); 
+    spike_counts_recent.setZero(); 
     
-    // Initialize count to keep track of time since last spike, for bursting
-    VectorXd burst_step_counter = VectorXd::Zero(n_neurons);
+    // Initialize vector to keep track of time since last spike (in ms)
+    VectorXd post_spike_time = VectorXd::Zero(n_neurons);
+    
+    // Divide spike_potential (minus threshold) by spike current to get transimpedance value necessary for that spike potential
+    VectorXd transimpedance = (spike_potential - threshold).array()/I_spike.array();
+    
+    // Convert spike_recovery_rate to simulation time steps 
+    VectorXd spike_recovery_rate_dt = spike_recovery_rate * dt;
     
     // Simulate each time step after the initial
     for (int t = 1; t < n_steps; t++) {
@@ -1795,67 +1827,66 @@ void network::SGT(
       // Compute each cell's membrane potential state (rows) as seen by each other cell (columns)
       MatrixXd v_traces_lagged = lagged_traces(t, pair_lags, v_traces);
       
+      // Add leak current to stimulus current to get total membrane current 
+      VectorXd membrane_current = stimulus_current.col(t - 1) + leak_conductance.cwiseProduct(resting_potential - v_traces.col(t - 1));
+      
       // Compute rate of change for total metabolic power dissipation in the network, w.r.t. each neuron
-      // ... units of dHdv are power/voltage, e.g., Watts/mV = mA
+      // ... units of dHdv are power/voltage, e.g., pico-Watts/mV = nA
       // ... key idea? if a change dv in voltage in any one cell causes a spike, then H increases as well
       VectorXd dHdv = network_power_dissipation_gradient(
         v_traces_lagged,
         v_traces.col(t - 1), 
-        stimulus_current.col(t - 1), 
+        membrane_current, 
         transconductances_sum, 
         I_spike, 
         threshold
       );
-      /*
-       * Note: The definition of network_power_dissipation_gradient seems to imply that it's 
-       * the _subthreshold_ voltage of inputs i which determines the power used by j for synaptic transductance ... 
-       * but, shouldn't a subthreshold voltage in a presynaptic cell i mean that the postsynaptic cell j expends no 
-       * energy on synaptic transduction? 
-       */
       
       // For each neuron in network, at this time step, 
       // ... compute power to initiate a spike:
-      VectorXd spike_initiation_power = dHdv_bound.array() * v_traces.col(t - 1).array();
-      VectorXd rest_maintenance_power = dHdv.array() * v_bound.array();
-      VectorXd spike_cost = spike_initiation_power - rest_maintenance_power;  
+      VectorXd spike_initiation_power           = dHdv_bound.array() * v_traces.col(t - 1).array();
+      VectorXd rest_maintenance_power           = dHdv.array() * v_bound.array();
+      VectorXd spike_cost                       = spike_initiation_power - rest_maintenance_power;  
       // ... compute max power to initiate a spike
       VectorXd spike_initiation_power_from_rest = dHdv_bound.array() * v_bound.array();
-      VectorXd maintenance_power = dHdv.array() * v_traces.col(t - 1).array();
-      VectorXd max_spike_cost = spike_initiation_power_from_rest - maintenance_power; 
+      VectorXd maintenance_power                = dHdv.array() * v_traces.col(t - 1).array();
+      VectorXd max_spike_cost                   = spike_initiation_power_from_rest - maintenance_power; 
       // ... normalize spike cost
-      VectorXd normalized_spike_cost = spike_cost.array()/max_spike_cost.array(); 
+      VectorXd normalized_spike_cost            = spike_cost.array()/max_spike_cost.array(); 
       
       // Multiple potential bound by normalized spike cost ... example units: mV * W/W = mV
-      VectorXd v_bound_fraction = v_bound.array() * normalized_spike_cost.array();
+      VectorXd v_bound_fraction                 = v_bound.array() * normalized_spike_cost.array();
       
       // Set dvdt based on v_bound fraction
-      VectorXd dvdt_unmodulated = v_bound_fraction - v_traces.col(t - 1);
+      VectorXd dvdt                             = v_bound_fraction - v_traces.col(t - 1);
       
       // Find temporal modulation for this time step with vectorized operations
-      VectorXd neuron_temporal_modulation = 
-        neuron_temporal_modulation_bias.array() + 
-        neuron_temporal_modulation_amplitude.array() - 
-        neuron_temporal_modulation_amplitude.array() * (-burst_step_counter.array() / neuron_temporal_modulation_timeconstant.array()).exp();
+      // ... tau_timeconstant is in ms
+      VectorXd tau = 
+        tau_bias.array() - 
+        tau_amplitude.array() * (-post_spike_time.array() / tau_timeconstant.array()).exp();
       
-      // Find dvdt by dividing by the temporal modulation
-      VectorXd dvdt = dt * dvdt_unmodulated.array() / neuron_temporal_modulation.array();
+      // Convert tau from ms to simulation step size 
+      tau *= 1.0/dt; 
+      // ... ensure tau is 1.0 if immediately after a spike (for reset)
+      tau  = ((post_spike_time.array() > 0.0) && (post_spike_time.array() <= dt)).select(VectorXd::Ones(tau.size()), tau);
       
-      // Find new subthreshold membrane potential
-      VectorXd v_subthreshold = v_traces.col(t - 1) + dvdt; 
+      // Find new subthreshold membrane potential by adding dvdt divided by the temporal modulation
+      VectorXd v_subthreshold = v_traces.col(t - 1) + (dvdt.array() / tau.array()).matrix();
       // ... save for next step
-      v_traces.col(t) = v_subthreshold;
-      
-      // Divide spike_potential (minus threshold) by spike current to get transimpedance value necessary for that spike potential
-      VectorXd transimpedance = (spike_potential - threshold).array()/I_spike.array();
+      v_traces.col(t)         = v_subthreshold;
       
       // Find spike value
-      VectorXd barrier_values = v_barrier(v_subthreshold, threshold, I_spike);
-      VectorXd spike = transimpedance.array() * barrier_values.array(); 
-      // ... update burst counter and spike counts
-      VectorXd spikes = (barrier_values.array() / I_spike.array()).matrix();
-      burst_step_counter.array() *= (1.0 - spikes.array()); // reset burst counter to zero if spike, otherwise keep counting up
-      burst_step_counter.array() += dt;
-      spike_counts.array() += spikes.array();
+      VectorXd barrier_values      = v_barrier(v_subthreshold, threshold, I_spike);
+      VectorXd spike               = transimpedance.array() * barrier_values.array(); 
+      // ... update post-spike counter and spike counts
+      VectorXd spikes              = (barrier_values.array() / I_spike.array()).matrix();
+      post_spike_time.array()     *= (1.0 - spikes.array()); // reset post-spike counter to zero if spike, otherwise keep counting up
+      post_spike_time.array()     += dt;
+      spike_counts.array()        += spikes.array();
+      // ... update recent spike counter 
+      spike_counts_recent.array() += spikes.array(); 
+      spike_counts_recent = (spike_counts_recent.array() - spike_recovery_rate_dt.array()).max(0.0).matrix();
       
       // Add spike to raw membrane potential and save to spike traces 
       sim_traces.col(t) = v_subthreshold + spike;
