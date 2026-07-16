@@ -398,143 +398,174 @@ std::vector<int> find_first_neighbor(
  */
 
 
-// Lookup table for known cell types
-std::unordered_map<std::string, cell_type> cell_types;
-
 /*
- * To use or modify cell types: 
- * 
- *   const auto& ct = cell_types.at("PV");
- *.  double cutoff = ct.temporal_modulation_amplitude;
- *.  cell_types["PV"].temporal_modulation_timeconstant = 0.03;
+ * Cell type registry: Meyers singleton pattern.
+ * Access via get_cell_types() everywhere; do NOT declare a bare global.
+ * Defaults are constructed once in make_default_cell_types() on first call.
+ *
+ * To use or modify cell types:
+ *   const auto& ct = get_cell_types().at("PV");
+ *   double cutoff = ct.temporal_modulation_amplitude;
+ *   get_cell_types()["PV"].temporal_modulation_timeconstant = 0.03;
  */
 
-// Known cell types
-// [[Rcpp::export]]
-void init_known_celltypes() {
-  // Membrane channel kinetics
-  double temporal_modulation_bias = 10.0;        // Temporal modulation time (ms) bias for each neuron type
-  double temporal_modulation_timeconstant = 1.0;       // Temporal modulation time (ms) step for each neuron type
-  double temporal_modulation_amplitude = 5.0;          // Temporal modulation time (ms) cutoff for each neuron type
-  double spike_recovery_rate = 5.0;            // Number of spikes which can be "cleared" per ms
-  // Intercell transmission
-  double transmission_velocity = 30e3;         // Microns/ms ... 30 m/s = 30e6 micron/s = 30e6 micron/ 1e3 ms = 30e3 micron/ms
-  double spine_density = 0.0;                  // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
-  std::string axon_target = "dendrite_shaft";  // "spine", "dendrite_shaft", "soma", and "axon_shaft"
-  // Membrane characteristics
-  double I_spike = 1e3;                        // Spike current in pA (default of 1e3 is 1 nano amp); the absolute value (plus a small bit) is used as the bound dHdv_bound on the derivative of metabolic energy wrt potential.
-  double spike_potential = 35.0;               // Magnitude of each spike in mV
-  double resting_potential = -70.0;            // Resting potential in mV; the absolute value (plus a small bit) is used as v_bound, the bound on membrane potential. 
-  double threshold = -55.0;                    // Spike threshold in mV
-  double leak_conductance = 10.0;              // conductance controlling the leak current, I_leak = leak_conductance (resting_potential - v) in nS
-  // Process size and structure parameters
-  int axon_branch_count = 10;                  // Sets n_branches in make_arbor, in terms of expected number of branches per process length
-  int dendrite_branch_count = 10;              // Sets n_branches in make_arbor, in terms of expected number of branches per process length
-  double branch_independence = 0.5;            // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
-  double branch_spread = 0.5;                  // Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma
-  // Apical dendrite parameters 
-  std::string apical_target_layer = "none";
+static std::unordered_map<std::string, cell_type> make_default_cell_types() {
+  std::unordered_map<std::string, cell_type> ct_map;
 
-  // Define excitatory cells
-  cell_types["pyramidal"] = cell_type{
+  // Default shared values
+  double temporal_modulation_bias         = 10.0;
+  double temporal_modulation_timeconstant = 1.0;
+  double temporal_modulation_amplitude    = 5.0;
+  double spike_recovery_rate              = 5.0;   // spikes/ms
+  double tau_STD_recovery                 = 1.0;   // spikes/ms (must be < spike_recovery_rate); placeholder — tune per type
+  double transmission_velocity            = 30e3;  // microns/ms
+  double spine_density                    = 0.0;
+  std::string axon_target                 = "dendrite_shaft";
+  double I_spike                          = 1e3;   // pA
+  double spike_potential                  = 35.0;  // mV
+  double resting_potential                = -70.0; // mV
+  double threshold                        = -55.0; // mV
+  double leak_conductance                 = 10.0;  // nS
+  int    axon_branch_count                = 10;
+  int    dendrite_branch_count            = 10;
+  double branch_independence              = 0.5;
+  double branch_spread                    = 0.5;
+  std::string apical_target_layer         = "none";
+
+  // Excitatory cells
+  ct_map["pyramidal"] = cell_type{
     "pyramidal", 1,
     35.0, temporal_modulation_timeconstant, // Slow responders, 10-50 ms
-    0.0, // No bursting
-    spike_recovery_rate, 
+    0.0,  // No bursting
+    spike_recovery_rate, tau_STD_recovery,
     transmission_velocity, 0.5, "spine",
-    I_spike,
-    spike_potential, resting_potential, threshold, leak_conductance,
+    I_spike, spike_potential, resting_potential, threshold, leak_conductance,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
     "L1" // Harris2013a, for cells in L2, L3, and L5
   };
-  cell_types["pyramidal_L6"] = cell_type{
+  ct_map["pyramidal_L6"] = cell_type{
     "pyramidal_L6", 1,
     35.0, temporal_modulation_timeconstant,
-    0.0, // No bursting
-    spike_recovery_rate, 
+    0.0,  // No bursting
+    spike_recovery_rate, tau_STD_recovery,
     transmission_velocity, 0.5, "spine",
-    I_spike,
-    spike_potential, resting_potential, threshold, leak_conductance,
+    I_spike, spike_potential, resting_potential, threshold, leak_conductance,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
-    "L4" // Harris2013a: 
+    "L4" // Harris2013a
   };
-  cell_types["spiny_stellate"] = cell_type{
+  ct_map["spiny_stellate"] = cell_type{
     "spiny_stellate", 1,
     15.0, temporal_modulation_timeconstant,
-    0.0, // No bursting
-    spike_recovery_rate, 
+    0.0,  // No bursting
+    spike_recovery_rate, tau_STD_recovery,
     transmission_velocity, 0.5, "spine",
-    I_spike,
-    spike_potential, resting_potential, threshold, leak_conductance,
+    I_spike, spike_potential, resting_potential, threshold, leak_conductance,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.5, branch_spread * 1.5, // Increased branching
     apical_target_layer
   };
-  // Define inhibitory cells
-  cell_types["Neurogliaform_cell"] = cell_type{
+  // Inhibitory cells
+  ct_map["Neurogliaform_cell"] = cell_type{
     "Neurogliaform_cell", -1,
     temporal_modulation_bias, temporal_modulation_timeconstant,
     temporal_modulation_amplitude,
-    spike_recovery_rate, 
-    transmission_velocity * 0.5, spine_density, axon_target, // Slower transmission for neurogliaform cells
-    I_spike,
-    spike_potential, resting_potential, threshold, leak_conductance,
+    spike_recovery_rate, tau_STD_recovery,
+    transmission_velocity * 0.5, spine_density, axon_target, // Slower transmission
+    I_spike, spike_potential, resting_potential, threshold, leak_conductance,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.5, branch_spread * 1.5, // Increased branching
     apical_target_layer
   };
-  cell_types["PV"] = cell_type{
+  ct_map["PV"] = cell_type{
     "PV", -1,
-    5.0*2, temporal_modulation_timeconstant, // Faster responders, 5 ms
-    0.0, // No bursting
-    spike_recovery_rate, 
+    5.0*2, temporal_modulation_timeconstant, // Faster responders, ~5 ms
+    0.0,  // No bursting
+    spike_recovery_rate, tau_STD_recovery,
     transmission_velocity, spine_density, "soma",
-    I_spike,
-    spike_potential, resting_potential, threshold, leak_conductance,
+    I_spike, spike_potential, resting_potential, threshold, leak_conductance,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.25, branch_spread * 1.25, // Increased branching
     apical_target_layer
   };
-  cell_types["SST"] = cell_type{
+  ct_map["SST"] = cell_type{
     "SST", -1,
     10.0, temporal_modulation_timeconstant, // Slower responders, 10-30 ms
     30,
-    spike_recovery_rate, 
+    spike_recovery_rate, tau_STD_recovery,
     transmission_velocity, spine_density, axon_target,
-    I_spike,
-    spike_potential, resting_potential, threshold, leak_conductance,
+    I_spike, spike_potential, resting_potential, threshold, leak_conductance,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.5, branch_spread * 1.5, // Increased branching
     apical_target_layer
   };
-  cell_types["VIP"] = cell_type{
+  ct_map["VIP"] = cell_type{
     "VIP", -1,
     15.0, temporal_modulation_timeconstant, // Slow responders, 15-40 ms
     25,
-    spike_recovery_rate, 
+    spike_recovery_rate, tau_STD_recovery,
     transmission_velocity, spine_density, axon_target,
-    I_spike,
-    spike_potential, resting_potential, threshold, leak_conductance,
+    I_spike, spike_potential, resting_potential, threshold, leak_conductance,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.25, branch_spread * 1.25, // Increased branching
     apical_target_layer
   };
+
+  return ct_map;
+}
+
+// Meyers singleton: initialized once on first call, never reset by .onLoad
+std::unordered_map<std::string, cell_type>& get_cell_types() {
+  static std::unordered_map<std::string, cell_type> cell_types = make_default_cell_types();
+  return cell_types;
+}
+
+// Internal helper: unpack a fully-specified named R List into a cell_type struct
+cell_type build_cell_type_from_list(const List& params) {
+  cell_type ct;
+  ct.type_name                        = as<std::string>(params["type_name"]);
+  ct.valence                          = as<int>(params["valence"]);
+  ct.temporal_modulation_bias         = as<double>(params["temporal_modulation_bias"]);
+  ct.temporal_modulation_timeconstant = as<double>(params["temporal_modulation_timeconstant"]);
+  ct.temporal_modulation_amplitude    = as<double>(params["temporal_modulation_amplitude"]);
+  ct.spike_recovery_rate              = as<double>(params["spike_recovery_rate"]);
+  ct.tau_STD_recovery                 = as<double>(params["tau_STD_recovery"]);
+  ct.transmission_velocity            = as<double>(params["transmission_velocity"]);
+  ct.spine_density                    = as<double>(params["spine_density"]);
+  ct.axon_target                      = as<std::string>(params["axon_target"]);
+  ct.I_spike                          = as<double>(params["I_spike"]);
+  ct.spike_potential                  = as<double>(params["spike_potential"]);
+  ct.resting_potential                = as<double>(params["resting_potential"]);
+  ct.threshold                        = as<double>(params["threshold"]);
+  ct.leak_conductance                 = as<double>(params["leak_conductance"]);
+  ct.axon_branch_count                = as<int>(params["axon_branch_count"]);
+  ct.dendrite_branch_count            = as<int>(params["dendrite_branch_count"]);
+  ct.branch_independence              = as<double>(params["branch_independence"]);
+  ct.branch_spread                    = as<double>(params["branch_spread"]);
+  ct.apical_target_layer              = as<std::string>(params["apical_target_layer"]);
+  if (ct.spine_density < 0.0 || ct.spine_density > 1.0)
+    Rcpp::stop("spine_density must be between 0 and 1");
+  if (ct.branch_independence < 0.0 || ct.branch_independence > 1.0)
+    Rcpp::stop("branch_independence must be between 0 and 1");
+  if (ct.branch_spread < 0.0 || ct.branch_spread > 1.0)
+    Rcpp::stop("branch_spread must be between 0 and 1");
+  return ct;
 }
 
 // Print known cell types 
 // [[Rcpp::export]]
 void print_known_celltypes() {
   Rcpp::Rcout << "Known cell types:" << std::endl;
-  for (const auto& pair : cell_types) {
+  for (const auto& pair : get_cell_types()) {
     const cell_type& ct = pair.second;
     Rcpp::Rcout << "\nType: " << ct.type_name << std::endl
                 << "  Valence: " << ct.valence << std::endl
                 << "  Temporal modulation bias (ms): " << ct.temporal_modulation_bias << std::endl
                 << "  Temporal modulation time constant (ms): " << ct.temporal_modulation_timeconstant << std::endl
                 << "  Temporal modulation amplitude (ms): " << ct.temporal_modulation_amplitude << std::endl
-                << "  Spike recovery rate (spikes/ms): " << ct.spike_recovery_rate << std::endl; 
+                << "  Spike recovery rate (spikes/ms): " << ct.spike_recovery_rate << std::endl
+                << "  STD recovery time constant (spikes/ms): " << ct.tau_STD_recovery << std::endl
                 << "  Transmission velocity: " << ct.transmission_velocity << std::endl
                 << "  Spine density: " << ct.spine_density << std::endl
                 << "  Axon target: " << ct.axon_target << std::endl
@@ -554,128 +585,52 @@ void print_known_celltypes() {
 // Fetch cell type parameters 
 // [[Rcpp::export]]
 List fetch_cell_type_params(const std::string& type_name) {
-  auto it = cell_types.find(type_name);
-  if (it == cell_types.end()) {
+  auto it = get_cell_types().find(type_name);
+  if (it == get_cell_types().end()) {
     Rcpp::stop("Cell type not found in known cell types");
-  } else {
-    const cell_type& ct = (*it).second;
-    return List::create(
-      Named("type_name") = ct.type_name,
-      Named("valence") = ct.valence,
-      Named("temporal_modulation_bias") = ct.temporal_modulation_bias,
-      Named("temporal_modulation_timeconstant") = ct.temporal_modulation_timeconstant,
-      Named("temporal_modulation_amplitude") = ct.temporal_modulation_amplitude,
-      Named("spike_recovery_rate") = ct.spike_recovery_rate, 
-      Named("transmission_velocity") = ct.transmission_velocity,
-      Named("spine_density") = ct.spine_density,
-      Named("axon_target") = ct.axon_target,
-      Named("I_spike") = ct.I_spike,
-      Named("spike_potential") = ct.spike_potential,
-      Named("resting_potential") = ct.resting_potential,
-      Named("threshold") = ct.threshold,
-      Named("leak_conductance") = ct.leak_conductance, 
-      Named("axon_branch_count") = ct.axon_branch_count,
-      Named("dendrite_branch_count") = ct.dendrite_branch_count,
-      Named("branch_independence") = ct.branch_independence,
-      Named("branch_spread") = ct.branch_spread,
-      Named("apical_target_layer") = ct.apical_target_layer
-    );
   }
+  const cell_type& ct = it->second;
+  return List::create(
+    Named("type_name")                        = ct.type_name,
+    Named("valence")                          = ct.valence,
+    Named("temporal_modulation_bias")         = ct.temporal_modulation_bias,
+    Named("temporal_modulation_timeconstant") = ct.temporal_modulation_timeconstant,
+    Named("temporal_modulation_amplitude")    = ct.temporal_modulation_amplitude,
+    Named("spike_recovery_rate")              = ct.spike_recovery_rate,
+    Named("tau_STD_recovery")                 = ct.tau_STD_recovery,
+    Named("transmission_velocity")            = ct.transmission_velocity,
+    Named("spine_density")                    = ct.spine_density,
+    Named("axon_target")                      = ct.axon_target,
+    Named("I_spike")                          = ct.I_spike,
+    Named("spike_potential")                  = ct.spike_potential,
+    Named("resting_potential")                = ct.resting_potential,
+    Named("threshold")                        = ct.threshold,
+    Named("leak_conductance")                 = ct.leak_conductance,
+    Named("axon_branch_count")                = ct.axon_branch_count,
+    Named("dendrite_branch_count")            = ct.dendrite_branch_count,
+    Named("branch_independence")              = ct.branch_independence,
+    Named("branch_spread")                    = ct.branch_spread,
+    Named("apical_target_layer")              = ct.apical_target_layer
+  );
 }
 
-// Make new cell type
+// Add a new cell type; params must be a fully-specified named List
 // [[Rcpp::export]]
-void add_cell_type(
-    const std::string& type_name,
-    const int& valence,
-    const double& temporal_modulation_bias,
-    const double& temporal_modulation_timeconstant,
-    const double& temporal_modulation_amplitude,
-    const double& spike_recovery_rate, 
-    const double& transmission_velocity,
-    const double& spine_density,                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
-    const std::string& axon_target,             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
-    const double& I_spike,                      // spike current in pA, absolute value plus a little bit used as dHdv_bound
-    const double& spike_potential,              // Magnitude of each spike in mV
-    const double& resting_potential,            // resting potential in mV, absolute value plus a little bit used as v_bound
-    const double& threshold,                    // spike threshold in mV
-    const double& leak_conductance,             // conductance controlling the leak current, I_leak = leak_conductance (resting_potential - v) in nS
-    const int& axon_branch_count,               // Expected number of axon branches 
-    const int& dendrite_branch_count,           // Expected number of dendrite branches 
-    const double& branch_independence,          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
-    const double& branch_spread,                // Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma
-    const std::string& apical_target_layer      // For pyramidal cells, which layer their apical dendrites target
-  ) {
-    if (cell_types.find(type_name) != cell_types.end()) {
-      Rcpp::stop("Cell type already exists in known cell types");
-    } else {
-      if (spine_density < 0.0 || spine_density > 1.0) {Rcpp::stop("spine_density must be between 0 and 1");}
-      if (branch_independence < 0.0 || branch_independence > 1.0) {Rcpp::stop("branch_independence must be between 0 and 1");} 
-      if (branch_spread < 0.0 || branch_spread > 1.0) {Rcpp::stop("branch_spread must be between 0 and 1");}
-      cell_types[type_name] = cell_type{
-        type_name, valence,
-        temporal_modulation_bias, temporal_modulation_timeconstant,
-        temporal_modulation_amplitude,
-        spike_recovery_rate, 
-        transmission_velocity, spine_density, axon_target,
-        I_spike,
-        spike_potential, resting_potential, threshold, leak_conductance,
-        axon_branch_count, dendrite_branch_count,
-        branch_independence, branch_spread,
-        apical_target_layer
-      };
-    }
-  }
+void add_cell_type(const List& params) {
+  cell_type ct = build_cell_type_from_list(params);
+  if (get_cell_types().count(ct.type_name))
+    Rcpp::warning("Cell type already exists in known cell types, overriding");
+  get_cell_types()[ct.type_name] = ct;
+}
 
-// Modify cell type parameters
+// Modify an existing cell type; params must be a fully-specified named List
+// (NULL-substitution for unspecified fields is handled on the R side)
 // [[Rcpp::export]]
-void modify_cell_type(
-    const std::string& type_name,
-    const int& valence,
-    const double& temporal_modulation_bias,
-    const double& temporal_modulation_timeconstant,
-    const double& temporal_modulation_amplitude,
-    const double& spike_recovery_rate, 
-    const double& transmission_velocity,
-    const double& spine_density,                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
-    const std::string& axon_target,             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
-    const double& I_spike,                      // spike current in pA, absolute value plus a little bit used as dHdv_bound
-    const double& spike_potential,              // Magnitude of each spike in mV
-    const double& resting_potential,            // resting potential in mV, absolute value plus a little bit used as v_bound
-    const double& threshold,                    // spike threshold in mV
-    const double& leak_conductance,             // conductance controlling the leak current, I_leak = leak_conductance (resting_potential - v) in nS
-    const int& axon_branch_count,               // Expected number of axon branches 
-    const int& dendrite_branch_count,           // Expected number of dendrite branches 
-    const double& branch_independence,          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
-    const double& branch_spread,                // Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma
-    const std::string& apical_target_layer      // For pyramidal cells, which layer their apical dendrites target
-  ) {
-    if (cell_types.find(type_name) != cell_types.end()) {
-      if (spine_density < 0.0 || spine_density > 1.0) {Rcpp::stop("spine_density must be between 0 and 1");}
-      if (branch_independence < 0.0 || branch_independence > 1.0) {Rcpp::stop("branch_independence must be between 0 and 1");} 
-      if (branch_spread < 0.0 || branch_spread > 1.0) {Rcpp::stop("branch_spread must be between 0 and 1");}
-      cell_types[type_name].valence = valence;
-      cell_types[type_name].temporal_modulation_bias = temporal_modulation_bias;
-      cell_types[type_name].temporal_modulation_timeconstant = temporal_modulation_timeconstant;
-      cell_types[type_name].temporal_modulation_amplitude = temporal_modulation_amplitude;
-      cell_types[type_name].spike_recovery_rate = spike_recovery_rate; 
-      cell_types[type_name].transmission_velocity = transmission_velocity;
-      cell_types[type_name].spine_density = spine_density;
-      cell_types[type_name].axon_target = axon_target;
-      cell_types[type_name].I_spike = I_spike;
-      cell_types[type_name].spike_potential = spike_potential;
-      cell_types[type_name].resting_potential = resting_potential;
-      cell_types[type_name].threshold = threshold;
-      cell_types[type_name].leak_conductance = leak_conductance;
-      cell_types[type_name].axon_branch_count = axon_branch_count;
-      cell_types[type_name].dendrite_branch_count = dendrite_branch_count;
-      cell_types[type_name].branch_independence = branch_independence;
-      cell_types[type_name].branch_spread = branch_spread;
-      cell_types[type_name].apical_target_layer = apical_target_layer;
-    } else {
-      Rcpp::stop("Cell type not found in known cell types");
-    }
-  }
+void modify_cell_type(const std::string& type_name, const List& params) {
+  if (!get_cell_types().count(type_name))
+    Rcpp::stop("Cell type not found in known cell types");
+  get_cell_types()[type_name] = build_cell_type_from_list(params);
+}
 
 /*
  * ***********************************************************************************
@@ -711,6 +666,38 @@ void motif::load_projection(
     max_col_shift_down.push_back(max_down);
     projection_conductance.push_back(proj_conductance);
     n_projections++;
+  }
+
+// Expand all cell type scalar parameters into per-neuron Eigen vectors/matrix.
+// Called once from set_network_structure after n_neurons and neuron_type_num are populated.
+void network::resize_neuron_params() {
+    v_bound               = VectorXd(n_neurons);
+    dHdv_bound            = VectorXd(n_neurons);
+    I_spike               = VectorXd(n_neurons);
+    spike_potential       = VectorXd(n_neurons);
+    resting_potential     = VectorXd(n_neurons);
+    threshold             = VectorXd(n_neurons);
+    leak_conductance      = VectorXd(n_neurons);
+    spike_recovery_rate   = VectorXd(n_neurons);
+    tau_STD_recovery      = VectorXd(n_neurons);
+    transmission_velocity = VectorXd(n_neurons);
+    tau_components        = MatrixXd(n_neurons, 3);
+    for (int i = 0; i < n_neurons; i++) {
+        const cell_type& ct = neuron_types[neuron_type_num[i]];
+        v_bound(i)               = std::abs(ct.resting_potential) * 1.01;
+        dHdv_bound(i)            = std::abs(ct.I_spike)           * 1.01;
+        I_spike(i)               = ct.I_spike;
+        spike_potential(i)       = ct.spike_potential;
+        resting_potential(i)     = ct.resting_potential;
+        threshold(i)             = ct.threshold;
+        leak_conductance(i)      = ct.leak_conductance;
+        spike_recovery_rate(i)   = ct.spike_recovery_rate;
+        tau_STD_recovery(i)      = ct.tau_STD_recovery;
+        transmission_velocity(i) = ct.transmission_velocity;
+        tau_components(i, 0)     = ct.temporal_modulation_bias;
+        tau_components(i, 1)     = ct.temporal_modulation_timeconstant;
+        tau_components(i, 2)     = ct.temporal_modulation_amplitude;
+    }
   }
 
 void network::set_network_structure(
@@ -749,8 +736,8 @@ void network::set_network_structure(
     // Load cell types 
     for (String nt : nrn_types) {
       std::string nts = nt;
-      auto it = cell_types.find(nts);
-      if (it == cell_types.end()) Rcpp::stop("Unknown neuron type: %s", nts);
+      auto it = get_cell_types().find(nts);
+      if (it == get_cell_types().end()) Rcpp::stop("Unknown neuron type: %s", nts);
       neuron_types.push_back((*it).second);
     }
     
@@ -774,11 +761,6 @@ void network::set_network_structure(
     n_neurons      = 0; // Compute total number of neurons as we go
     node_range_ends.assign(n_nodes, 0);
     node_coordinates_spatial.resize(n_nodes, 3);
-    std::vector<double> tau_bias;
-    std::vector<double> tau_timeconstant;
-    std::vector<double> tau_amplitude;
-    std::vector<double> spike_recovery_rate_tmp; 
-    std::vector<double> transmission_velocity_tmp;
     for (int p = 0; p < n_patches; p++) {
       for (int l = 0; l < n_layers; l++) {
         for (int c = 0; c < n_columns; c++) {
@@ -787,21 +769,15 @@ void network::set_network_structure(
           node_coordinates_spatial(node_idx, 0) = p * column_diameter/2.0 * patch_separation_factor;   // z
           node_coordinates_spatial(node_idx, 1) = l * layer_height   /2.0 * layer_separation_factor;   // y
           node_coordinates_spatial(node_idx, 2) = c * column_diameter/2.0 * column_separation_factor;  // x
-          // ... was c = 0, l = 1, p = 2
           for (int t = 0; t < n_neuron_types; t++) {
             // Randomly select neuron numbers for each node
             int n = (int)R::rpois(neurons_per_node(l,t));
             // Keep track of the number of cells assigned so far
-            n_neurons += n; 
-            // Keep track of the types of these cells and their intrinsic properties
+            n_neurons += n;
+            // Record type identity for each cell
             for (int i = 0; i < n; i++) {
               neuron_type_name.push_back(neuron_types[t].type_name);
               neuron_type_num.push_back(t);
-              tau_bias.push_back(neuron_types[t].temporal_modulation_bias);
-              tau_timeconstant.push_back(neuron_types[t].temporal_modulation_timeconstant);
-              tau_amplitude.push_back(neuron_types[t].temporal_modulation_amplitude);
-              spike_recovery_rate_tmp.pushback(neuron_types[t].spike_recovery_rate); 
-              transmission_velocity_tmp.push_back(neuron_types[t].transmission_velocity);
             }
           }
           // Save end-point index for this node
@@ -810,23 +786,8 @@ void network::set_network_structure(
       }
     }
     
-    // Grab cell type parameters and convert into vectors of length n_neurons
-    v_bound           = VectorXd::Zero(n_neurons);
-    dHdv_bound        = VectorXd::Zero(n_neurons);
-    I_spike           = VectorXd::Zero(n_neurons);
-    spike_potential   = VectorXd::Zero(n_neurons);
-    resting_potential = VectorXd::Zero(n_neurons);
-    threshold         = VectorXd::Zero(n_neurons);
-    leak_conductance  = VectorXd::Zero(n_neurons); 
-    for (int i = 0; i < n_neurons; i++) {
-      v_bound(i)           = std::abs(neuron_types[neuron_type_num[i]].resting_potential) * 1.01;
-      dHdv_bound(i)        = std::abs(neuron_types[neuron_type_num[i]].I_spike)           * 1.01;
-      I_spike(i)           = neuron_types[neuron_type_num[i]].I_spike;
-      spike_potential(i)   = neuron_types[neuron_type_num[i]].spike_potential;
-      resting_potential(i) = neuron_types[neuron_type_num[i]].resting_potential;
-      threshold(i)         = neuron_types[neuron_type_num[i]].threshold;
-      leak_conductance(i)  = neuron_types[neuron_type_num[i]].leak_conductance; 
-    }
+    // Expand all cell type parameters into per-neuron vectors (now that n_neurons is known)
+    resize_neuron_params();
     
     // Set length of the vectors holding cell processes
     arbors.resize(n_neurons);
@@ -835,21 +796,11 @@ void network::set_network_structure(
     synapse_arbor_idx = MatrixXi::Constant(n_neurons, n_neurons, -1);
     synapse_node_idx  = MatrixXi::Constant(n_neurons, n_neurons, -1);
     
-    // Convert neuron temporal modulation to Eigen matrix
-    tau_components        = MatrixXd::Zero(n_neurons, 3);
-    tau_components.col(0) = Map<VectorXd>(tau_bias.data(),         tau_bias.size());
-    tau_components.col(1) = Map<VectorXd>(tau_timeconstant.data(), tau_timeconstant.size());
-    tau_components.col(2) = Map<VectorXd>(tau_amplitude.data(),    tau_amplitude.size());
-    
-    // Convert spike recovery rate and neuron transmission delay to Eigen vector
-    spike_recovery_rate   = Map<VectorXd>(spike_recovery_rate_tmp.data(), spike_recovery_rate_tmp.size()); 
-    transmission_velocity = Map<VectorXd>(transmission_velocity_tmp.data(), transmission_velocity_tmp.size());
-    
     // Resize network coordinate components 
     coordinates_spatial = MatrixXd::Zero(n_neurons, 3); 
     coordinates_node    = MatrixXi::Zero(n_neurons, 3); // patch (z), layer (y), column (x)
     
-  };
+  }
 
 // Function to make axon and dendrite branches
 void network::make_arbor_branch(
@@ -1377,8 +1328,8 @@ void network::apply_circuit_motif(
       // Grab pre- and post-synaptic cell types for this projection
       std::string pre_type_name = proj.pre_type;
       std::string post_type_name = proj.post_type;
-      cell_type pre_type = cell_types.at(pre_type_name);
-      cell_type post_type = cell_types.at(post_type_name);
+      cell_type pre_type = get_cell_types().at(pre_type_name);
+      cell_type post_type = get_cell_types().at(post_type_name);
       // Get indices for neuron_types in this network
       CharacterVector type_names(neuron_types.size());
       for (int i = 0; i < neuron_types.size(); i++) {type_names[i] = neuron_types[i].type_name;}
@@ -1830,8 +1781,12 @@ void network::SGT(
     // Divide spike_potential (minus threshold) by spike current to get transimpedance value necessary for that spike potential
     VectorXd transimpedance = (spike_potential - threshold).array()/I_spike.array();
     
-    // Convert spike_recovery_rate to simulation time steps 
+    // Convert spike_recovery_rate and tau_STD_recovery to simulation time steps 
     VectorXd spike_recovery_rate_dt = spike_recovery_rate * dt;
+    
+    // Initialize STD weight vector
+    VectorXd STD_W(n_neurons); 
+    STD_W.setOnes(); 
     
     // Simulate each time step after the initial
     for (int t = 1; t < n_steps; t++) {
@@ -1883,8 +1838,8 @@ void network::SGT(
       // ... ensure tau is 1.0 if immediately after a spike (for reset)
       tau  = ((post_spike_time.array() > 0.0) && (post_spike_time.array() <= dt)).select(VectorXd::Ones(tau.size()), tau);
       
-      // Find new subthreshold membrane potential by adding dvdt divided by the temporal modulation
-      VectorXd v_subthreshold = v_traces.col(t - 1) + (dvdt.array() / tau.array()).matrix();
+      // Find new subthreshold membrane potential by adding dvdt divided by the temporal modulation and multiplied by STD weight
+      VectorXd v_subthreshold = v_traces.col(t - 1) + (STD_W.array() * dvdt.array() / tau.array()).matrix();
       // ... save for next step
       v_traces.col(t)         = v_subthreshold;
       
@@ -1898,7 +1853,11 @@ void network::SGT(
       spike_counts.array()        += spikes.array();
       // ... update recent spike counter 
       spike_counts_recent.array() += spikes.array(); 
-      spike_counts_recent = (spike_counts_recent.array() - spike_recovery_rate_dt.array()).max(0.0).matrix();
+      spike_counts_recent          = (spike_counts_recent.array() - spike_recovery_rate_dt.array()).max(0.0).matrix();
+      // ... update STD_W
+      STD_W.array()               += (dWdt(STD_W, spike_counts_recent, tau_STD_recovery) * dt).array(); 
+      // ... ensure STD_W is 1.0 if immediately after a spike (for reset)
+      STD_W                        = ((post_spike_time.array() > 0.0) && (post_spike_time.array() <= dt)).select(VectorXd::Ones(STD_W.size()), STD_W);
       
       // Add spike to raw membrane potential and save to spike traces 
       sim_traces.col(t) = v_subthreshold + spike;

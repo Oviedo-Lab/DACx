@@ -78,6 +78,13 @@ VectorXd network_power_dissipation_gradient(
     const VectorXd& threshold         // spike threshold, in mV
   );
 
+// Derivative of depressive weight, from Schiff & Reyes 2012 (https://doi.org/10.1152/jn.00208.2011) 
+VectorXd dWdt(
+    const VectorXd& W,                  // Vector of depressive weights, one per cell
+    const VectorXd& recent_spike_count, // Vector of counts of recent spikes, per cell; conceptually combines firing rate and depressive factor, FR * DF
+    const VectorXd& tau_STD_recovery    // Vector giving time constant for recovery from depression, per cell
+  );
+
 /*
  * ***********************************************************************************
  * Matrix and vector operations
@@ -107,6 +114,7 @@ struct cell_type {
     double temporal_modulation_timeconstant;     // temporal modulation time (ms) step for each neuron type
     double temporal_modulation_amplitude;        // temporal modulation time (ms) cutoff for each neuron type
     double spike_recovery_rate;          // Number of spikes which can be "cleared" per ms
+    double tau_STD_recovery;             // Time constant for recovery from short-term depression (STD), in spikes/ms; requires tau_STD_recovery < spike_recovery_rate
     // Intercell transmission
     double transmission_velocity;        // transmission velocity (in micron/ms) for each neuron type
     double spine_density;                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
@@ -126,8 +134,11 @@ struct cell_type {
     std::string apical_target_layer;     // Layer to which apical dendrite is expected to grow, if any; if none, "none"
   };
 
-// Known cell types
-void init_known_celltypes(); 
+// Singleton accessor for the cell type registry
+std::unordered_map<std::string, cell_type>& get_cell_types();
+
+// Internal helper: construct a cell_type from a named Rcpp List
+cell_type build_cell_type_from_list(const List& params);
 
 // Print known cell types 
 void print_known_celltypes();
@@ -135,49 +146,11 @@ void print_known_celltypes();
 // Fetch cell type parameters 
 List fetch_cell_type_params(const std::string& type_name);
 
-// Make new cell type
-void add_cell_type(
-    const std::string& type_name,
-    const int& valence,
-    const double& temporal_modulation_bias,
-    const double& temporal_modulation_timeconstant,
-    const double& temporal_modulation_amplitude,
-    const double& spike_recovery_rate, 
-    const double& transmission_velocity,
-    const double& spine_density,                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
-    const std::string& axon_target,             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
-    const double& I_spike,                      // spike current, in pA; absolute value plus a little bit used as dHdv_bound
-    const double& spike_potential,              // Magnitude of each spike, in mV
-    const double& resting_potential,            // resting potential, in mV; absolute value plus a little bit used as v_bound
-    const double& threshold,                    // spike threshold, in mV
-    const int& axon_branch_count,               // Expected number of axon branches 
-    const int& dendrite_branch_count,           // Expected number of dendrite branches 
-    const double& branch_independence,          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
-    const double& branch_spread,                // Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma
-    const std::string& apical_target_layer      // For pyramidal cells, which layer their apical dendrites target
-  );
+// Add new cell type (params is a fully-specified named List)
+void add_cell_type(const List& params);
 
-// Modify cell type parameters 
-void modify_cell_type(
-    const std::string& type_name,
-    const int& valence,
-    const double& temporal_modulation_bias,
-    const double& temporal_modulation_timeconstant,
-    const double& temporal_modulation_amplitude,
-    const double& spike_recovery_rate, 
-    const double& transmission_velocity,
-    const double& spine_density,                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
-    const std::string& axon_target,             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
-    const double& I_spike,                      // spike current, in pA; absolute value plus a little bit used as dHdv_bound
-    const double& spike_potential,              // Magnitude of each spike, in mV
-    const double& resting_potential,            // resting potential, in mV; absolute value plus a little bit used as v_bound
-    const double& threshold,                    // spike threshold, in mV
-    const int& axon_branch_count,               // Expected number of axon branches 
-    const int& dendrite_branch_count,           // Expected number of dendrite branches 
-    const double& branch_independence,          // Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma
-    const double& branch_spread,                // Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma
-    const std::string& apical_target_layer      // For pyramidal cells, which layer their apical dendrites target
-  );
+// Modify existing cell type (params is a fully-specified named List)
+void modify_cell_type(const std::string& type_name, const List& params);
 
 /*
  * ***********************************************************************************
@@ -334,6 +307,9 @@ class network {
       IntegerMatrix   nrn_per_node,
       List            local_conductance
     );
+    
+    // Expand cell type parameters into per-neuron vectors (called once after n_neurons is known)
+    void resize_neuron_params();
     
     // Member functions for building network
     void make_arbor_branch(

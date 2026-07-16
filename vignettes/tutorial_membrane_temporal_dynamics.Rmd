@@ -175,7 +175,9 @@ add.cell.type(
     valence          = 1.0,     # excititory cell
     temporal_modulation_bias = 5.0, 
     temporal_modulation_amplitude = 4.0,
-    threshold        = -55    # the default, showing for clarity
+    threshold        = -55,    # the default, showing for clarity
+    spike_recovery_rate              = 5.0,
+    tau_STD_recovery                 = 0.00005
   )
 
 bursting_cell <- set.network.structure(

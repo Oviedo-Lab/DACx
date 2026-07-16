@@ -10,6 +10,8 @@ modify.cell.type(
   temporal_modulation_bias = NULL,
   temporal_modulation_timeconstant = NULL,
   temporal_modulation_amplitude = NULL,
+  spike_recovery_rate = NULL,
+  tau_STD_recovery = NULL,
   transmission_velocity = NULL,
   spine_density = NULL,
   axon_target = NULL,
@@ -28,45 +30,47 @@ modify.cell.type(
 \arguments{
 \item{type_name}{Character string giving name of the cell type, e.g. "excitatory", "inhibitory", "PV", "SST", etc.}
 
-\item{valence}{Valence of each neuron type, +1 for excitatory, -1 for inhibitory}
+\item{valence}{Valence of each neuron type, +1 for excitatory, -1 for inhibitory.}
 
-\item{temporal_modulation_bias}{Temporal modulation time (in ms) bias for each neuron type}
+\item{temporal_modulation_bias}{Temporal modulation time (in ms) bias for each neuron type.}
 
-\item{temporal_modulation_timeconstant}{Temporal modulation time (in ms) step for each neuron type}
+\item{temporal_modulation_timeconstant}{Temporal modulation time (in ms) step for each neuron type.}
 
-\item{temporal_modulation_amplitude}{Temporal modulation time (in ms) cutoff for each neuron type}
+\item{temporal_modulation_amplitude}{Temporal modulation time (in ms) cutoff for each neuron type.}
 
-\item{transmission_velocity}{Transmission velocity (in microns/ms) for each neuron type}
+\item{spike_recovery_rate}{Number of spikes which can be "cleared" per ms.}
 
-\item{spine_density}{Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0.}
+\item{tau_STD_recovery}{Time constant for recovery from short-term depression (STD), in spikes/ms. Must be strictly less than \code{spike_recovery_rate}.}
 
-\item{axon_target}{Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".}
+\item{transmission_velocity}{Transmission velocity (in microns/ms) for each neuron type.}
 
-\item{I_spike}{Spike current, in pA; absolute value (plus a little bit) used as \code{dHdv_bound}, i.e., the bound on derivative of metabolic energy wrt potential, such that \code{dHdv_bound > abs(dHdv)}, for each neuron in the network, based on its type}
+\item{spine_density}{Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine.}
 
-\item{spike_potential}{Magnitude of each spike, in mV}
+\item{axon_target}{Character string giving target of axon projections, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft".}
 
-\item{resting_potential}{Resting potential, in mV; absolute value (plus a little bit) used as \code{v_bound}, i.e., the bound on membrane potential, such that \code{-v_bound <= v_traces <= v_bound}, for each neuron in the network, based on its type}
+\item{I_spike}{Spike current, in pA; absolute value (plus a little bit) used as \code{dHdv_bound}.}
 
-\item{threshold}{Spike threshold, in mV}
+\item{spike_potential}{Magnitude of each spike, in mV.}
 
-\item{leak_conductance}{Conductance controlling the leak current, \code{I_leak = leak_conductance (resting_potential - v)}, in the implicit conductance units of the simulation (e.g., nS). Default value is 10 nS.}
+\item{resting_potential}{Resting potential, in mV; absolute value (plus a little bit) used as \code{v_bound}.}
 
-\item{axon_branch_count}{Expected number of axon branches}
+\item{threshold}{Spike threshold, in mV.}
 
-\item{dendrite_branch_count}{Expected number of dendrite branches}
+\item{leak_conductance}{Conductance controlling the leak current, \code{I_leak = leak_conductance (resting_potential - v)}, in nS.}
 
-\item{branch_independence}{Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma. Default is 0.5.}
+\item{axon_branch_count}{Expected number of axon branches.}
 
-\item{branch_spread}{Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma. Default is 0.5.}
+\item{dendrite_branch_count}{Expected number of dendrite branches.}
 
-\item{apical_target_layer}{Character string giving target layer for apical dendrites. Default: "none".}
+\item{branch_independence}{Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma.}
 
-\item{coupling_scaling_factor}{Controls how energy used in synaptic transmission compares to that used in spiking}
+\item{branch_spread}{Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma.}
+
+\item{apical_target_layer}{Character string giving target layer for apical dendrites.}
 }
 \value{
 Nothing.
 }
 \description{
-This function modifies parameters of an existing cell type in the current session. Parameters can be updated selectively. If the parameter is not specified at all or is specified as \code{NULL}, the existing parameter will be left in place.
+This function modifies parameters of an existing cell type in the current session. Parameters can be updated selectively. If a parameter is not specified (or is specified as \code{NULL}), the existing value will be kept.
 }

@@ -18,7 +18,6 @@ NULL
     Rcpp::loadModule("motif", TRUE)
     Rcpp::loadModule("network", TRUE)
     Rcpp::loadModule("Projection", TRUE)
-    init_known_celltypes()
   }
 
 # Initialization for C++ object classes ################################################################################
@@ -81,22 +80,23 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 
 #' Add new cell type
 #' 
-#' This function adds a user-defined cell type to the current session. It's just a wrapper for the Rcpp-exported \code{add_cell_type} function. Technically, \code{cell_type} is a \code{struc} defined in the Rcpp backend of the neurons package. They are essentially labeled lists with the following entries: \code{type_name}, \code{valence}, \code{temporal_modulation_bias}, \code{temporal_modulation_timeconstant}, \code{temporal_modulation_amplitude}, \code{spike_recovery_rate}, \code{transmission_velocity}, \code{I_spike}, \code{coupling_scaling_factor}, \code{spike_potential}, \code{resting_potential}, and \code{threshold}. Each session stores cell types in the Rcpp backend in an \code{unordered_map} with \code{string} labels. All parameters come with biologically realistic (and mathematically workable) default values, except for \code{type_name} and \code{valence}. 
+#' This function adds a user-defined cell type to the current session. It's just a wrapper for the Rcpp-exported \code{add_cell_type} function. Technically, \code{cell_type} is a struct defined in the Rcpp backend of the DACx package. They are essentially labeled lists whose fields are described by the parameters below. Each session stores cell types in the Rcpp backend in an \code{unordered_map} with string labels. All parameters come with biologically realistic (and mathematically workable) default values, except for \code{type_name} and \code{valence}. 
 #' 
 #' @param type_name Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.
-#' @param valence Valence of each neuron type, +1 for excitatory, -1 for inhibitory
+#' @param valence Valence of each neuron type, +1 for excitatory, -1 for inhibitory.
 #' @param temporal_modulation_bias Temporal modulation time (in ms) bias for each neuron type. Default value is 10.
 #' @param temporal_modulation_timeconstant Temporal modulation time (in ms) step for each neuron type. Default value is 1.
 #' @param temporal_modulation_amplitude Temporal modulation time (in ms) cutoff for each neuron type. Default value is 0.
-#' @param spike_recovery_rate Number of spikes which can be "cleared" per ms.
+#' @param spike_recovery_rate Number of spikes which can be "cleared" per ms. Default is 5.0.
+#' @param tau_STD_recovery Time constant for recovery from short-term depression (STD), in spikes/ms. Must be strictly less than \code{spike_recovery_rate}. Default is 1.0.
 #' @param transmission_velocity Transmission velocity (in microns/ms) for each neuron type. Default value is 30e3.
 #' @param spine_density Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0. 
 #' @param axon_target Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".
-#' @param I_spike Spike current, in pA. Default value is 1e3 (i.e., 1 nA); absolute value (plus a little bit) used as \code{dHdv_bound}, i.e., the bound on derivative of metabolic energy wrt potential, such that \code{dHdv_bound > abs(dHdv)}, for each neuron in the network, based on its type
+#' @param I_spike Spike current, in pA. Default value is 1e3 (i.e., 1 nA); absolute value (plus a little bit) used as \code{dHdv_bound}.
 #' @param spike_potential Magnitude of each spike, in mV. Default value is 35.0.
-#' @param resting_potential Resting potential, in mV. Default value is -70.0; absolute value (plus a little bit) used as \code{v_bound}, i.e., the bound on membrane potential, such that \code{-v_bound <= v_traces <= v_bound}, for each neuron in the network, based on its type
+#' @param resting_potential Resting potential, in mV. Default value is -70.0; absolute value (plus a little bit) used as \code{v_bound}.
 #' @param threshold Spike threshold, in mV. Default value is -55.0.
-#' @param leak_conductance Conductance controlling the leak current, \code{I_leak = leak_conductance (resting_potential - v)}, in the implicit conductance units of the simulation (e.g., nS). Default value is 10 nS.
+#' @param leak_conductance Conductance controlling the leak current, \code{I_leak = leak_conductance (resting_potential - v)}, in nS. Default value is 10 nS.
 #' @param axon_branch_count Expected number of axon branches. Default is 10. 
 #' @param dendrite_branch_count Expected number of dendrite branches. Default is 10. 
 #' @param branch_independence Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma. Default is 0.5.
@@ -107,134 +107,139 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 add.cell.type <- function(
     type_name,
     valence,
-    temporal_modulation_bias = 10.0,
+    temporal_modulation_bias         = 10.0,
     temporal_modulation_timeconstant = 1.0,
-    temporal_modulation_amplitude = 0.0,
-    spike_recovery_rate = 5.0, 
-    transmission_velocity = 30e3,
-    spine_density = 0.0,
-    axon_target = "dendrite_shaft",
-    I_spike = 1e3,
-    spike_potential = 35.0,
-    resting_potential = -70.0,
-    threshold = -55.0,
-    leak_conductance = 10.0, 
-    axon_branch_count = 10.0,
-    dendrite_branch_count = 10.0,
-    branch_independence = 0.5,
-    branch_spread = 0.5,
-    apical_target_layer = "none"
+    temporal_modulation_amplitude    = 0.0,
+    spike_recovery_rate              = 5.0,
+    tau_STD_recovery                 = 1.0,
+    transmission_velocity            = 30e3,
+    spine_density                    = 0.0,
+    axon_target                      = "dendrite_shaft",
+    I_spike                          = 1e3,
+    spike_potential                  = 35.0,
+    resting_potential                = -70.0,
+    threshold                        = -55.0,
+    leak_conductance                 = 10.0,
+    axon_branch_count                = 10L,
+    dendrite_branch_count            = 10L,
+    branch_independence              = 0.5,
+    branch_spread                    = 0.5,
+    apical_target_layer              = "none"
   ) {
-    add_cell_type(
-      type_name, 
-      valence, 
-      temporal_modulation_bias, 
-      temporal_modulation_timeconstant, 
-      temporal_modulation_amplitude, 
-      spike_recovery_rate, 
-      transmission_velocity, 
-      spine_density,
-      axon_target,
-      I_spike, 
-      spike_potential, 
-      resting_potential, 
-      threshold,
-      leak_conductance,
-      axon_branch_count,
-      dendrite_branch_count,
-      branch_independence,
-      branch_spread,
-      apical_target_layer
-    )
+    add_cell_type(list(
+      type_name                        = type_name,
+      valence                          = as.integer(valence),
+      temporal_modulation_bias         = temporal_modulation_bias,
+      temporal_modulation_timeconstant = temporal_modulation_timeconstant,
+      temporal_modulation_amplitude    = temporal_modulation_amplitude,
+      spike_recovery_rate              = spike_recovery_rate,
+      tau_STD_recovery                 = tau_STD_recovery,
+      transmission_velocity            = transmission_velocity,
+      spine_density                    = spine_density,
+      axon_target                      = axon_target,
+      I_spike                          = I_spike,
+      spike_potential                  = spike_potential,
+      resting_potential                = resting_potential,
+      threshold                        = threshold,
+      leak_conductance                 = leak_conductance,
+      axon_branch_count                = as.integer(axon_branch_count),
+      dendrite_branch_count            = as.integer(dendrite_branch_count),
+      branch_independence              = branch_independence,
+      branch_spread                    = branch_spread,
+      apical_target_layer              = apical_target_layer
+    ))
   }
 
 #' Modify existing cell type 
 #' 
-#' This function modifies parameters of an existing cell type in the current session. Parameters can be updated selectively. If the parameter is not specified at all or is specified as \code{NULL}, the existing parameter will be left in place. 
+#' This function modifies parameters of an existing cell type in the current session. Parameters can be updated selectively. If a parameter is not specified (or is specified as \code{NULL}), the existing value will be kept.
 #' 
 #' @param type_name Character string giving name of the cell type, e.g. "excitatory", "inhibitory", "PV", "SST", etc.
-#' @param valence Valence of each neuron type, +1 for excitatory, -1 for inhibitory
-#' @param temporal_modulation_bias Temporal modulation time (in ms) bias for each neuron type
-#' @param temporal_modulation_timeconstant Temporal modulation time (in ms) step for each neuron type
-#' @param temporal_modulation_amplitude Temporal modulation time (in ms) cutoff for each neuron type
+#' @param valence Valence of each neuron type, +1 for excitatory, -1 for inhibitory.
+#' @param temporal_modulation_bias Temporal modulation time (in ms) bias for each neuron type.
+#' @param temporal_modulation_timeconstant Temporal modulation time (in ms) step for each neuron type.
+#' @param temporal_modulation_amplitude Temporal modulation time (in ms) cutoff for each neuron type.
 #' @param spike_recovery_rate Number of spikes which can be "cleared" per ms.
-#' @param transmission_velocity Transmission velocity (in microns/ms) for each neuron type
-#' @param axon_target Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".
-#' @param spine_density Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0. 
-#' @param I_spike Spike current, in pA; absolute value (plus a little bit) used as \code{dHdv_bound}, i.e., the bound on derivative of metabolic energy wrt potential, such that \code{dHdv_bound > abs(dHdv)}, for each neuron in the network, based on its type
-#' @param coupling_scaling_factor Controls how energy used in synaptic transmission compares to that used in spiking
-#' @param spike_potential Magnitude of each spike, in mV
-#' @param resting_potential Resting potential, in mV; absolute value (plus a little bit) used as \code{v_bound}, i.e., the bound on membrane potential, such that \code{-v_bound <= v_traces <= v_bound}, for each neuron in the network, based on its type
-#' @param threshold Spike threshold, in mV
-#' @param leak_conductance Conductance controlling the leak current, \code{I_leak = leak_conductance (resting_potential - v)}, in the implicit conductance units of the simulation (e.g., nS). Default value is 10 nS.
-#' @param axon_branch_count Expected number of axon branches
-#' @param dendrite_branch_count Expected number of dendrite branches
-#' @param branch_independence Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma. Default is 0.5.
-#' @param branch_spread Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma. Default is 0.5.
-#' @param apical_target_layer Character string giving target layer for apical dendrites. Default: "none".
+#' @param tau_STD_recovery Time constant for recovery from short-term depression (STD), in spikes/ms. Must be strictly less than \code{spike_recovery_rate}.
+#' @param transmission_velocity Transmission velocity (in microns/ms) for each neuron type.
+#' @param spine_density Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine.
+#' @param axon_target Character string giving target of axon projections, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft".
+#' @param I_spike Spike current, in pA; absolute value (plus a little bit) used as \code{dHdv_bound}.
+#' @param spike_potential Magnitude of each spike, in mV.
+#' @param resting_potential Resting potential, in mV; absolute value (plus a little bit) used as \code{v_bound}.
+#' @param threshold Spike threshold, in mV.
+#' @param leak_conductance Conductance controlling the leak current, \code{I_leak = leak_conductance (resting_potential - v)}, in nS.
+#' @param axon_branch_count Expected number of axon branches.
+#' @param dendrite_branch_count Expected number of dendrite branches.
+#' @param branch_independence Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma.
+#' @param branch_spread Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma.
+#' @param apical_target_layer Character string giving target layer for apical dendrites.
 #' @return Nothing.
 #' @export
 modify.cell.type <- function(
     type_name,
-    valence = NULL,
-    temporal_modulation_bias = NULL,
+    valence                          = NULL,
+    temporal_modulation_bias         = NULL,
     temporal_modulation_timeconstant = NULL,
-    temporal_modulation_amplitude = NULL,
-    spike_recovery_rate = NULL,
-    transmission_velocity = NULL,
-    spine_density = NULL,
-    axon_target = NULL, 
-    I_spike = NULL,
-    spike_potential = NULL,
-    resting_potential = NULL,
-    threshold = NULL,
-    leak_conductance = NULL,
-    axon_branch_count = NULL,
-    dendrite_branch_count = NULL, 
-    branch_independence = NULL, 
-    branch_spread = NULL,
-    apical_target_layer = NULL
+    temporal_modulation_amplitude    = NULL,
+    spike_recovery_rate              = NULL,
+    tau_STD_recovery                 = NULL,
+    transmission_velocity            = NULL,
+    spine_density                    = NULL,
+    axon_target                      = NULL,
+    I_spike                          = NULL,
+    spike_potential                  = NULL,
+    resting_potential                = NULL,
+    threshold                        = NULL,
+    leak_conductance                 = NULL,
+    axon_branch_count                = NULL,
+    dendrite_branch_count            = NULL,
+    branch_independence              = NULL,
+    branch_spread                    = NULL,
+    apical_target_layer              = NULL
   ) {
-    existing_params <- fetch.cell.type.params(type_name)
-    if (is.null(valence)) valence <- existing_params$valence
-    if (is.null(temporal_modulation_bias)) temporal_modulation_bias <- existing_params$temporal_modulation_bias
-    if (is.null(temporal_modulation_timeconstant)) temporal_modulation_timeconstant <- existing_params$temporal_modulation_timeconstant
-    if (is.null(temporal_modulation_amplitude)) temporal_modulation_amplitude <- existing_params$temporal_modulation_amplitude
-    if (is.null(spike_recovery_rate)) spike_recovery_rate <- existing_params$spike_recovery_rate
-    if (is.null(transmission_velocity)) transmission_velocity <- existing_params$transmission_velocity
-    if (is.null(spine_density)) spine_density <- existing_params$spine_density
-    if (is.null(axon_target)) axon_target <- existing_params$axon_target
-    if (is.null(I_spike)) I_spike <- existing_params$I_spike
-    if (is.null(spike_potential)) spike_potential <- existing_params$spike_potential
-    if (is.null(resting_potential)) resting_potential <- existing_params$resting_potential
-    if (is.null(threshold)) threshold <- existing_params$threshold
-    if (is.null(leak_conductance)) leak_conductance <- existing_params$leak_conductance
-    if (is.null(axon_branch_count)) axon_branch_count <- existing_params$axon_branch_count
-    if (is.null(dendrite_branch_count)) dendrite_branch_count <- existing_params$dendrite_branch_count
-    if (is.null(branch_independence)) branch_independence <- existing_params$branch_independence
-    if (is.null(branch_spread)) branch_spread <- existing_params$branch_spread
-    if (is.null(apical_target_layer)) apical_target_layer <- existing_params$apical_target_layer
-    modify_cell_type(
-      type_name, 
-      valence, 
-      temporal_modulation_bias, 
-      temporal_modulation_timeconstant, 
-      temporal_modulation_amplitude, 
-      spike_recovery_rate, 
-      transmission_velocity, 
-      spine_density,
-      axon_target,
-      I_spike, 
-      spike_potential, 
-      resting_potential, 
-      threshold,
-      leak_conductance,
-      axon_branch_count,
-      dendrite_branch_count,
-      branch_independence,
-      branch_spread,
-      apical_target_layer
-    )
+    ep <- fetch.cell.type.params(type_name)  # existing params
+    if (is.null(valence))                          valence                          <- ep$valence
+    if (is.null(temporal_modulation_bias))         temporal_modulation_bias         <- ep$temporal_modulation_bias
+    if (is.null(temporal_modulation_timeconstant)) temporal_modulation_timeconstant <- ep$temporal_modulation_timeconstant
+    if (is.null(temporal_modulation_amplitude))    temporal_modulation_amplitude    <- ep$temporal_modulation_amplitude
+    if (is.null(spike_recovery_rate))              spike_recovery_rate              <- ep$spike_recovery_rate
+    if (is.null(tau_STD_recovery))                 tau_STD_recovery                 <- ep$tau_STD_recovery
+    if (is.null(transmission_velocity))            transmission_velocity            <- ep$transmission_velocity
+    if (is.null(spine_density))                    spine_density                    <- ep$spine_density
+    if (is.null(axon_target))                      axon_target                      <- ep$axon_target
+    if (is.null(I_spike))                          I_spike                          <- ep$I_spike
+    if (is.null(spike_potential))                  spike_potential                  <- ep$spike_potential
+    if (is.null(resting_potential))                resting_potential                <- ep$resting_potential
+    if (is.null(threshold))                        threshold                        <- ep$threshold
+    if (is.null(leak_conductance))                 leak_conductance                 <- ep$leak_conductance
+    if (is.null(axon_branch_count))                axon_branch_count                <- ep$axon_branch_count
+    if (is.null(dendrite_branch_count))            dendrite_branch_count            <- ep$dendrite_branch_count
+    if (is.null(branch_independence))              branch_independence              <- ep$branch_independence
+    if (is.null(branch_spread))                    branch_spread                    <- ep$branch_spread
+    if (is.null(apical_target_layer))              apical_target_layer              <- ep$apical_target_layer
+    modify_cell_type(type_name, list(
+      type_name                        = type_name,
+      valence                          = as.integer(valence),
+      temporal_modulation_bias         = temporal_modulation_bias,
+      temporal_modulation_timeconstant = temporal_modulation_timeconstant,
+      temporal_modulation_amplitude    = temporal_modulation_amplitude,
+      spike_recovery_rate              = spike_recovery_rate,
+      tau_STD_recovery                 = tau_STD_recovery,
+      transmission_velocity            = transmission_velocity,
+      spine_density                    = spine_density,
+      axon_target                      = axon_target,
+      I_spike                          = I_spike,
+      spike_potential                  = spike_potential,
+      resting_potential                = resting_potential,
+      threshold                        = threshold,
+      leak_conductance                 = leak_conductance,
+      axon_branch_count                = as.integer(axon_branch_count),
+      dendrite_branch_count            = as.integer(dendrite_branch_count),
+      branch_independence              = branch_independence,
+      branch_spread                    = branch_spread,
+      apical_target_layer              = apical_target_layer
+    ))
   }
 
 # Functions for network ################################################################################################
