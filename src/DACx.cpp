@@ -352,7 +352,19 @@ VectorXd network_power_dissipation_gradient(
   }
 
 // Derivative of depressive weight, from Schiff & Reyes 2012 (https://doi.org/10.1152/jn.00208.2011) 
-// ... insert here! 
+VectorXd dWdt(
+    const VectorXd& W,                  // Vector of depressive weights, one per cell
+    const VectorXd& recent_spike_count, // Vector of counts of recent spikes, per cell; conceptually combines firing rate and depressive factor, FR * DF
+    const VectorXd& tau_STD_recovery    // Vector giving time constant for recovery from depression, per cell
+  ) {
+    return (1.0 - W.array()).matrix().cwiseQuotient(tau_STD_recovery) - W.cwiseProduct(recent_spike_count);
+    /*
+     * Units: recent_spike_count = spikes/ms
+     *        W                  = unitless
+     *        therefore ... 
+     *        tau_STD_recovery   = spikes/ms
+     */
+  }
 
 /*
  * ***********************************************************************************

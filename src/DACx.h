@@ -295,6 +295,7 @@ class network {
     VectorXd                 leak_conductance;       // Vector giving conductance controlling the leak current, I_leak = leak_conductance (resting_potential - v), in nS, for each neuron in the network, based on its type
     MatrixXd                 tau_components;         // n_neurons x 3 matrix giving the temporal modulation time (ms) bias, step, and cutoff for each neuron in the network, based on its type
     VectorXd                 spike_recovery_rate;    // Vector giving the number of spikes which can be "cleared" per ms, for each neuron in the network, based on its type
+    VectorXd                 tau_STD_recovery;       // Vector giving the rate at which each cell in the network recovers from short-term depression (STD); units match spike_recovery_rate (spikes per ms), and STD requires tau_STD_recovery < spike_recovery_rate
     VectorXd                 transmission_velocity;  // Vector giving the transmission delay (ms) for each neuron in the network, based on its type
     CharacterVector          neuron_type_name;       // Vector giving the type of each neuron in the network, as a string
     std::vector<int>         neuron_type_num;        // Vector giving the type of each neuron in the network, as an integer index
