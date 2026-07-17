@@ -80,6 +80,13 @@ Development note: The values of these parameters are 1/0.0001 times the intended
 - *Apical target layer:* Character string giving the name of the layer to which apical dendrite is expected to grow, if any; if none, "none". Intended for modeling the circuit topology of pyramidal neurons. Code variable: <span class = "code_variable">apical_target_layer</span>.
 
 ```{r build_cell}
+
+# The formula is: = v_traces.col(t - 1) + (STD_W.array() * dvdt.array() / tau.array()).matrix();
+# So, the temporal modulation factor T is really STD_W/tau, where tau is a fast-response adaptation (e.g., for bursting) dependent on only time since last spike, and STD_W is a mesoscale adaptation ("short-term depression") dependent on some back-looking window of spikes.
+# T(t) models ion channel kinetics (from ChatGPT): "T(t) is analogous to an effective membrane time-scale or effective membrane resistance in that it modulates the rate of voltage evolution without altering the underlying energy landscape."
+
+
+
 add.cell.type(
     "subthreshold_only",
     valence = 1.0,
@@ -111,6 +118,7 @@ A final question is how much current to apply. For this simulation, we'll use a 
 
 ```{r set_up_stimulus_current_matrix}
 pico_amp <- 1 # Assume units are pA
+stim_magnitude <- 300
 no_stim  <- matrix(0, nrow = 1, ncol = n_steps)
 ```
 
@@ -132,6 +140,12 @@ integrating_cell <- new.network()
 add.cell.type(
     "leaky_integrator",
     valence   = 1.0,     # excititory cell
+    tau_fast       = 1.0,
+    tau_slow       = 60.0,
+    tau_Vs         = 100.0,
+    I_slow         = 0.01, 
+    U_Vs           = 0.05, 
+    max_spike_rate = 0.1,
     threshold = -55    # the default, showing for clarity
   )
 
@@ -146,7 +160,7 @@ integrating_cell <- set.network.structure(
 
 ```{r}
 # Set stimulus start and length
-stim_length_ms <- 30
+stim_length_ms <- 5
 stim_start_ms  <- seq(from = 50, to = 950, by = 100)
 # Find start and end steps of the input stimulus current
 stim_length    <- stim_length_ms / dt
@@ -154,7 +168,7 @@ stim_start     <- stim_start_ms / dt
 stim_end       <- stim_start + stim_length - 1
 short_stims    <- no_stim
 for (i in seq_along(stim_start)) {
-  short_stims[, stim_start[i]:stim_end[i]] <- 300 * pico_amp
+  short_stims[, stim_start[i]:stim_end[i]] <- stim_magnitude * pico_amp
 }
 ```
 
@@ -172,12 +186,14 @@ plot.network.traces(integrating_cell, input_matrix = short_stims)
 bursting_cell <- new.network()
 add.cell.type(
     "bursting_cell",
-    valence          = 1.0,     # excititory cell
-    temporal_modulation_bias = 5.0, 
-    temporal_modulation_amplitude = 4.0,
-    threshold        = -55,    # the default, showing for clarity
-    spike_recovery_rate              = 5.0,
-    tau_STD_recovery                 = 0.00005
+    valence        = 1.0, # excititory cell
+    tau_fast       = 1.0,
+    tau_slow       = 60.0,
+    tau_Vs         = 100.0,
+    I_slow         = 0.035, 
+    U_Vs           = 0.05, 
+    max_spike_rate = 0.1,
+    threshold      = -55, # the default, showing for clarity
   )
 
 bursting_cell <- set.network.structure(
@@ -191,14 +207,14 @@ bursting_cell <- set.network.structure(
 ```{r}
 # Set stimulus start and length
 stim_length_ms <- 100
-stim_start_ms  <- seq(from = 100, to = 700, by = 300)
+stim_start_ms  <- seq(from = 100, to = 750, by = 200)
 # Find start and end steps of the input stimulus current
 stim_length    <- stim_length_ms / dt
 stim_start     <- stim_start_ms / dt
 stim_end       <- stim_start + stim_length - 1
 long_stims     <- no_stim
 for (i in seq_along(stim_start)) {
-  long_stims[, stim_start[i]:stim_end[i]] <- 300 * pico_amp
+  long_stims[, stim_start[i]:stim_end[i]] <- stim_magnitude * pico_amp
 }
 ```
 
@@ -210,6 +226,26 @@ bursting_cell_results <- run.SGT(
   initial_potential = -70
 )
 plot.network.traces(bursting_cell, input_matrix = long_stims)
+plot(bursting_cell_results[["slow_current_traces"]][1,], type = "l", ylab = "slow current direction")
+plot(bursting_cell_results[["Ca_traces"]][1,], type = "l", ylab = "Calcium")
+plot(bursting_cell_results[["tau_slow_effect_traces"]][1,], type = "l", ylab = "tau_slow (bursting)")
+plot(bursting_cell_results[["Vs_traces"]][1,], type = "l", ylab = "Vs (STD)")
+plot(bursting_cell_results[["T_traces"]][1,], type = "l", ylab = "T")
+```
+
+```{r SGT_bursting}
+integrating_cell_results <- run.SGT(
+  integrating_cell,
+  long_stims,
+  dt,
+  initial_potential = -70
+)
+plot.network.traces(integrating_cell, input_matrix = long_stims)
+plot(integrating_cell_results[["slow_current_traces"]][1,], type = "l", ylab = "slow current direction")
+plot(integrating_cell_results[["Ca_traces"]][1,], type = "l", ylab = "Calcium")
+plot(integrating_cell_results[["tau_slow_effect_traces"]][1,], type = "l", ylab = "tau_slow (bursting)")
+plot(integrating_cell_results[["Vs_traces"]][1,], type = "l", ylab = "Vs (STD)")
+plot(integrating_cell_results[["T_traces"]][1,], type = "l", ylab = "T")
 ```
 
 ```{r}
@@ -222,7 +258,7 @@ stim_start      <- stim_start_ms / dt
 stim_end        <- stim_start + stim_length - 1
 continuous_stim <- no_stim
 for (i in seq_along(stim_start)) {
-  continuous_stim[, stim_start[i]:stim_end[i]] <- 300 * pico_amp
+  continuous_stim[, stim_start[i]:stim_end[i]] <- stim_magnitude * pico_amp
 }
 ```
 
@@ -234,6 +270,11 @@ bursting_cell_results_long <- run.SGT(
   initial_potential = -70
 )
 plot.network.traces(bursting_cell, input_matrix = continuous_stim)
+plot(bursting_cell_results_long[["slow_current_traces"]][1,], type = "l", ylab = "slow current direction")
+plot(bursting_cell_results_long[["Ca_traces"]][1,], type = "l", ylab = "Calcium")
+plot(bursting_cell_results_long[["tau_slow_effect_traces"]][1,], type = "l", ylab = "tau_slow (bursting)")
+plot(bursting_cell_results_long[["Vs_traces"]][1,], type = "l", ylab = "Vs (STD)")
+plot(bursting_cell_results_long[["T_traces"]][1,], type = "l", ylab = "T")
 ```
 
 ```{r}
@@ -245,3 +286,4 @@ integrating_cell_results <- run.SGT(
 )
 plot.network.traces(integrating_cell, input_matrix = continuous_stim)
 ```
+

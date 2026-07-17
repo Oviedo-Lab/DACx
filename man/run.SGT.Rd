@@ -16,7 +16,7 @@ run.SGT(network, stimulus_current_matrix, dt = 0.001, initial_potential = -70)
 \item{initial_potential}{Initial value for membrane potential, applied to all cells (Default is -70 mV).}
 }
 \value{
-List containing the following elements: \item{sim_traces}{Matrix of simulated spike traces for all neurons over time (neurons as rows, sample times as columns).} \item{spike_counts}{Vector of spike counts for each neuron in the network.}
+List containing the following elements: \item{v_traces}{Matrix of simulated spike traces for all neurons over time (neurons as rows, sample times as columns).} \item{spike_counts}{Vector of spike counts for each neuron in the network.}
 }
 \description{
 This function uses a Spatial Growth-Transform (SGT) model to run a spike simulation on a given network object for a specified matrix of membrane currents over time. A matrix containing the spike traces of all neurons over time after the simulation (neurons as rows, sample times as columns) is saved in the network object, along with a vector of spike counts for each neuron in the network. Both are returned on the R side in a list.

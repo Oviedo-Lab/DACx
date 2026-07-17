@@ -70,19 +70,28 @@ MatrixXd lagged_traces(
 
 // Gradient of total dissipated metabolic power in network, w.r.t. membrane potential
 VectorXd network_power_dissipation_gradient(
-    const MatrixXd& v_traces_lagged,  // n_neuron x n_steps matrix of membrane potentials, in mV, from which to calculate derivative
-    const VectorXd& v_traces_current, // n_neuron x 1 matrix (column vector) of membrane potentials, in mV, from which to calculate derivative
+    const MatrixXd& v_lagged,         // n_neuron x n_steps matrix of membrane potentials, in mV, from which to calculate derivative
+    const VectorXd& v,                // n_neuron x 1 matrix (column vector) of membrane potentials, in mV, from which to calculate derivative
     const VectorXd& membrane_current, // n_neuron x 1 matrix (column vector) of membrane currents, in pA, from which to calculate derivative
     const MatrixXd& transconductance, // n_neuron x n_neuron transconductance matrix, giving connections between neurons, in nS
     const VectorXd& I_spike,          // spike current, in pA
     const VectorXd& threshold         // spike threshold, in mV
   );
 
+// Derivative of intracellular slow-current molecule concentrations
+VectorXd dCadt(
+    const VectorXd& Ca,                 // Vector of intracellular slow-current molecule (e.g., calcium) concentrations, one per cell
+    const VectorXd& recent_spike_count, // Vector of counts of recent spikes, per cell; proxy for spike rate
+    const VectorXd& I_slow,             // Vector giving the slow-current molecule (e.g., Ca2+) influx per spike (count/spike)
+    const VectorXd& tau_slow            // Vector giving time constant for clear calcium, per cell
+  );
+
 // Derivative of depressive weight, from Schiff & Reyes 2012 (https://doi.org/10.1152/jn.00208.2011) 
-VectorXd dWdt(
+VectorXd dVsdt(
     const VectorXd& W,                  // Vector of depressive weights, one per cell
-    const VectorXd& recent_spike_count, // Vector of counts of recent spikes, per cell; conceptually combines firing rate and depressive factor, FR * DF
-    const VectorXd& tau_STD_recovery    // Vector giving time constant for recovery from depression, per cell
+    const VectorXd& recent_spike_count, // Vector of counts of recent spikes, per cell; proxy for spike rate
+    const VectorXd& U_Vs,               // Vector giving the utilization ratio (1/spike) of vesicles per spike
+    const VectorXd& tau_Vs              // Vector giving time constant for recovery from depression, per cell
   );
 
 /*
@@ -110,11 +119,12 @@ struct cell_type {
     // Excitatory or inhibitory?
     int valence;                         // valence of each neuron type, +1 for excitatory, -1 for inhibitory
     // Membrane kinetics (burst control)
-    double temporal_modulation_bias;     // temporal modulation time (ms) bias for each neuron type
-    double temporal_modulation_timeconstant;     // temporal modulation time (ms) step for each neuron type
-    double temporal_modulation_amplitude;        // temporal modulation time (ms) cutoff for each neuron type
-    double spike_recovery_rate;          // Number of spikes which can be "cleared" per ms
-    double tau_STD_recovery;             // Time constant for recovery from short-term depression (STD), in spikes/ms; requires tau_STD_recovery < spike_recovery_rate
+    double tau_fast;     // temporal modulation time (ms) bias for each neuron type
+    double tau_slow;        // temporal modulation time (ms) cutoff for each neuron type
+    double tau_Vs;                       // Time constant for recovery from short-term depression (STD), in ms/spike
+    double I_slow;     // temporal modulation time (ms) step for each neuron type
+    double U_Vs; 
+    double max_spike_rate;          // Number of spikes which can be "cleared" per ms (spikes/ms)
     // Intercell transmission
     double transmission_velocity;        // transmission velocity (in micron/ms) for each neuron type
     double spine_density;                // Scale between 0 and 1: 0 = no nodes have spines, 1 = all nodes have spines
@@ -266,9 +276,12 @@ class network {
     VectorXd                 resting_potential;      // Vector giving resting potential, in mV, for each neuron in the network, based on its type
     VectorXd                 threshold;              // Vector giving spike threshold, in mV, for each neuron in the network, based on its type
     VectorXd                 leak_conductance;       // Vector giving conductance controlling the leak current, I_leak = leak_conductance (resting_potential - v), in nS, for each neuron in the network, based on its type
-    MatrixXd                 tau_components;         // n_neurons x 3 matrix giving the temporal modulation time (ms) bias, step, and cutoff for each neuron in the network, based on its type
-    VectorXd                 spike_recovery_rate;    // Vector giving the number of spikes which can be "cleared" per ms, for each neuron in the network, based on its type
-    VectorXd                 tau_STD_recovery;       // Vector giving the rate at which each cell in the network recovers from short-term depression (STD); units match spike_recovery_rate (spikes per ms), and STD requires tau_STD_recovery < spike_recovery_rate
+    VectorXd                 max_spike_rate;         // Vector giving the number of spikes which can be "cleared" per ms (spikes/ms), for each neuron in the network, based on its type
+    VectorXd                 tau_fast; 
+    VectorXd                 tau_slow; 
+    VectorXd                 tau_Vs;                 // Vector giving the rate at which each cell in the network recovers from short-term depression (STD), in ms/spike
+    VectorXd                 I_slow; 
+    VectorXd                 U_Vs; 
     VectorXd                 transmission_velocity;  // Vector giving the transmission delay (ms) for each neuron in the network, based on its type
     CharacterVector          neuron_type_name;       // Vector giving the type of each neuron in the network, as a string
     std::vector<int>         neuron_type_num;        // Vector giving the type of each neuron in the network, as an integer index
@@ -278,7 +291,12 @@ class network {
     
     // Data fields 
     double   sim_dt;                                 // Time step for simulation, in ms
-    MatrixXd sim_traces;                             // NxT matrix of doubles, each column giving the simulated membrane potential of a neuron, each row giving a time-step in the simulation
+    MatrixXd slow_current_traces; 
+    MatrixXd Ca_traces; 
+    MatrixXd tau_slow_effect_traces; 
+    MatrixXd Vs_traces; 
+    MatrixXd T_traces;
+    MatrixXd v_traces;                               // NxT matrix of doubles, each column giving the simulated membrane potential of a neuron, each row giving a time-step in the simulation
     VectorXd spike_counts;                           // Vector of length n_neurons, giving the number of spikes for each neuron in the network during a simulation
     
     // Functions *********************************
@@ -337,8 +355,7 @@ class network {
     
     // Member functions for fetching data 
     List fetch_network_components(bool include_arbors = false) const;
-    NumericMatrix fetch_sim_traces_R() const;
-    NumericVector fetch_spike_counts_R() const;
+    List fetch_sim_results() const; 
     
     // Member functions for analysis and simulation 
     MatrixXi find_pairwise_lags_by_axon(

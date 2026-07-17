@@ -7,11 +7,12 @@
 modify.cell.type(
   type_name,
   valence = NULL,
-  temporal_modulation_bias = NULL,
-  temporal_modulation_timeconstant = NULL,
-  temporal_modulation_amplitude = NULL,
-  spike_recovery_rate = NULL,
-  tau_STD_recovery = NULL,
+  tau_fast = NULL,
+  tau_slow = NULL,
+  tau_Vs = NULL,
+  I_slow = NULL,
+  U_Vs = NULL,
+  max_spike_rate = NULL,
   transmission_velocity = NULL,
   spine_density = NULL,
   axon_target = NULL,
@@ -32,15 +33,17 @@ modify.cell.type(
 
 \item{valence}{Valence of each neuron type, +1 for excitatory, -1 for inhibitory.}
 
-\item{temporal_modulation_bias}{Temporal modulation time (in ms) bias for each neuron type.}
+\item{tau_fast}{Placeholder}
 
-\item{temporal_modulation_timeconstant}{Temporal modulation time (in ms) step for each neuron type.}
+\item{tau_slow}{Placeholder}
 
-\item{temporal_modulation_amplitude}{Temporal modulation time (in ms) cutoff for each neuron type.}
+\item{tau_Vs}{Placeholder}
 
-\item{spike_recovery_rate}{Number of spikes which can be "cleared" per ms.}
+\item{I_slow}{Placeholder}
 
-\item{tau_STD_recovery}{Time constant for recovery from short-term depression (STD), in spikes/ms. Must be strictly less than \code{spike_recovery_rate}.}
+\item{U_Vs}{Placeholder}
+
+\item{max_spike_rate}{Number of spikes which can be "cleared" per ms (spikes/ms).}
 
 \item{transmission_velocity}{Transmission velocity (in microns/ms) for each neuron type.}
 

@@ -7,11 +7,12 @@
 add.cell.type(
   type_name,
   valence,
-  temporal_modulation_bias = 10,
-  temporal_modulation_timeconstant = 1,
-  temporal_modulation_amplitude = 0,
-  spike_recovery_rate = 5,
-  tau_STD_recovery = 1,
+  tau_fast = 10,
+  tau_slow = 20,
+  tau_Vs = 1000,
+  I_slow = 5,
+  U_Vs = 1,
+  max_spike_rate = 0.1,
   transmission_velocity = 30000,
   spine_density = 0,
   axon_target = "dendrite_shaft",
@@ -32,15 +33,17 @@ add.cell.type(
 
 \item{valence}{Valence of each neuron type, +1 for excitatory, -1 for inhibitory.}
 
-\item{temporal_modulation_bias}{Temporal modulation time (in ms) bias for each neuron type. Default value is 10.}
+\item{tau_fast}{Placeholder}
 
-\item{temporal_modulation_timeconstant}{Temporal modulation time (in ms) step for each neuron type. Default value is 1.}
+\item{tau_slow}{Placeholder}
 
-\item{temporal_modulation_amplitude}{Temporal modulation time (in ms) cutoff for each neuron type. Default value is 0.}
+\item{tau_Vs}{Placeholder}
 
-\item{spike_recovery_rate}{Number of spikes which can be "cleared" per ms. Default is 5.0.}
+\item{I_slow}{Placeholder}
 
-\item{tau_STD_recovery}{Time constant for recovery from short-term depression (STD), in spikes/ms. Must be strictly less than \code{spike_recovery_rate}. Default is 1.0.}
+\item{U_Vs}{Placeholder}
+
+\item{max_spike_rate}{Number of spikes which can be "cleared" per ms (spikes/ms). Default is 0.01.}
 
 \item{transmission_velocity}{Transmission velocity (in microns/ms) for each neuron type. Default value is 30e3.}
 

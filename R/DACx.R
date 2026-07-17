@@ -84,11 +84,12 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 #' 
 #' @param type_name Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.
 #' @param valence Valence of each neuron type, +1 for excitatory, -1 for inhibitory.
-#' @param temporal_modulation_bias Temporal modulation time (in ms) bias for each neuron type. Default value is 10.
-#' @param temporal_modulation_timeconstant Temporal modulation time (in ms) step for each neuron type. Default value is 1.
-#' @param temporal_modulation_amplitude Temporal modulation time (in ms) cutoff for each neuron type. Default value is 0.
-#' @param spike_recovery_rate Number of spikes which can be "cleared" per ms. Default is 5.0.
-#' @param tau_STD_recovery Time constant for recovery from short-term depression (STD), in spikes/ms. Must be strictly less than \code{spike_recovery_rate}. Default is 1.0.
+#' @param tau_fast Placeholder
+#' @param tau_slow Placeholder
+#' @param tau_Vs Placeholder
+#' @param I_slow Placeholder 
+#' @param U_Vs Placeholder 
+#' @param max_spike_rate Number of spikes which can be "cleared" per ms (spikes/ms). Default is 0.01.
 #' @param transmission_velocity Transmission velocity (in microns/ms) for each neuron type. Default value is 30e3.
 #' @param spine_density Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0. 
 #' @param axon_target Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".
@@ -107,11 +108,12 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 add.cell.type <- function(
     type_name,
     valence,
-    temporal_modulation_bias         = 10.0,
-    temporal_modulation_timeconstant = 1.0,
-    temporal_modulation_amplitude    = 0.0,
-    spike_recovery_rate              = 5.0,
-    tau_STD_recovery                 = 1.0,
+    tau_fast                         = 1.0,
+    tau_slow                         = 60.0,
+    tau_Vs                           = 100.0,
+    I_slow                           = 0.01, 
+    U_Vs                             = 0.05, 
+    max_spike_rate                   = 0.1,
     transmission_velocity            = 30e3,
     spine_density                    = 0.0,
     axon_target                      = "dendrite_shaft",
@@ -129,11 +131,12 @@ add.cell.type <- function(
     add_cell_type(list(
       type_name                        = type_name,
       valence                          = as.integer(valence),
-      temporal_modulation_bias         = temporal_modulation_bias,
-      temporal_modulation_timeconstant = temporal_modulation_timeconstant,
-      temporal_modulation_amplitude    = temporal_modulation_amplitude,
-      spike_recovery_rate              = spike_recovery_rate,
-      tau_STD_recovery                 = tau_STD_recovery,
+      tau_fast                         = tau_fast, 
+      tau_slow                         = tau_slow, 
+      tau_Vs                           = tau_Vs, 
+      I_slow                           = I_slow, 
+      U_Vs                             = U_Vs, 
+      max_spike_rate                   = max_spike_rate,
       transmission_velocity            = transmission_velocity,
       spine_density                    = spine_density,
       axon_target                      = axon_target,
@@ -156,11 +159,12 @@ add.cell.type <- function(
 #' 
 #' @param type_name Character string giving name of the cell type, e.g. "excitatory", "inhibitory", "PV", "SST", etc.
 #' @param valence Valence of each neuron type, +1 for excitatory, -1 for inhibitory.
-#' @param temporal_modulation_bias Temporal modulation time (in ms) bias for each neuron type.
-#' @param temporal_modulation_timeconstant Temporal modulation time (in ms) step for each neuron type.
-#' @param temporal_modulation_amplitude Temporal modulation time (in ms) cutoff for each neuron type.
-#' @param spike_recovery_rate Number of spikes which can be "cleared" per ms.
-#' @param tau_STD_recovery Time constant for recovery from short-term depression (STD), in spikes/ms. Must be strictly less than \code{spike_recovery_rate}.
+#' @param tau_fast Placeholder
+#' @param tau_slow Placeholder
+#' @param tau_Vs Placeholder
+#' @param I_slow Placeholder 
+#' @param U_Vs Placeholder 
+#' @param max_spike_rate Number of spikes which can be "cleared" per ms (spikes/ms).
 #' @param transmission_velocity Transmission velocity (in microns/ms) for each neuron type.
 #' @param spine_density Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine.
 #' @param axon_target Character string giving target of axon projections, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft".
@@ -179,11 +183,12 @@ add.cell.type <- function(
 modify.cell.type <- function(
     type_name,
     valence                          = NULL,
-    temporal_modulation_bias         = NULL,
-    temporal_modulation_timeconstant = NULL,
-    temporal_modulation_amplitude    = NULL,
-    spike_recovery_rate              = NULL,
-    tau_STD_recovery                 = NULL,
+    tau_fast         = NULL,
+    tau_slow = NULL,
+    tau_Vs    = NULL,
+    I_slow = NULL, 
+    U_Vs = NULL, 
+    max_spike_rate              = NULL,
     transmission_velocity            = NULL,
     spine_density                    = NULL,
     axon_target                      = NULL,
@@ -200,11 +205,12 @@ modify.cell.type <- function(
   ) {
     ep <- fetch.cell.type.params(type_name)  # existing params
     if (is.null(valence))                          valence                          <- ep$valence
-    if (is.null(temporal_modulation_bias))         temporal_modulation_bias         <- ep$temporal_modulation_bias
-    if (is.null(temporal_modulation_timeconstant)) temporal_modulation_timeconstant <- ep$temporal_modulation_timeconstant
-    if (is.null(temporal_modulation_amplitude))    temporal_modulation_amplitude    <- ep$temporal_modulation_amplitude
-    if (is.null(spike_recovery_rate))              spike_recovery_rate              <- ep$spike_recovery_rate
-    if (is.null(tau_STD_recovery))                 tau_STD_recovery                 <- ep$tau_STD_recovery
+    if (is.null(tau_fast))         tau_fast         <- ep$tau_fast
+    if (is.null(tau_slow)) tau_slow <- ep$tau_slow
+    if (is.null(tau_Vs))    tau_Vs    <- ep$tau_Vs
+    if (is.null(I_slow))    I_slow    <- ep$I_slow
+    if (is.null(U_Vs))    U_Vs    <- ep$U_Vs
+    if (is.null(max_spike_rate))              max_spike_rate              <- ep$max_spike_rate
     if (is.null(transmission_velocity))            transmission_velocity            <- ep$transmission_velocity
     if (is.null(spine_density))                    spine_density                    <- ep$spine_density
     if (is.null(axon_target))                      axon_target                      <- ep$axon_target
@@ -221,11 +227,12 @@ modify.cell.type <- function(
     modify_cell_type(type_name, list(
       type_name                        = type_name,
       valence                          = as.integer(valence),
-      temporal_modulation_bias         = temporal_modulation_bias,
-      temporal_modulation_timeconstant = temporal_modulation_timeconstant,
-      temporal_modulation_amplitude    = temporal_modulation_amplitude,
-      spike_recovery_rate              = spike_recovery_rate,
-      tau_STD_recovery                 = tau_STD_recovery,
+      tau_fast                         = tau_fast, 
+      tau_slow                         = tau_slow, 
+      tau_Vs                           = tau_Vs, 
+      I_slow                           = I_slow, 
+      U_Vs                             = U_Vs, 
+      max_spike_rate                   = max_spike_rate,
       transmission_velocity            = transmission_velocity,
       spine_density                    = spine_density,
       axon_target                      = axon_target,
@@ -1149,31 +1156,31 @@ plot.network.traces <- function(
   ) {
     
     # Get the traces to print
-    sim_traces <- network$fetch_sim_traces_R()
+    v_traces <- network$fetch_sim_results()$v_traces
     
     # Get network components
     ntw <- network$fetch_network_components(FALSE) # Retrieve arbors?
     
     # Initialize R data frame for ggplot
-    sim_traces_long <- data.frame()
-    time_seq        <- seq(1, by = ntw$sim_dt, length.out = ncol(sim_traces))
-    sim_steps       <- c(1:ncol(sim_traces))
-    for (i in 1:nrow(sim_traces)) {
+    v_traces_long <- data.frame()
+    time_seq        <- seq(1, by = ntw$sim_dt, length.out = ncol(v_traces))
+    sim_steps       <- c(1:ncol(v_traces))
+    for (i in 1:nrow(v_traces)) {
       neuron_trace <- data.frame(
         time      = time_seq,
-        potential = sim_traces[i, sim_steps],
+        potential = v_traces[i, sim_steps],
         id        = i,
         type      = ntw$neuron_type_name[i]
       )
-      sim_traces_long <- rbind(sim_traces_long, neuron_trace)
+      v_traces_long <- rbind(v_traces_long, neuron_trace)
     }
-    sim_traces_long$id <- as.character(sim_traces_long$id)
+    v_traces_long$id <- as.character(v_traces_long$id)
     
     # Make plot
     title_size  <- 14 
     axis_size   <- 12 
     legend_size <- 10
-    plt <- ggplot2::ggplot(sim_traces_long, ggplot2::aes(x = time, y = potential, group = id, color=id)) +
+    plt <- ggplot2::ggplot(v_traces_long, ggplot2::aes(x = time, y = potential, group = id, color=id)) +
       ggplot2::geom_line() +
       ggplot2::facet_wrap(~ type, ncol = 1) +
       ggplot2::theme_minimal() +
@@ -1191,9 +1198,6 @@ plot.network.traces <- function(
         x     = paste0("Time (ms)"),
         y     = paste0("Membrane Potential (mV)")
       )
-    
-    # Resize plot line, if only one neuron
-    if (nrow(sim_traces) == 1) plt$layers[[1]]$aes_params$linewidth <- 1.2
     
     # Add input matrix 
     if (!is.null(input_matrix)) {
@@ -1240,7 +1244,7 @@ plot.network.traces <- function(
 #' @param stimulus_current_matrix Matrix of stimulus currents, with rows representing neurons and columns representing sample times.
 #' @param dt Time step length in the implicit time units of the network (default: 1e-3, which is 1 micosecond time steps, assuming an implicit time unit of ms).
 #' @param initial_potential Initial value for membrane potential, applied to all cells (Default is -70 mV).
-#' @return List containing the following elements: \item{sim_traces}{Matrix of simulated spike traces for all neurons over time (neurons as rows, sample times as columns).} \item{spike_counts}{Vector of spike counts for each neuron in the network.} 
+#' @return List containing the following elements: \item{v_traces}{Matrix of simulated spike traces for all neurons over time (neurons as rows, sample times as columns).} \item{spike_counts}{Vector of spike counts for each neuron in the network.} 
 #' @export
 run.SGT <- function(
     network,
@@ -1249,7 +1253,5 @@ run.SGT <- function(
     initial_potential = -70.0
   ) {
     network$SGT(stimulus_current_matrix, dt, initial_potential)
-    sim_traces <- network$fetch_sim_traces_R()
-    spike_counts <- network$fetch_spike_counts_R()
-    return(list(sim_traces = sim_traces, spike_counts = spike_counts))
+    return(network$fetch_sim_results())
   }
