@@ -4,10 +4,12 @@
 \alias{new.motif}
 \title{Initialize network (circuit) motif}
 \usage{
-new.motif(motif_name = "not_provided")
+new.motif(motif_name = "not_provided", hemi = "both")
 }
 \arguments{
 \item{motif_name}{Character string giving name of the motif (default: "not_provided").}
+
+\item{hemi}{Hemisphere to which motif applies: use 0 or "left" for left, 1 or "right" for right, and -1, "all", or "both" for left and right.}
 }
 \value{
 A new motif object.

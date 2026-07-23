@@ -15,8 +15,8 @@
 NULL
 
 .onLoad <- function(libname, pkgname) {
-    Rcpp::loadModule("motif", TRUE)
-    Rcpp::loadModule("network", TRUE)
+    Rcpp::loadModule("motif",      TRUE)
+    Rcpp::loadModule("network",    TRUE)
     Rcpp::loadModule("Projection", TRUE)
   }
 
@@ -27,14 +27,23 @@ NULL
 #' This function initializes a new motif object with specified parameters. Motifs are used for building networks of interconnected neurons. They are recipes for building internode projections within a neural network. They are "columnar", in the sense that they are repeated across cortical columns. 
 #' 
 #' @param motif_name Character string giving name of the motif (default: "not_provided").
+#' @param hemi Hemisphere to which the motif applies: use 0 or "left" for left, 1 or "right" for right, and -1, "all", or "both" for left and right.
 #' @return A new motif object.
 #' @export
 new.motif <- function(
-    motif_name = "not_provided"
+    motif_name = "not_provided",
+    hemi       = "both"
   ) {
+    if (hemi != "both" && hemi != "all" && hemi != "left" && hemi != "right" && hemi != -1 && hemi != 0 && hemi != 1) {
+      stop("Value of hemi must be: \n\t0 or 'left' for left \n\t1 or 'right' for right \n\t -1, 'all', or 'both' for both")
+    }
+    if (hemi == "both" || hemi == "all") hemi <- -1
+    if (hemi == "left" ) hemi <- 0
+    if (hemi == "right") hemi <- 1
     motif <- new(
       motif,
-      motif_name
+      motif_name,
+      hemi
     )
     return(motif)
   }
@@ -260,13 +269,14 @@ modify.cell.type <- function(
 #' @export
 principal.neurons <- function(print_nicely = FALSE) {
     p_list <- list(
-      layer = "spiny_stellate",
-      L1 = "Neurogliaform_cell",
-      L2 = "pyramidal",
-      L3 = "pyramidal",
-      L4 = "spiny_stellate",
-      L5 = "pyramidal",
-      L6 = "pyramidal_L6"
+      thalamus = "thalmacortical",
+      layer    = "spiny_stellate",
+      L1       = "neurogliaform_cell",
+      L2       = "pyramidal",
+      L3       = "pyramidal",
+      L4       = "spiny_stellate",
+      L5       = "pyramidal",
+      L6       = "pyramidal_L6"
     )
     if (print_nicely) {
       cat("Principal neuron types by layer:\n")
@@ -286,9 +296,9 @@ principal.neurons <- function(print_nicely = FALSE) {
 #' @param motif Motif object into which to load the projection.
 #' @param presynaptic_layer Character string giving layer of presynaptic neuron, e.g. "L1", "L2", "L3", "L4", etc.
 #' @param postsynaptic_layer Character string, or vector of character strings, giving layer of postsynaptic neuron.
-#' @param projection_conductance Numeric giving overall strength of the projection, as synaptic conductance (default: 1e-10, which assumes implicit units of millisiemens).
-#' @param presynaptic_type Character string giving type of presynaptic neuron, e.g. "excitatory", "inhibitory", etc. (default: "principal").
-#' @param postsynaptic_type Character string giving type of postsynaptic neuron, e.g. "excitatory", "inhibitory", etc. (default: "principal").
+#' @param projection_conductance Numeric giving overall strength of the projection, as expected synaptic conductance (nS, default: 0.1).
+#' @param presynaptic_type Character string giving type of presynaptic neuron (default: "principal").
+#' @param postsynaptic_type Character string giving type of postsynaptic neuron (default: "principal").
 #' @param max_col_shift_up Maximum number of columns upwards (increasing columnar indexes) that the projection can reach (default: 0, should be positive integer).
 #' @param max_col_shift_down Maximum number of columns downwards (decreasing columnar indexes) that the projection can reach (default: 0, should be positive integer).
 #' @param hem_shift Hemisphere shift for the projection: 0 = same hemisphere (default), 1 = contralateral hemisphere. Ignored when the network has only one hemisphere.
@@ -298,12 +308,15 @@ load.projection.into.motif <- function(
     motif,
     presynaptic_layer,
     postsynaptic_layer,
-    projection_conductance = 1e-10,
-    presynaptic_type = "principal",
-    postsynaptic_type = "principal",
-    max_col_shift_up = 0,
-    max_col_shift_down = 0,
-    hem_shift = 0L
+    projection_conductance = 0.1,
+    presynaptic_type       = "principal",
+    postsynaptic_type      = "principal",
+    max_col_shift_up       = 0,
+    max_col_shift_down     = 0,
+    max_pch_shift_up       = 0,
+    max_pch_shift_down     = 0, 
+    hem_shift              = 0L,
+    via_apical             = FALSE
   ) {
    
     # Check length of presynaptic_layer
@@ -336,16 +349,19 @@ load.projection.into.motif <- function(
       # Initialize new projection object
       proj <- new(Projection)
       # Load projection parameters 
-      proj$pre_type  <- presynaptic_type
-      proj$pre_layer <- presynaptic_layer
-      proj$post_type <- postsynaptic_type[i]
+      proj$pre_type   <- presynaptic_type
+      proj$pre_layer  <- presynaptic_layer
+      proj$post_type  <- postsynaptic_type[i]
       proj$post_layer <- postsynaptic_layer[i]
-      proj$hem_shift <- as.integer(hem_shift)
+      proj$hem_shift  <- as.integer(hem_shift)
+      proj$via_apical <- via_apical
       # Add projection to motif
       motif$load_projection(
         proj,
         as.integer(max_col_shift_up),
         as.integer(max_col_shift_down),
+        as.integer(max_pch_shift_up),
+        as.integer(max_pch_shift_down),
         projection_conductance
       )
     }
@@ -363,15 +379,15 @@ load.projection.into.motif <- function(
 #' @param layer_names Character vector giving names of cortical layers in the network, ordered deepest to most superficial, e.g. c("L6", "L5", "L4", "L3", "L2", "L1").
 #' @param n_layers Integer giving number of cortical layers in the network.
 #' @param n_columns Integer giving number of columns in the network.
-#' @param patch_depth Integer giving the number of "patches" (n_layers x n_columns sheets) in the network.
+#' @param n_patches Integer giving the number of "patches" (n_layers x n_columns sheets) in the network.
 #' @param layer_height Numeric giving height of each layer (default value is 180.0, which assumes an implicit unit of micron).
 #' @param column_diameter Numeric giving diameter of each column (default value is 120.0, which assumes an implicit unit of micron).
 #' @param segment_length Numeric giving expected length of each segment in the axonal and dendritic processes of each neuron (default value is 20.0, which assumes an implicit unit of micron).
 #' @param layer_separation_factor Numeric giving mean distance between layers as a fraction of layer height (default: 2.5).
 #' @param column_separation_factor Numeric giving mean distance between columns as a fraction of column diameter (default: 2.5).
 #' @param patch_separation_factor Numeric giving mean distance between network patches as a fraction of column diameter (default: 2.5). 
-#' @param neurons_per_node Matrix giving mean number of neurons of each type per node in each cortical layer; dimensions must match n_layers (rows) and length of neuron_types (columns).
-#' @param local_synaptic_conductance List (one entry per cortical layer) of matrices giving synaptic conductance in millisiemens for local connections by cell-type; each matrix must have dimensions matching length of neuron_types (rows and columns).
+#' @param neurons_per_node Matrix giving mean number of neurons of each type per node in each layer, with cortical layers first and then subcortical layers; dimensions must match n_layers + n_subcortical_layers (rows) and length of neuron_types (columns), or 2 * (n_layers + n_subcortical_layers) if specifying different cell type counts for a second hemisphere. If there are two hemispheres but only n_layers + n_subcortical_layers rows, then the counts are reused for the second hemisphere. 
+#' @param local_synaptic_conductance List (one entry per cortical layer) of matrices giving synaptic conductance in nS for local connections by cell-type; each matrix must have dimensions matching length of neuron_types (rows and columns).
 #' @param synaptic_neighborhood Numeric giving the radius (in microns) within which an axon node will trigger a synapse when near a dendrite node (default: 10.0).
 #' @param n_hemispheres Integer giving number of hemispheres; must be 1 or 2 (default: 1).
 #' @param hemisphere_names Character vector of length n_hemispheres giving names for the hemispheres (default: auto-generated as "left" or c("left","right")).
@@ -379,37 +395,38 @@ load.projection.into.motif <- function(
 #' @param n_subcortical_layers Integer giving number of subcortical layers (e.g., thalamic relay nuclei); can be 0 (default: 0).
 #' @param subcortical_layer_names Character vector of length n_subcortical_layers giving names for the subcortical layers (default: auto-generated as "subL1", "subL2", ...). Must be distinct from all cortical layer names.
 #' @param sub_separation_factor Numeric giving distance from the cortical sheet to the first subcortical layer as a fraction of layer height (default: 5.0).
-#' @param subcortical_neurons_per_node Matrix giving mean number of neurons of each type per node in each subcortical layer; dimensions must match n_subcortical_layers (rows) and length of neuron_types (columns). Required if n_subcortical_layers > 0.
 #' @param subcortical_local_conductance List (one entry per subcortical layer) of matrices giving synaptic conductance for local connections in each subcortical layer. Required if n_subcortical_layers > 0; can be a single matrix or scalar (broadcast to all layers).
 #' @return The updated network object with the specified structure and local nodes generated.
 #' @export
 set.network.structure <- function(
     network,
-    neuron_types = c("principal"),
-    layer_names = c("layer"),
-    n_layers = 1,
-    n_columns = 1,
-    patch_depth = 1,
-    layer_height = 180.0,
-    column_diameter = 120.0,
-    segment_length = 20.0, 
-    layer_separation_factor = 2.5,
-    column_separation_factor = 2.5,
-    patch_separation_factor = 2.5,
-    neurons_per_node = 10,
-    local_synaptic_conductance = 1e-10,
-    synaptic_neighborhood = 10.0,
-    n_hemispheres = 1,
-    hemisphere_names = NULL,
-    hem_separation_factor = 5.0,
-    n_subcortical_layers = 0,
-    subcortical_layer_names = NULL,
-    sub_separation_factor = 5.0,
-    subcortical_neurons_per_node = NULL,
-    subcortical_local_conductance = list()
+    neuron_types                  = c("principal"),
+    hemisphere_names              = NULL,
+    subcortical_layer_names       = NULL,
+    layer_names                   = c("layer"),
+    n_hemispheres                 = 1,
+    n_subcortical_layers          = 0,
+    n_layers                      = 1,
+    n_columns                     = 1,
+    n_patches                     = 1,
+    layer_height                  = 180.0,
+    column_diameter               = 120.0,
+    segment_length                = 20.0, 
+    hem_separation_factor         = 40.0,
+    sub_separation_factor         = 20.0,
+    layer_separation_factor       = 2.5,
+    column_separation_factor      = 2.5,
+    patch_separation_factor       = 2.5,
+    local_synaptic_conductance    = 0.1,
+    subcortical_local_conductance = 0.1,
+    synaptic_neighborhood         = 10.0,
+    neurons_per_node              = 10
   ) {
     
     # Check hemisphere count and auto-generate hemisphere names
+    if (length(hemisphere_names) >= n_hemispheres && length(hemisphere_names) <= 2) {
+      n_hemispheres <- length(hemisphere_names)
+    }
     if (!(n_hemispheres %in% c(1L, 2L))) stop("n_hemispheres must be 1 or 2.")
     if (is.null(hemisphere_names)) {
       hemisphere_names <- if (n_hemispheres == 1) "left" else c("left", "right")
@@ -423,7 +440,11 @@ set.network.structure <- function(
       subcortical_layer_names <- paste0("subL", seq_len(n_subcortical_layers))
     }
     if (n_subcortical_layers == 0) {
-      subcortical_layer_names <- character(0)
+      if (length(subcortical_layer_names) > 0) {
+        n_subcortical_layers <- length(subcortical_layer_names)
+      } else {
+        subcortical_layer_names <- character(0)
+      }
     }
     if (length(subcortical_layer_names) != n_subcortical_layers) {
       stop("Length of subcortical_layer_names must equal n_subcortical_layers.")
@@ -439,12 +460,19 @@ set.network.structure <- function(
         stop("Length of layer_names does not match n_layers, and neither is inferable from the other.")
       }
     }
+    
+    # Combine layer names
+    layer_names_all <- c(layer_names, subcortical_layer_names)
+    
+    # Get correct number of rows for neurons_per_node 
+    num_of_rows <- n_layers + n_subcortical_layers
+    if (n_hemispheres == 2 && nrow(neurons_per_node) == 2 * num_of_rows) num_of_rows <- 2 * num_of_rows
    
     # Unpack "principal" neuron types 
     if ("principal" %in% neuron_types) {
       
       # ... remake neuron_types
-      principals_by_layer <- sapply(layer_names, function(ln) principal.neurons()[[ln]])
+      principals_by_layer <- sapply(layer_names_all, function(ln) principal.neurons()[[ln]])
       principals <- unique(principals_by_layer)
       principal_idx <- which(neuron_types == "principal")
       neuron_types <- c(principals, neuron_types[-principal_idx])
@@ -454,13 +482,13 @@ set.network.structure <- function(
       n_types_old <- n_t - n_p + 1
       
       # ... remake neurons_per_node
-      neurons_per_node_new <- matrix(NA, nrow = n_layers, ncol = n_t)
+      neurons_per_node_new <- matrix(NA, nrow = num_of_rows, ncol = n_t)
       if (length(neurons_per_node) >= n_types_old) {
         if (!is.null(dim(neurons_per_node))) { # counts per layer and per type specified
           for (i in c(1:nrow(neurons_per_node))) {
             principal_counts <- c()
             for (t in seq_along(principals)) {
-              if (principals[t] == principal.neurons()[[layer_names[i]]]) {
+              if (principals[t] == principal.neurons()[[layer_names_all[i]]]) {
                 principal_counts <- c(principal_counts, neurons_per_node[i, principal_idx])
               } else {
                 principal_counts <- c(principal_counts, 0)
@@ -555,24 +583,24 @@ set.network.structure <- function(
     # Check neuron counts per node
     if (!is.null(dim(neurons_per_node))) {
       npn_dim <- dim(neurons_per_node)
+      if (any(npn_dim != c(num_of_rows, n_neuron_types))) {
+        stop("Dimensions of neurons_per_node must match n_layers + n_subcortical_layers (or possibly 2x this if there are two hemispheres) and length of neuron_types.")
+      }
     } else {
       if (length(neurons_per_node) == 1) {
-        if (n_layers > 1) {
-          neurons_per_node <- matrix(neurons_per_node, nrow = n_layers, ncol = n_neuron_types)
+        if (n_layers + n_subcortical_layers > 1) {
+          neurons_per_node <- matrix(neurons_per_node, nrow = n_layers + n_subcortical_layers, ncol = n_neuron_types)
           npn_dim <- dim(neurons_per_node)
         } else {
           neurons_per_node <- matrix(rep(neurons_per_node, n_neuron_types), nrow = 1, ncol = n_neuron_types)
           npn_dim <- c(1, length(neurons_per_node))
         }
       } else if (length(neurons_per_node) == n_neuron_types) {
-        neurons_per_node <- matrix(rep(neurons_per_node, n_layers), nrow = n_layers, ncol = n_neuron_types, byrow = TRUE)
+        neurons_per_node <- matrix(rep(neurons_per_node, n_layers + n_subcortical_layers), nrow = n_layers + n_subcortical_layers, ncol = n_neuron_types, byrow = TRUE)
         npn_dim <- dim(neurons_per_node)
       } else {
-        stop("Dimensions of neurons_per_node must match n_layers and length of neuron_types, or be inferable from them.")
+        stop("Dimensions of neurons_per_node must match n_layers + n_subcortical_layers (or possibly 2x this if there are two hemispheres) and length of neuron_types, or be inferable from them.")
       }
-    }
-    if (any(npn_dim != c(n_layers, n_neuron_types))) {
-      stop("Dimensions of neurons_per_node must match n_layers and length of neuron_types.")
     }
     
     # Helper: coerce conductance input to a list of n x n matrices
@@ -618,40 +646,17 @@ set.network.structure <- function(
       )
     }
     
-    # Build combined neurons_per_node matrix (cortical rows first, then subcortical)
-    if (n_subcortical_layers > 0) {
-      if (is.null(subcortical_neurons_per_node)) {
-        stop("subcortical_neurons_per_node is required when n_subcortical_layers > 0.")
-      }
-      # Coerce to matrix
-      if (is.null(dim(subcortical_neurons_per_node))) {
-        if (length(subcortical_neurons_per_node) == 1) {
-          subcortical_neurons_per_node <- matrix(subcortical_neurons_per_node, nrow = n_subcortical_layers, ncol = n_neuron_types)
-        } else if (length(subcortical_neurons_per_node) == n_neuron_types) {
-          subcortical_neurons_per_node <- matrix(rep(subcortical_neurons_per_node, n_subcortical_layers), nrow = n_subcortical_layers, ncol = n_neuron_types, byrow = TRUE)
-        } else {
-          stop("subcortical_neurons_per_node must have n_subcortical_layers rows and length(neuron_types) columns.")
-        }
-      }
-      if (any(dim(subcortical_neurons_per_node) != c(n_subcortical_layers, n_neuron_types))) {
-        stop("subcortical_neurons_per_node must have n_subcortical_layers rows and length(neuron_types) columns.")
-      }
-      nrn_per_node_combined <- rbind(neurons_per_node, subcortical_neurons_per_node)
-    } else {
-      nrn_per_node_combined <- neurons_per_node
-    }
-    
     # Set structure (new C++ signature: hsl_names as list, n as 5-vector, sep_factor as 5-vector)
     network$set_network_structure(
       neuron_types,
       list(hemisphere_names, subcortical_layer_names, layer_names),  # hsl_names: {hem, sub, lyr}
-      as.integer(c(n_hemispheres, n_subcortical_layers, n_layers, n_columns, patch_depth)),  # n
+      as.integer(c(n_hemispheres, n_subcortical_layers, n_layers, n_columns, n_patches)),  # n
       c(hem_separation_factor, sub_separation_factor, layer_separation_factor, column_separation_factor, patch_separation_factor),  # sep_factors
       layer_height,
       column_diameter,
       segment_length, 
       synaptic_neighborhood,
-      nrn_per_node_combined,
+      neurons_per_node,
       local_synaptic_conductance,
       subcortical_local_conductance
     )
@@ -672,26 +677,33 @@ set.network.structure <- function(
 #' @export
 fetch.network.components <- function(
     network, 
-    include_arbors = FALSE, 
-    verbose = TRUE
+    include_arbors = FALSE,
+    return_arbors  = TRUE,
+    verbose        = TRUE
   ) {
     
     # Grab raw components
     network.components <- network$fetch_network_components(include_arbors)
     
     # Compute synapse distribution
+    # synapse_counts is accumulated in C++ during the arbor-matrix fill pass,
+    # so no per-neuron R loop is needed here.
     if (include_arbors) {
       n_neurons <- network.components$n_neurons
-      arbors <- network.components$arbors
-      synapse_info <- as.data.frame(matrix(NA, nrow = n_neurons, ncol = 3))
-      colnames(synapse_info) <- c("neuron_idx", "neuron_type", "n_synapses") # n_synapses is the number of times this neuron synapses onto another cell
-      synapse_info$neuron_idx <- c(1:n_neurons)
-      for (n in c(1:n_neurons)) {
-        synapse_info[n, "neuron_type"] <- network.components$neuron_type_name[n]
-        mask <- arbors[, "neuron_idx"] == n
-        synapse_info[n, "n_synapses"] <- sum(arbors[mask, "is_synapse"])
-      }
+      synapse_info <- data.frame(
+        neuron_idx  = seq_len(n_neurons),
+        neuron_type = network.components$neuron_type_name,
+        n_synapses  = network.components$synapse_counts,
+        stringsAsFactors = FALSE
+      )
       network.components$synapse_info <- synapse_info
+      
+      # Drop the raw arbor matrix if the caller doesn't need it.
+      # The matrix is ~8 bytes * n_segments and can be > 1 GB for large networks;
+      # omitting it keeps the returned object cacheable by knitr.
+      if (!return_arbors) {
+        network.components$arbors <- NULL
+      }
     }
     
     # Print summary
@@ -699,7 +711,7 @@ fetch.network.components <- function(
       cat("Summary of network:\n")
       cat("\tNumber of neurons:", network.components$n_neurons, "\n")
       if (include_arbors) {
-        cat("\tNumber of synapses:", sum(network.components$arbors[,"is_synapse"]), "\n")
+        cat("\tNumber of synapses:", sum(network.components$synapse_counts), "\n")
       }
       cat("\tHemisphere names:", paste(network.components$hem_names, collapse = ", "), "\n")
       cat("\tNumber of hemispheres:", network.components$n_hem, "\n")
@@ -777,30 +789,29 @@ apply.circuit.motif <- function(
 #' @param soma_size_factor Numeric value controlling how cell size in the plot scales to the number of cells. 
 #' @param return_plot Logical indicating whether to return the ggplot object or print the plot directly (default: TRUE).
 #' @param return_cell_arbor_idx Logical indicating whether to return the soma_mask and arbor_idx used for plotting or not (default: TRUE).
-#' @param units_distance Character string giving the units of distance, value only used to label the plot (Default: "micron").
 #' @return Either prints the plot directly or returns the ggplot object, depending on the value of return_plot.
 #' @export
 plot.network <- function(
     network,
-    soma_mask = NULL,
-    arbor_idx = NULL,
-    threedim = FALSE,
-    title = NULL,
-    soma_density = 1.0,
-    arbor_density = 0.01,
-    arbor_cell_type = "all",
-    plot_motif = "all",
-    reconstruct_arbors = TRUE,
-    edge_color = "pre_type",
-    soma_color = "layer",
-    soma_size_factor = 1.0,
-    return_plot = TRUE,
-    return_cell_arbor_idx = TRUE,
-    units_distance = "microns"
+    soma_mask             = NULL,
+    arbor_idx             = NULL,
+    threedim              = FALSE,
+    title                 = NULL,
+    soma_density          = 1.0,
+    arbor_density         = 0.01,
+    arbor_cell_type       = "all",
+    plot_motif            = "all",
+    reconstruct_arbors    = TRUE,
+    edge_color            = "pre_type",
+    soma_color            = "layer",
+    soma_size_factor      = 0.5,
+    return_plot           = TRUE,
+    return_cell_arbor_idx = TRUE
   ) {
     
     # Get network components
     ntw <- network$fetch_network_components(reconstruct_arbors) # Retrieve arbors? 
+    units_distance <- "microns"
     
     # Check that soma_mask and arbor_idx are consistent 
     if (!is.null(soma_mask) && !is.null(arbor_idx)) {
@@ -833,25 +844,53 @@ plot.network <- function(
     if (is.null(title)) {
       title <- "Network Topology"
     }
+   
+    # Find range of possible neurons for arbor plotting, based on cell type if specified
+    celltype_mask <- rep(TRUE,  ntw$n_neurons)
+    if (arbor_cell_type != "all") {
+      celltype_mask <- rep(FALSE,  ntw$n_neurons) 
+      for (act in arbor_cell_type) celltype_mask <- celltype_mask | ntw$neuron_type_name == act
+      if (!is.null(soma_mask)) celltype_mask <- celltype_mask & soma_mask
+      if (sum(celltype_mask) == 0) stop("No neurons match the specified arbor_cell_type")
+    }
+    motif_mask <- rep(TRUE,  ntw$n_neurons)
+    if (plot_motif != "all") {
+      motif_mask <- rep(FALSE,  ntw$n_neurons)
+      for (mot in plot_motif) {
+        if (sum(mot == colnames(ntw$arbor_motifs)) == 0) stop("Requested motif type is not in the network")
+        motif_mask <- motif_mask | ntw$arbor_motifs[,mot] == 1
+      }
+      if (!is.null(soma_mask)) motif_mask <- motif_mask & soma_mask
+      if (sum(motif_mask) == 0) stop("No neurons match the specified plot_motif")
+    }
+    celltype_motif_mask <- celltype_mask & motif_mask 
+    if (sum(celltype_motif_mask) == 0) stop("No neurons match both the specified arbor_cell_type and plot_motif")
     
     if (is.null(soma_mask)) {
       # Get number of cell bodies to plot 
       n_soma <- 1
-      if (soma_density > 0) {
-        n_soma <- round(ntw$n_neurons * min(1, soma_density))
-      }
-      
+      if (soma_density > 0) n_soma <- round(ntw$n_neurons * min(1, soma_density))
       # Make mask for soma
-      soma_idx <- sort(sample(ntw$n_neurons, n_soma, replace = FALSE))
-      soma_mask <- rep(FALSE, ntw$n_neurons)
+      soma_idx            <- sort(sample(ntw$n_neurons, n_soma, replace = FALSE))
+      soma_mask           <- celltype_motif_mask
       soma_mask[soma_idx] <- TRUE
+      n_soma              <- sum(soma_mask)
     } else {
-      n_soma <- sum(soma_mask)
+      soma_mask <- soma_mask & celltype_motif_mask
+      n_soma    <- sum(celltype_motif_mask)
     }
     
-    # Get cell coordinates and types 
-    neuron_coordinates <- ntw$coordinates_spatial[soma_mask,]
-    neuron_types <- ntw$neuron_type_name[soma_mask]
+    # Randomly select neurons for arbor plotting from among those that are in the soma plot and match the specified cell type (if applicable)
+    if (is.null(arbor_idx)) {
+      n_arbors <- 1
+      if (arbor_density > 0) n_arbors <- round(sum(soma_mask) * min(1, arbor_density)) 
+      arbor_idx <- sort(sample(which(celltype_motif_mask), n_arbors, replace = FALSE))
+    } else {
+      arbor_mask <- rep(FALSE, length(soma_mask))
+      arbor_mask[arbor_idx] <- TRUE 
+      arbor_mask <- arbor_mask & soma_mask
+      arbor_idx <- which(arbor_mask)
+    }
     
     # Get layer information - resolve each neuron to a display name
     # coords_node columns: hem_idx, sub_lyr_idx, patch_idx, lyr_idx, col_idx
@@ -869,30 +908,6 @@ plot.network <- function(
         neuron_layer_labels[.i] <- "unknown"
       }
     }
-    neuron_layer <- as.factor(neuron_layer_labels)
-    
-    # Find range of possible neurons for arbor plotting, based on cell type if specified
-    edge_celltype_mask <- TRUE
-    if (arbor_cell_type != "all") {
-      edge_celltype_mask <- FALSE 
-      for (act in arbor_cell_type) {
-        edge_celltype_mask <- edge_celltype_mask | neuron_types == act
-      }
-      if (sum(edge_celltype_mask) == 0) {
-        stop("No neurons match the specified arbor_cell_type.")
-      }
-    }
-    
-    # Randomly select neurons for arbor plotting from among those that are in the soma plot and match the specified cell type (if applicable)
-    if (is.null(arbor_idx)) {
-      arbor_mask <- soma_mask & edge_celltype_mask
-      soma_idx_ct <- which(arbor_mask)
-      n_arbors <- 1
-      if (arbor_density > 0) {
-        n_arbors <- round(sum(arbor_mask) * min(1, arbor_density)) 
-      }
-      arbor_idx <- sort(sample(soma_idx_ct, n_arbors, replace = FALSE))
-    } 
     
     # Create cells dataframe
     y_coord <- "y"
@@ -903,11 +918,11 @@ plot.network <- function(
     }
     soma <- data.frame(
       idx = c(1:n_soma), 
-      x = neuron_coordinates[,"x"], 
-      y = neuron_coordinates[,y_coord],
-      z = neuron_coordinates[,z_coord],
-      layer = neuron_layer,
-      type = neuron_types
+      x = ntw$coordinates_spatial[soma_mask, "x"], 
+      y = ntw$coordinates_spatial[soma_mask, y_coord],
+      z = ntw$coordinates_spatial[soma_mask, z_coord],
+      layer = as.factor(neuron_layer_labels),
+      type = ntw$neuron_type_name[soma_mask]
     )
     
     # Get cell edge pairs / reconstruct arbors
@@ -940,8 +955,8 @@ plot.network <- function(
       
       # Make into data frame and rename axons and node type
       edges_downsampled <- as.data.frame(edges_downsampled) 
-      edges_downsampled$is_axon[edges_downsampled$is_axon == 1] <- "axon"
-      edges_downsampled$is_axon[edges_downsampled$is_axon == 0] <- "dendrite"
+      edges_downsampled$is_axon[edges_downsampled$is_axon == 1]     <- "axon"
+      edges_downsampled$is_axon[edges_downsampled$is_axon == 0]     <- "dendrite"
       edges_downsampled$node_type[edges_downsampled$node_type == 0] <- "soma"
       edges_downsampled$node_type[edges_downsampled$node_type == 1] <- "dendrite_shaft"
       edges_downsampled$node_type[edges_downsampled$node_type == 2] <- "axon_shaft"
@@ -955,7 +970,7 @@ plot.network <- function(
       )
       
       # Add cell type 
-      edges_downsampled$pre_type <- neuron_types[edges_downsampled$neuron_idx]
+      edges_downsampled$pre_type <- ntw$neuron_type_name[edges_downsampled$neuron_idx]
       
       # Rename the "neuron_idx" column to "pre_idx" to match the edge dataframe format used for non-arbor plotting
       colnames(edges_downsampled)[colnames(edges_downsampled) == "neuron_idx"] <- "pre_idx" 
@@ -999,8 +1014,8 @@ plot.network <- function(
         et_edges <- cbind(
           et_edges, 
           rep(et_name, nrow(et_edges)),
-          neuron_types[et_edges[,"pre_neuron_idx"]],
-          neuron_types[et_edges[,"post_neuron_idx"]]
+          ntw$neuron_type_name[et_edges[,"pre_neuron_idx"]],
+          ntw$neuron_type_name[et_edges[,"post_neuron_idx"]]
         )
         edges <- rbind(edges, et_edges)
       }
@@ -1018,6 +1033,7 @@ plot.network <- function(
     }
     
     # Set point size to scale with number of cells
+    if (threedim) soma_size_factor <- soma_size_factor * 2
     soma_size <- soma_size_factor * 10 / log(n_soma + 1)
     
     # Make colors 
@@ -1028,6 +1044,7 @@ plot.network <- function(
       )
     known_label_colors <- list(
       "cell" = "gray50",
+      "thalamus" = "gray20", 
       "layer" = "gray50",
       "L1" = "gray50",
       "L2" = "lightskyblue3",
@@ -1038,18 +1055,21 @@ plot.network <- function(
       "L5" = "skyblue1",
       "L6" = "royalblue1",
       "principal" = "green3",
+      "thalmacortical" = "lightgreen", 
       "PN" = "green3", 
       "excitatory" = "green3",
       "pyramidal" = "green4",
+      "callosal_pyramidal"= "darkolivegreen2",
       "pyramidal_L6" = "green4",
       "spiny_stellate" = "green2",
       "interneuron" = "red",
       "inhibitory" = "red", 
-      "Neurogliaform_cell" = "red", 
-      "PV" = "darkred",
-      "SOM" = "darkorchid",
-      "SST" = "darkorchid",
-      "VIP" = "darkorange",
+      "neurogliaform_cell" = "red", 
+      "PV" = "violetred2",
+      "callosal_PV" = "palevioletred3",
+      "SOM" = "red3",
+      "SST" = "tomato",
+      "VIP" = "darkred",
       "axon" = "green3",
       "dendrite" = "darkred"
     )
@@ -1071,12 +1091,12 @@ plot.network <- function(
     syn_color <- "orange"
     if (synapses_included) {
       label_colors <- c(label_colors, syn_color)
-      names(label_colors)[length(label_colors)] <- "syn"
+      names(label_colors)[length(label_colors)] <- "synapse"
     }
     
     # Plot
-    title_size <- 14 
-    axis_size <- 12 
+    title_size  <- 14 
+    axis_size   <- 12 
     legend_size <- 10
     
     if (threedim) {
@@ -1086,17 +1106,17 @@ plot.network <- function(
       
       # Remake level names for plotly
       if (edge_color == "is_axon") {
-        level_names <- c("axon", "dendrite", ntw$layer_names)
+        level_names <- c("axon", "dendrite", ntw$layer_names, ntw$sub_names)
       } else if (edge_color == "pre_type") {
-        level_names <- c(unique(edges$pre_type), ntw$layer_names)
+        level_names <- c(unique(edges$pre_type), ntw$layer_names, ntw$sub_names)
       } else {
         stop("edge_color must be 'is_axon' or 'pre_type' when reconstructing arbors.")
       }
       if (synapses_included) {
-        level_names <- c(level_names, "syn")
+        level_names <- c(level_names, "synapse")
         # ... and reset levels in synapse_coordinates
-        synapse_coordinates$syn <- "syn" 
-        synapse_coordinates$syn <- factor(synapse_coordinates$syn, levels = level_names, labels = level_names)
+        synapse_coordinates$synapse <- "synapse" 
+        synapse_coordinates$synapse <- factor(synapse_coordinates$synapse, levels = level_names, labels = level_names)
       }
       
       # Reset levels in soma and edge data frames
@@ -1148,7 +1168,7 @@ plot.network <- function(
             type = "scatter3d",
             mode = "markers",
             marker = list(size = soma_size/2),
-            color = ~syn,
+            color = ~synapse,
             colors = hex
           )
       }
@@ -1166,6 +1186,18 @@ plot.network <- function(
             yaxis = list(title = "Cortical Patches", color = "black", backgroundcolor = "white")
           )
         )
+      
+      # Evaluate lazy closures and strip the visdat/attrs environment references.
+      # plotly stores trace data as closures (in $x$visdat) that capture the
+      # imports:plotly environment; this causes raw serialized size to exceed
+      # R's 2^31-byte limit for rawConnection(), breaking knitr caching.
+      # plotly_build() evaluates those closures into $x$data; stripping the
+      # leftover closures and the preRenderHook (which re-invokes them) keeps
+      # the object serializable while leaving the rendered output unchanged.
+      plt <- plotly::plotly_build(plt)
+      plt$x$visdat      <- NULL
+      plt$x$attrs       <- NULL
+      plt$preRenderHook <- NULL
       
     } else {
       
@@ -1205,7 +1237,7 @@ plot.network <- function(
         plt <- plt + 
           ggplot2::geom_point(
             data = synapse_coordinates,
-            ggplot2::aes(x = x, y = y, color = "syn"),
+            ggplot2::aes(x = x, y = y, color = "synapse"),
             size = soma_size/2
           )
       }
@@ -1341,7 +1373,7 @@ plot.network.traces <- function(
 run.SGT <- function(
     network,
     stimulus_current_matrix, 
-    dt = 1e-3,  
+    dt                = 1e-3,  
     initial_potential = -70.0
   ) {
     network$SGT(stimulus_current_matrix, dt, initial_potential)

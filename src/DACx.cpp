@@ -18,6 +18,14 @@ using namespace Eigen;
  * - Network (and related) member function implementations
  */
 
+// Define aliases for convenience
+using Pnt3 = std::vector<Vector3d>;
+using Vint = std::vector<int>;
+using Vdbl = std::vector<double>;
+using Vboo = std::vector<bool>;
+using Vstr = std::vector<std::string>; 
+using VCV  = std::vector<CharacterVector>;
+
 /*
  * ***********************************************************************************
  * Type and class definitions
@@ -83,31 +91,35 @@ struct Projection {
     std::string pre_layer;
     std::string post_type;
     std::string post_layer;
-    int         hem_shift = 0;  // 0 = same hemisphere; 1 = contralateral
+    int         hem_shift  = 0;     // 0 = same hemisphere; 1 = contralateral
+    bool        via_apical = false; // Does the pre_type cell connect to the post_type cell via the post_type's apical dendrite? 
   };
 
 // Node-tree description of neurite arbors, one structure instance per cell
 struct cell_arbors {
-    std::vector<int>                      arbor_id;     // arbor_id[i] = unique id for arbor i
-    std::vector<bool>                     axon;         // axon[i] = whether arbor i is axon (true) or dendrite (false)
-    std::vector<std::vector<Vector3d>>    coordinates;  // coordinates[i][j] j = coordinates z, y, x of neurite node j on arbor i (including soma coordinates for j = 0)
-    std::vector<std::vector<std::string>> node_type;    // node_type[i][j] = "soma", "dendrite_shaft", "axon_shaft", or "spine" for node j in arbor i
-    std::vector<std::vector<int>>         parents;      // parents[i][j] = the node number (idx in coordinates) of the parent of node j in arbor i, with -1 for the soma
-    std::vector<std::vector<int>>         leafs;        // leafs[i][j] = 1 if node j in arbor i is a leaf, 0 otherwise
-    std::vector<std::vector<int>>         synapses;     // synapses[i][j] = number of synapses on node j in arbor i, with 0 for non-synaptic nodes
+    Vint              arbor_id;     // arbor_id[i] = unique id for arbor i
+    Vint              axon_idx;     // indices of the arbors which are axons (i.e., the "which" of axon)
+    Vint              motifs = {1}; // motifs[i] = 1 if motif i was used in construction of the arbor, 0 otherwise; initializes with {1} for local connections
+    Vboo              axon;         // axon[i] = whether arbor i is axon (true) or dendrite (false)
+    Vboo              apical;       // apical[i] = whether arbor i is an apical dendrite (true) or not (false)
+    std::vector<Pnt3> coordinates;  // coordinates[i][j] j = coordinates z, y, x of neurite node j on arbor i (including soma coordinates for j = 0)
+    std::vector<Vstr> node_type;    // node_type[i][j] = "soma", "dendrite_shaft", "axon_shaft", or "spine" for node j in arbor i
+    std::vector<Vint> parents;      // parents[i][j] = the node number (idx in coordinates) of the parent of node j in arbor i, with -1 for the soma
+    std::vector<Vint> leafs;        // leafs[i][j] = 1 if node j in arbor i is a leaf, 0 otherwise
+    std::vector<Vint> synapses;     // synapses[i][j] = number of synapses on node j in arbor i, with 0 for non-synaptic nodes
   };
 
 // Network structure 
 struct ntw_struct {
-    std::vector<CharacterVector> hsl_names; 
-    std::vector<int>             n = {1, 0, 1, 1, 1}; 
-    std::vector<double>          sep_factors;        
-    double                       lyr_height;             // sd of the normal distribution for local y coordinates of the neurons
-    double                       cls_diameter;           // sd of the normal distribution for local x coordinates of the neurons
-    double                       seg_length;             // expected length of segments in process arbors (microns)
-    double                       synaptic_neighborhood;  // radius of synapse-forming neighborhood; axon-dendrite node pairs within this distance initialize as synapses
-    double                       expected_node_radius; 
-    MatrixXi                     nrn_per_node;           // mean number of neurons in each cortical and subcortical layer (rows) by type (columns)
+    VCV      hsl_names; 
+    Vint     n = {1, 0, 1, 1, 1}; 
+    Vdbl     sep_factors;        
+    double   lyr_height;             // sd of the normal distribution for local y coordinates of the neurons
+    double   cls_diameter;           // sd of the normal distribution for local x coordinates of the neurons
+    double   seg_length;             // expected length of segments in process arbors (microns)
+    double   synaptic_neighborhood;  // radius of synapse-forming neighborhood; axon-dendrite node pairs within this distance initialize as synapses
+    double   expected_node_radius; 
+    MatrixXi nrn_per_node;
     /*
      * hsl_names = names of: 
      *      hem_names: hemispheres                    (e.g., left and right)
@@ -127,26 +139,30 @@ struct ntw_struct {
      *      lyr_separation_factor: layer height    to get distance between layers
      *      cls_separation_factor: column diameter to get distance between columns
      *      pch_separation_factor: column diameter to get distance between patches (rows of columns)
+     * 
+     * nrn_per_node = mean number of neurons in each cortical and subcortical layer (rows) by type (columns). 
+     *      Total number of rows must equal either the sum of cortical and subcortical layers, or (if n_hem = 2) 2x this sum. 
+     *      If n_hem = 2 and the number of rows is only the sum of cortical and subcortical layers, the rows will be reused in both hemispheres.
      */
   }; 
 
 // per-neuron cell-type based GT parameters
 struct per_nrn_params {
-    std::vector<int> neuron_type_num;        // vector giving the type of each neuron in the network, as an integer index
-    ArrayXd          v_bound;                // vector giving potential bound, in mV, for each neuron
-    ArrayXd          dHdv_bound;             // vector giving bound on derivative of metabolic energy wrt potential, in pA, for each neuron
-    ArrayXd          I_spike;                // vector giving spike current, in pA, for each neuron
-    ArrayXd          spike_potential;        // vector giving magnitude of each spike, in mV, for each neuron
-    ArrayXd          resting_potential;      // vector giving resting potential, in mV, for each neuron
-    ArrayXd          threshold;              // vector giving spike threshold, in mV, for each neuron
-    ArrayXd          leak_conductance;       // vector giving leak conductance, in nS, for each neuron
-    ArrayXd          max_spike_rate;         // vector giving the number of spikes which can be "cleared" per ms, for each neuron
-    ArrayXd          tau_fast; 
-    ArrayXd          tau_slow; 
-    ArrayXd          tau_Vs;                 // vector giving STD recovery time constant, in ms/spike, for each neuron
-    ArrayXd          I_slow; 
-    ArrayXd          U_Vs; 
-    ArrayXd          transmission_velocity;  // vector giving the transmission delay (ms) for each neuron
+    Vint    neuron_type_num;        // vector giving the type of each neuron in the network, as an integer index
+    ArrayXd v_bound;                // vector giving potential bound, in mV, for each neuron
+    ArrayXd dHdv_bound;             // vector giving bound on derivative of metabolic energy wrt potential, in pA, for each neuron
+    ArrayXd I_spike;                // vector giving spike current, in pA, for each neuron
+    ArrayXd spike_potential;        // vector giving magnitude of each spike, in mV, for each neuron
+    ArrayXd resting_potential;      // vector giving resting potential, in mV, for each neuron
+    ArrayXd threshold;              // vector giving spike threshold, in mV, for each neuron
+    ArrayXd leak_conductance;       // vector giving leak conductance, in nS, for each neuron
+    ArrayXd max_spike_rate;         // vector giving the number of spikes which can be "cleared" per ms, for each neuron
+    ArrayXd tau_fast; 
+    ArrayXd tau_slow; 
+    ArrayXd tau_Vs;                 // vector giving STD recovery time constant, in ms/spike, for each neuron
+    ArrayXd I_slow; 
+    ArrayXd U_Vs; 
+    ArrayXd transmission_velocity;  // vector giving the transmission delay (ms) for each neuron
   };
 
 // Network edges (connections), per motif
@@ -158,15 +174,15 @@ struct ntw_edges {
 
 // Network node and cell coordinates
 struct ntw_coords {
-    MatrixXd node_spatial;                  // Mx3 matrix giving the (z,y,x) spatial coordinates of each node in the network
-    MatrixXd spatial;                       // n_neurons x 3 matrix giving the (z,y,x) spatial coordinates of each neuron in the network
-    MatrixXi node;                          // n_neurons x 5 matrix giving the (hemisphere, subcortical layer, patch, cortical layer, column) node coordinates of each neuron in the network
+    MatrixXd node_spatial;  // Mx3 matrix giving the (z,y,x) spatial coordinates of each node in the network
+    MatrixXd spatial;       // n_neurons x 3 matrix giving the (z,y,x) spatial coordinates of each neuron in the network
+    MatrixXi node;          // n_neurons x 6 matrix giving the (hemisphere, subcortical layer, patch, cortical layer, column, apical layer) node coordinates of each neuron in the network
   }; 
 
 // Synapse indexes
 struct syn_idx {
-    MatrixXi arbor;                         // n_neuron x n_neuron matrix of synapse indexes
-    MatrixXi node;                          // n_neuron x n_neuron matrix of synapse indexes
+    MatrixXi arbor;         // n_neuron x n_neuron matrix of synapse indexes
+    MatrixXi node;          // n_neuron x n_neuron matrix of synapse indexes
   };
 
 // Traces from SGT simulation 
@@ -176,7 +192,7 @@ struct sim_traces {
     ArrayXXd  tau_slow_effect; 
     ArrayXXd  Vs; 
     ArrayXXd  T;
-    ArrayXXd  v;                            // n_neurons × time-steps array of membrane potentials (mV)
+    ArrayXXd  v; // n_neurons × time-steps array of membrane potentials (mV)
   }; 
 
 // Cortical projection motif
@@ -193,22 +209,27 @@ class motif {
     
     std::string             motif_name = "not_provided";  // name of motif
     std::vector<Projection> projections;                  // list of projection descriptions, for projections defining the motif
-    std::vector<int>        max_col_shift_up;             // maximum number of columns to shift up when applying motif
-    std::vector<int>        max_col_shift_down;           // maximum number of columns to shift down when applying motif
-    std::vector<double>     projection_conductance;       // expected (initial) strength of connection for each projection (nS)
+    Vint                    max_col_shift_up;             // maximum number of columns to shift up when applying motif
+    Vint                    max_col_shift_down;           // maximum number of columns to shift down when applying motif
+    Vint                    max_pch_shift_up;             // maximum number of patches to shift up when applying motif
+    Vint                    max_pch_shift_down;           // maximum number of patches to shift down when applying motif
+    Vdbl                    projection_conductance;       // expected (initial) strength of connection for each projection (nS)
     int                     n_projections = 0;            // number of projections in motif
+    int                     hemi = -1;                    // hemisphere to which motif is to be applied; -1 = all, 0 = the first (i.e., left), 1 = the second (i.e., right).
     
     // Functions *********************************
     
-    motif(const std::string motif_name = "not_provided");
+    motif(const std::string motif_name = "not_provided", int hemi = -1);
     virtual ~motif() {};
     motif(const motif& other) = default;
     
     void load_projection(
       const Projection& proj,
-      const int&        max_up,
-      const int&        max_down,
-      const double&     proj_conductance
+      int               max_col_up,
+      int               max_col_down,
+      int               max_pch_up,
+      int               max_pch_down,
+      double            proj_conductance
     );
     
   };
@@ -221,7 +242,11 @@ class network {
   public:
     
     // Variables *********************************
-    std::mt19937             cpp_rng;                // C++ RNG for internal sampling (seeded in constructor)
+    
+    // Set up random number generator and standard distributions
+    std::mt19937                           cpp_rng;
+    std::uniform_real_distribution<double> unif{0.0, 1.0}; 
+    std::normal_distribution<double>       norm{0.0, 1.0};
     
     // Network structure
     std::vector<cell_type>   neuron_types;           // Types of neurons in network, e.g., "pyramidal", "PV", "SST", "VIP"
@@ -230,13 +255,14 @@ class network {
     // Network components 
     int                      n_neurons = 0;          // total number of neurons in the network
     std::vector<cell_arbors> arbors;                 // vector of length n_neurons
-    std::vector<ArrayXXd>    local_conductance;      // vector of arrays of sd of the normal distribution for local transconductances (nS) between neurons of each type, one array per cortical layer
+    std::vector<ArrayXXd>    local_conductance;      // vector of arrays of the expected value of local transconductances (nS) between neurons of each type, one array per cortical layer
     std::vector<ArrayXXd>    sub_local_conductance;  // same as local_conductance but one array per subcortical layer
     syn_idx                  synapse_idx;            // structure holding matrices giving indexes for synapses
     ntw_edges                edges;                  // structure holding network edges (connections), per motif
     ntw_coords               coords;                 // structure holding coordinates for cells and nodes
     per_nrn_params           per_nrn;                // structure giving cell type GT simulation values per neuron
-    std::vector<int>         node_range_ends;        // vector giving the ending neuron index for each node in the network
+    Vint                     node_range_ends;        // vector giving the ending neuron index for each node in the network
+    std::unordered_map<int, Vint> apical_node_cells; // maps node index -> cell indices whose apical dendrites target that node
     
     // Data fields 
     double     sim_dt;
@@ -267,11 +293,36 @@ class network {
     );
     
     // Build network
-    void     make_local_nodes(); 
-    void     make_arbor_branch(         int cell_idx, bool is_axon, int parent_branch_idx = -1, const Vector3d&              attractor_point = {0.0, 0.0, 0.0});
-    void     make_arbor(int n_branches, int cell_idx, bool is_axon, int parent_branch_idx = -1, const std::vector<Vector3d>& attractor_points = {{0.0, 0.0, 0.0}});
-    void     apply_circuit_motif(const motif& cmot, bool verbose = true);
-    double   find_synapse(int idx_pre, int idx_post, double val_pre, double transductance_bias);
+    void    make_local_nodes(); 
+    void    make_arbor_branch(
+              double          max_bias, 
+              int             cell_idx, 
+              bool            is_axon, 
+              bool            is_apical, 
+              int             parent_branch_idx = -1, 
+              const Vector3d& attractor_point  = {0.0, 0.0, 0.0},                
+              bool            hit_attractor = false
+            );
+    void    make_arbor(
+              int         n_branches,         
+              int         cell_idx, 
+              bool        is_axon, 
+              bool        is_apical, 
+              int         parent_branch_idx = -1, 
+              const Pnt3& attractor_points = {{0.0, 0.0, 0.0}}, 
+              bool        hit_attractor = false
+            );
+    void    apply_circuit_motif(
+              const motif& cmot, 
+              bool         verbose = true
+            );
+    double  find_synapse(
+              int    idx_pre, 
+              int    idx_post, 
+              bool   via_apical, 
+              double val_pre, 
+              double transductance_bias
+            );
     
     // SGT simulations 
     MatrixXi find_pairwise_lags_by_axon(double dt);
@@ -287,86 +338,6 @@ class network {
  * ***********************************************************************************
  * Helper functions
  */
-
-// Return boolean mask: elements of left which match right
-std::vector<bool> mask(
-    const std::vector<int>& left,
-    const int&              right
-  ) {
-    int n = left.size();
-    std::vector<bool> out(n);
-    for (int i = 0; i < n; i++) { out[i] = (left[i] == right); }
-    return out;
-  }
-std::vector<bool> mask(
-    const VectorXi& left,
-    const int&      right
-  ) {
-    int n = left.size();
-    std::vector<bool> out(n);
-    for (int i = 0; i < n; i++) { out[i] = (left[i] == right); }
-    return out;
-  }
-
-// Convert boolean masks to integer indexes
-std::vector<int> which(
-    const LogicalVector& x
-  ) {
-    std::vector<int> indices;
-    for (int i = 0; i < x.size(); ++i) {
-      if (x[i]) indices.push_back(i);
-    }
-    if (indices.empty()) {
-      Rcpp::stop("No true values found in logical vector for which function.");
-    }
-    return indices;
-  }
-std::vector<int> which(
-    const std::vector<bool>& x
-  ) {
-    std::vector<int> indices;
-    for (size_t i = 0; i < x.size(); ++i) {
-      if (x[i]) indices.push_back((int)i);
-    }
-    if (indices.empty()) {
-      Rcpp::stop("No true values found in logical vector for which function.");
-    }
-    return indices;
-  }
-
-// Boolean quantifiers
-bool any_true(
-    const LogicalVector& x
-  ) {
-    for (bool v : x) { if (v) return true; }
-    return false;
-  }
-bool any_true(
-    const std::vector<bool>& x
-  ) {
-    for (bool v : x) { if (v) return true; }
-    return false;
-  }
-
-// Element-wise boolean operations on std::vector<bool>
-std::vector<bool> mask_and(
-    const std::vector<bool>& a, 
-    const std::vector<bool>& b
-  ) {
-    int n = a.size();
-    std::vector<bool> out(n);
-    for (int i = 0; i < n; i++) { out[i] = a[i] && b[i]; }
-    return out;
-  }
-std::vector<bool> mask_or (
-    const std::vector<bool>& a, 
-    const std::vector<bool>& b
-  ) {
-    int n = a.size();
-    std::vector<bool> out(n);
-    for (int i = 0; i < n; i++) { out[i] = a[i] || b[i]; }
-    return out;
-  }
 
 // Matrix conversions and overloads
 ArrayXXd to_eMat(
@@ -586,6 +557,15 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
     "L1" // Harris2013a, for cells in L2, L3, and L5
   };
+  ct_map["callosal_pyramidal"] = cell_type{ // Slow responders, 10-50 ms, No bursting 
+    "callosal_pyramidal", 1,
+    tau_fast, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate, leak_conductance,
+    transmission_velocity, 0.5, "spine",
+    I_spike, spike_potential, resting_potential, threshold, 
+    axon_branch_count * 2, dendrite_branch_count,
+    branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
+    "L1" // Harris2013a, for cells in L2, L3, and L5
+  };
   ct_map["pyramidal_L6"] = cell_type{ // No bursting 
     "pyramidal_L6", 1,
     tau_fast, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate, leak_conductance,
@@ -604,10 +584,19 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     branch_independence * 1.5, branch_spread * 1.5, // Increased branching
     apical_target_layer
   };
+  ct_map["thalmacortical"] = cell_type{ // No bursting, strong STD
+    "thalmacortical", 1,
+    tau_fast, tau_slow, tau_Vs * 1.5, I_slow, U_Vs * 1.5, max_spike_rate, leak_conductance,
+    transmission_velocity, 0.5, "spine",
+    I_spike, spike_potential, resting_potential, threshold,
+    static_cast<int>(std::round(axon_branch_count * 0.5)), dendrite_branch_count,
+    0.1, 0.9,
+    apical_target_layer
+  };
   // Inhibitory cells
-  ct_map["Neurogliaform_cell"] = cell_type{ // bursting, Slower transmission
-    "Neurogliaform_cell", -1,
-    tau_fast, tau_slow, tau_Vs, I_slow * 3.5, U_Vs, max_spike_rate, leak_conductance,
+  ct_map["neurogliaform_cell"] = cell_type{ // bursting, Slower transmission, slow decay (i.e., large tau_slow, see Huang2024a p. 190)
+    "neurogliaform_cell", -1,
+    tau_fast, tau_slow * 2.0, tau_Vs, I_slow * 3.5, U_Vs, max_spike_rate, leak_conductance,
     transmission_velocity * 0.5, spine_density, axon_target, 
     I_spike, spike_potential, resting_potential, threshold,
     axon_branch_count, dendrite_branch_count,
@@ -621,6 +610,15 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     I_spike, spike_potential, resting_potential, threshold,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.25, branch_spread * 1.25, // Increased branching
+    apical_target_layer
+  };
+  ct_map["callosal_PV"] = cell_type{ // Faster responders, ~5 ms; No bursting
+    "callosal_PV", -1,
+    tau_fast, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate, leak_conductance,
+    transmission_velocity, spine_density, "soma",
+    I_spike, spike_potential, resting_potential, threshold,
+    axon_branch_count * 2, dendrite_branch_count,
+    branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
     apical_target_layer
   };
   ct_map["SST"] = cell_type{ // Slower responders, 10-30 ms
@@ -767,8 +765,9 @@ void modify_cell_type(const std::string& type_name, const List& params) {
 
 // Constructor, motif
 motif::motif(
-    const std::string motif_name
-  ) : motif_name(motif_name)
+    const std::string motif_name,
+    int               hemi
+  ) : motif_name(motif_name), hemi(hemi)
   { 
       // No initialization operations
   }
@@ -784,17 +783,18 @@ network::network() {
  */
 
 // Find first neighbor 
-std::vector<int> find_first_neighbor(
-    const std::vector<Vector3d>& b_active, // Branch searching for neighbor
-    const std::vector<Vector3d>& b_all,    // Branch being searched
+Vint find_first_neighbor(
+    const Pnt3&   b_active, // Branch searching for neighbor
+    const Pnt3&   b_all,    // Branch being searched
     const double& neighborhood_radius,
-    const bool& skip_origin
+    const bool&   skip_origin
   ) {
     double neighborhood_radius_squared = neighborhood_radius * neighborhood_radius;
-    int i_initial = 0;
-    if (skip_origin) {i_initial = 1;}
-    for (int i = i_initial; i < b_active.size(); ++i) {
-      for (int j = 0; j < b_all.size(); ++j) {
+    int    i_initial                   = 0;
+    if (skip_origin) { i_initial = 1; }
+    // Run loops backwards for speed, as higher-indexed nodes are more likely to be nearby
+    for (int i = static_cast<int>(b_active.size()) - 1; i >= i_initial; --i) {
+      for (int j = static_cast<int>(b_all.size()) - 1; j >= 0; --j) {
         double distance = (b_active[i] - b_all[j]).squaredNorm();
         if (distance <= neighborhood_radius_squared) {
           return {i, j}; // Return index of first neighbor found
@@ -806,13 +806,17 @@ std::vector<int> find_first_neighbor(
 
 void motif::load_projection(
     const Projection& proj,
-    const int& max_up,
-    const int& max_down,
-    const double& proj_conductance
+    int               max_col_up,
+    int               max_col_down,
+    int               max_pch_up,
+    int               max_pch_down, 
+    double            proj_conductance
   ) {
     projections.push_back(proj);
-    max_col_shift_up.push_back(max_up);
-    max_col_shift_down.push_back(max_down);
+    max_col_shift_up.push_back(max_col_up);
+    max_col_shift_down.push_back(max_col_down);
+    max_pch_shift_up.push_back(max_pch_up);
+    max_pch_shift_down.push_back(max_pch_down);
     projection_conductance.push_back(proj_conductance);
     n_projections++;
   }
@@ -958,9 +962,14 @@ void network::set_network_structure(
     }
     
     // Check dimensions of nrn_per_node
+    bool reuse_nrn_per_node = true; 
     if (nrn_per_node.nrow() != n_lyr + n_sub) {
-      Rcpp::Rcout << "nrn_per_node nrow: " << nrn_per_node.nrow() << ", n_lyr: " << n_lyr << ", n_sub: " << n_sub << std::endl;
-      Rcpp::stop("Nrows of nrn_per_node must equal n_lyr + n_sub");
+      if (n_hem == 1 || nrn_per_node.nrow() != 2 * n_lyr + n_sub) {
+        Rcpp::Rcout << "nrn_per_node nrow: " << nrn_per_node.nrow() << ", n_lyr: " << n_lyr << ", n_sub: " << n_sub << std::endl;
+        Rcpp::stop("Nrows of nrn_per_node must equal n_lyr + n_sub, or (if n_hem = 2), 2 * this sum");
+      } else {
+        reuse_nrn_per_node = false; 
+      }
     }
     if (nrn_per_node.ncol() != neuron_types.size()) {
       Rcpp::Rcout << "nrn_per_node ncol: " << nrn_per_node.ncol() << ", length of neuron_types: " << neuron_types.size() << std::endl;
@@ -1007,12 +1016,14 @@ void network::set_network_structure(
               coords.node_spatial(node_idx, 1) = static_cast<double>(l) * lyr_height  /2.0 * lyr_separation_factor;  // y, layer
               coords.node_spatial(node_idx, 2) = static_cast<double>(c) * cls_diameter/2.0 * cls_separation_factor;  // x, column
               // If subcortical, shift y below the cortical sheet
-              if (g.is_sub) { coords.node_spatial(node_idx, 1) -= lyr_height/2.0 * sub_separation_factor; }
+              if (g.is_sub) { coords.node_spatial(node_idx, 1) -= lyr_height  /2.0 * sub_separation_factor; }
               // If second hemisphere, adjust z
-              if (h > 0) { coords.node_spatial(node_idx, 0) += cls_diameter/2.0 * hem_separation_factor; }
+              if (h > 0)    { coords.node_spatial(node_idx, 0) += cls_diameter/2.0 * hem_separation_factor; }
               for (int t = 0; t < neuron_types.size(); t++) {
                 // Randomly select neuron numbers for each node
-                int n = (int)R::rpois(ntw.nrn_per_node(g.row_base + l, t));
+                int row_idx = g.row_base + l; 
+                if (!reuse_nrn_per_node) { row_idx *= h + 1; }
+                int n = std::poisson_distribution<int>(ntw.nrn_per_node(row_idx, t))(cpp_rng);
                 // Keep track of the number of cells assigned so far
                 n_neurons += n;
                 // Record type identity for each cell
@@ -1038,16 +1049,19 @@ void network::set_network_structure(
     
     // Resize network coordinate components 
     coords.spatial = MatrixXd::Zero(n_neurons, 3); 
-    coords.node    = MatrixXi::Zero(n_neurons, 5); // hemisphere (z), subcortical layer (y), patch (z), layer (y), column (x)
+    coords.node    = MatrixXi::Zero(n_neurons, 6); // hemisphere (z), subcortical layer (y), patch (z), layer (y), column (x), apical layer (y)
     
   }
 
 // Function to make axon and dendrite branches
 void network::make_arbor_branch(
-    int             cell_idx,                           // Number of neuron for which to make processes
-    bool            is_axon,                            // Whether to make axon (true) or dendrite (false)
-    int             parent_branch_idx,                  // Index of parent branch, if this is a branch off of a main process; otherwise, -1 for new process arbor
-    const Vector3d& attractor_point                     // z (hemisphere, patch), y (subcortical or cortical layer), x (column); if all zeros, no attractor bias; otherwise, bias branch growth toward this point
+    double          max_bias,             // Maximum weight of bias when following attractor
+    int             cell_idx,             // Number of neuron for which to make processes
+    bool            is_axon,              // Whether to make axon (true) or dendrite (false)
+    bool            is_apical,            // Whether to mark as apical dendrite
+    int             parent_branch_idx,    // Index of parent branch, if this is a branch off of a main process; otherwise, -1 for new process arbor
+    const Vector3d& attractor_point,      // z (hemisphere, patch), y (subcortical or cortical layer), x (column); if all zeros, no attractor bias; otherwise, bias branch growth toward this point
+    bool            hit_attractor         // Ensure arbor reaches attractor? For apical dendrites and long-range connections
   ) {
     
     // Check attractor point
@@ -1056,16 +1070,17 @@ void network::make_arbor_branch(
         attractor_point(1) != 0.0 ||
         attractor_point(2) != 0.0) {
       use_attractor = true;
+    } else {
+      hit_attractor = false; 
     }
     
     // Check segment divisor
     if (ntw.seg_length <= 0.0) { Rcpp::stop("segment length less than or equal to zero"); }
     // Compute expected number of segments 
-    int n_segments = static_cast<int>(std::round(ntw.expected_node_radius / ntw.seg_length));
+    int n_segments_radius = static_cast<int>(std::round(ntw.expected_node_radius / ntw.seg_length));
+    int n_segments        = n_segments_radius;
     if (n_segments < 2) { n_segments = 2; }
-    // Randomly select the number of segments, ensuring at least 1
-    n_segments = R::rpois(n_segments - 1) + 1;
-   
+    
     // Set parent flag 
     bool has_parent = parent_branch_idx >= 0;
     
@@ -1080,12 +1095,11 @@ void network::make_arbor_branch(
       // Randomly select branch point 
       int parent_branch_length = arbors[cell_idx].coordinates[parent_branch_idx].size();
       if (parent_branch_length == 0) { Rcpp::stop("Parent branch has no segments to branch from"); }
-      NumericVector probs(parent_branch_length);
-      for (int i = 1; i <= parent_branch_length; ++i) {
-        probs[i - 1] = 1.0 / (i*i);     // higher weight near 1
-      }
-      probs = probs / Rcpp::sum(probs); // Normalize to sum to 1
-      int branch_point = Rcpp::sample(parent_branch_length, 1, true, probs)[0] - 1; // Rcpp::sample samples between 1 and its first argument, so subtract 1 for 0-indexing
+      Vdbl probs(parent_branch_length);
+      // ... set probabilities for higher weight near 1 (will be normalized by std::discrete_distribution)
+      for (int i = 1; i <= parent_branch_length; ++i) { probs[i - 1] = 1.0 / (i*i); }
+      std::discrete_distribution<int> branch_point_dist(probs.begin(), probs.end());
+      int branch_point = branch_point_dist(cpp_rng);
       // ... and set as initial point
       last_node = arbors[cell_idx].coordinates[parent_branch_idx][branch_point];
       // ... ensure this point not marked as a leaf 
@@ -1095,9 +1109,12 @@ void network::make_arbor_branch(
     } else {
       // Set axon flag for new process arbor
       if (is_axon) {
+        arbors[cell_idx].axon_idx.push_back(static_cast<int>(arbors[cell_idx].axon.size()));
         arbors[cell_idx].axon.push_back(true);
+        arbors[cell_idx].apical.push_back(false);
       } else {
         arbors[cell_idx].axon.push_back(false);
+        arbors[cell_idx].apical.push_back(is_apical);       // always push to keep apical in sync with axon
       }
       last_node = soma_coordinates;                         // Set initial point as the soma location
       arbors[cell_idx].coordinates.push_back({last_node});  // Initialize new coordinates vector (of Vector3d) with first row as spatial coordinates of the cell body 
@@ -1109,30 +1126,51 @@ void network::make_arbor_branch(
       parent_idx = 0;                                       // ... and set initial parent node idx 
     }
     
-    // If using attractor, adjust expected number of segments
-    double bias_component_magnitude_init; 
-    if (use_attractor) {
-      Vector3d bias_attractor_point = attractor_point - arbors[cell_idx].coordinates[parent_branch_idx].back();
-      bias_component_magnitude_init = bias_attractor_point.norm();
-      if (bias_component_magnitude_init == 0.0) {bias_component_magnitude_init = 1.0;}
-      int n_segment_scalar = (int)std::round(bias_component_magnitude_init / ntw.expected_node_radius);
-      if (n_segment_scalar < 1) {n_segment_scalar = 1;}
-      n_segments *= n_segment_scalar;
-      n_segments = Rcpp::sample(n_segments, 1)[0];
-    }
-    
     // Grab spine density and branch spread
     double spine_density = neuron_types[per_nrn.neuron_type_num[cell_idx]].spine_density;
     double branch_spread = neuron_types[per_nrn.neuron_type_num[cell_idx]].branch_spread;
     
+    // If using attractor, adjust expected number of segments to ensure the attractor can be reached
+    double bias_component_magnitude_init = std::numeric_limits<double>::infinity();
+    if (use_attractor) {
+      // Get initial distance to the attractor point
+      Vector3d bias_attractor_point = attractor_point - arbors[cell_idx].coordinates[parent_branch_idx].back();
+      bias_component_magnitude_init = bias_attractor_point.norm();
+      // Ensure not zero (division below)
+      if (bias_component_magnitude_init == 0.0) { bias_component_magnitude_init = 1.0; }
+      // Find straight-line ratio of distance to attractor to node radius (the initial expected distance)
+      double n_segment_scalar = bias_component_magnitude_init / ntw.expected_node_radius;
+      // Apply scalar
+      n_segments *= static_cast<int>(std::round(n_segment_scalar));
+    }
+    double bias_component_magnitude = bias_component_magnitude_init;
+    
+    // Apply exponential decay to n_segments, ensuring at least 1
+    if (!hit_attractor) {
+      n_segments = static_cast<int>(std::round(
+        std::exponential_distribution<double>(
+          2.995732/(static_cast<double>(n_segments) - 1.0)
+        )(cpp_rng))) + 1;
+      /* 
+       * CDF of exponential distribution is 1 - exp(-lambda * x)
+       * So, lambda = log(0.05)/-x is the exponential rate such that 
+       *  95% of points are within x
+       * log(0.05) = -2.995732
+       */
+    } else {
+      // Add enough leeway to reach attractor
+      n_segments *= 3.0; 
+    }
+    
     // Make branch
+    double attractor_boundary_distance = ntw.expected_node_radius / 8.0; 
     for (int s = 0; s < n_segments; s++) {
       
       // Make random component of the step
       Vector3d step = {
-         R::rnorm(0.0, ntw.seg_length),  // z
-         R::rnorm(0.0, ntw.seg_length),  // y
-         R::rnorm(0.0, ntw.seg_length)   // x
+        norm(cpp_rng) * ntw.seg_length,  // z
+        norm(cpp_rng) * ntw.seg_length,  // y
+        norm(cpp_rng) * ntw.seg_length   // x
       };
       double random_component_magnitude = step.norm();
       // ... bias step away from soma in proportion to branch spread
@@ -1155,7 +1193,7 @@ void network::make_arbor_branch(
       if (use_attractor) {
         Vector3d bias = attractor_point - last_node;
         // ... normalize directed component so that it's the same magnitude as the random component
-        double bias_component_magnitude = bias.norm();
+        bias_component_magnitude = bias.norm();
         if (bias_component_magnitude > 0) {
           bias *= random_component_magnitude / bias_component_magnitude;
         } else {
@@ -1163,8 +1201,8 @@ void network::make_arbor_branch(
         }
         // ... randomly select weight with expected value in proportion to distance to attractor point 
         double weight_bias = bias_component_magnitude / bias_component_magnitude_init;
-        if (weight_bias >  0.9) {weight_bias = 0.9;} // Cap weight at 0.9
-        if (weight_bias <= 0.1) {weight_bias = 0.1;} // Ensure weight is positive
+        if (weight_bias >  max_bias) {weight_bias = max_bias;} // Cap weight
+        if (weight_bias <= 0.1)      {weight_bias = 0.1;}      // Ensure weight is positive
         // ... make weighted combination of the step and bias 
         step = (1 - weight_bias) * step + weight_bias * bias;
       }
@@ -1185,7 +1223,7 @@ void network::make_arbor_branch(
         arbors[cell_idx].node_type[parent_branch_idx].push_back("axon_shaft");
       } else {
         // Randomly mark some nodes as spines based on spine density
-        if (R::runif(0.0, 1.0) < spine_density) {
+        if (unif(cpp_rng) < spine_density) {
           arbors[cell_idx].node_type[parent_branch_idx].push_back("spine");
         } else {
           arbors[cell_idx].node_type[parent_branch_idx].push_back("dendrite_shaft");
@@ -1202,17 +1240,22 @@ void network::make_arbor_branch(
       // Mark that this node is not a synapse 
       arbors[cell_idx].synapses[parent_branch_idx].push_back(0);
       
+      // Check distance to attractor point 
+      if (use_attractor && bias_component_magnitude < attractor_boundary_distance) { break; }
+      
     }
     
   }
 
 // Function to make axon and dendrite arbors
 void network::make_arbor(
-    int                          n_branches,            // Expected number of branches, including the main process 
-    int                          cell_idx,              // Number of neuron for which to make processes
-    bool                         is_axon,               // Whether to make axon (true) or dendrite (false)
-    int                          parent_branch_idx,     // Index of parent branch, if this is a branch off of a main process; otherwise, -1 for new process arbor
-    const std::vector<Vector3d>& attractor_points       // z (patch), y (layer), x (column); if all zeros, no attractor bias; otherwise, bias branch growth toward this point
+    int         n_branches,            // Expected number of branches, including the main process 
+    int         cell_idx,              // Number of neuron for which to make processes
+    bool        is_axon,               // Whether to make axon (true) or dendrite (false)
+    bool        is_apical,             // Whether to mark as apical dendrite
+    int         parent_branch_idx,     // Index of parent branch, if this is a branch off of a main process; otherwise, -1 for new process arbor
+    const Pnt3& attractor_points,      // z (patch), y (layer), x (column); if all zeros, no attractor bias; otherwise, bias branch growth toward this point
+    bool        hit_attractor          // Ensure arbor reaches attractor? For apical dendrites and long-range connections
   ) {
     
     // Find number of existing branches 
@@ -1220,10 +1263,10 @@ void network::make_arbor(
     
     // Randomly set number of branches 
     if (n_branches < 2) { n_branches = 2; }
-    n_branches = R::rpois(n_branches - 1) + 1; // Ensure at least 1 branch
+    n_branches = std::poisson_distribution<int>(n_branches - 1)(cpp_rng) + 1; // Ensure at least 1 branch
     
     // Make branch structure
-    std::vector<int> parent_branch_idx_list; 
+    Vint parent_branch_idx_list; 
     if (parent_branch_idx == -1) {
       
       // Starting fresh, no matter what other branches already exist
@@ -1235,13 +1278,11 @@ void network::make_arbor(
       // Track number of additional new branches
       int n_new_branches = 0;
       for (int b = 1; b < n_branches; ++b) {
-        if (R::runif(0.0, 1.0) < branch_independence) {
-          n_new_branches++;
+        if (unif(cpp_rng) < branch_independence) {
           parent_branch_idx_list.push_back(-1);
-          arbors[cell_idx].arbor_id.push_back(n_existing_arbors + n_new_branches);
+          arbors[cell_idx].arbor_id.push_back(++n_new_branches + n_existing_arbors);
         } else {
-          int parent_idx = n_existing_arbors;
-          parent_idx += (int)(Rcpp::sample(n_new_branches + 1, 1)[0] - 1); 
+          int parent_idx = n_existing_arbors + std::uniform_int_distribution<int>(0, n_new_branches)(cpp_rng);
           parent_branch_idx_list.push_back(parent_idx);
         }
       }
@@ -1257,7 +1298,14 @@ void network::make_arbor(
       
     }
     
-    // For each branch to-be-made: 
+    // Ensure apical dendrites hit their attractor
+    hit_attractor   = is_apical || hit_attractor;
+    // Set branch to hit by
+    int hit_by      = std::uniform_int_distribution<int>(0, n_branches)(cpp_rng);
+    // Set max bias 
+    double max_bias = 0.5;
+    
+    // For each branch to-be-made:
     int n_attractor_points = attractor_points.size();
     for (int b = 0; b < n_branches; ++b) {
       
@@ -1267,23 +1315,23 @@ void network::make_arbor(
       double   w                = 0.0;
       for (int i = 0; i < n_attractor_points; i++) {
         if (i + 1 < n_attractor_points) {
-          w = R::runif(0.0, remaining_weight);
+          w = unif(cpp_rng) * remaining_weight;
           remaining_weight -= w;
         } else {
-           w = remaining_weight; // Ensure all weights sum to 1
+          w = remaining_weight; // Ensure all weights sum to 1
         }
         attractor_point += attractor_points[i] * w;
       }
       
-      // Grab parent branch index for this branch
-      int parent_branch_idx_b = parent_branch_idx_list[b];
-      
       // Make arbor branch
       make_arbor_branch(
+        max_bias,
         cell_idx,
         is_axon,
-        parent_branch_idx_b,
-        attractor_point
+        is_apical,
+        parent_branch_idx_list[b],
+        attractor_point,
+        hit_attractor && b >= hit_by
       );
       
     }
@@ -1299,16 +1347,16 @@ void network::make_local_nodes() {
     }
     
     // Initialize vectors to track local edge coordinates
-    std::vector<int> local_edges_pre; 
-    std::vector<int> local_edges_post;
+    Vint local_edges_pre; 
+    Vint local_edges_post;
     
     // Initialize local transconductance array
     ArrayXXd local_transconductances = ArrayXXd::Zero(n_neurons, n_neurons);
     
     // Build layer groups: cortical first, then subcortical (if any)
-    int n_nodes_cortical = ntw.n[0] * ntw.n[2] * ntw.n[3] * ntw.n[4];
-    struct LayerGroup { bool is_sub; int n_layers; int node_base; };
-    std::vector<LayerGroup> groups = {{false, ntw.n[2], 0}};
+    struct                  LayerGroup { bool is_sub; int n_layers; int node_base; };
+    std::vector<LayerGroup> groups           = {{false, ntw.n[2], 0}};
+    int                     n_nodes_cortical = ntw.n[0] * ntw.n[2] * ntw.n[3] * ntw.n[4];
     if (ntw.n[1] > 0) groups.push_back({true, ntw.n[1], n_nodes_cortical});
     
     for (const auto& g : groups) {
@@ -1342,9 +1390,9 @@ void network::make_local_nodes() {
               for (int cell_idx = node_range_start; cell_idx <= node_range_end; ++cell_idx) {
                 
                 // Set spatial coordinates
-                coords.spatial(cell_idx, 0) = node_z + R::rnorm(0.0, ntw.cls_diameter/2.0);
-                coords.spatial(cell_idx, 1) = node_y + R::rnorm(0.0, ntw.lyr_height  /2.0);
-                coords.spatial(cell_idx, 2) = node_x + R::rnorm(0.0, ntw.cls_diameter/2.0);
+                coords.spatial(cell_idx, 0) = node_z + norm(cpp_rng) * ntw.cls_diameter/2.0;
+                coords.spatial(cell_idx, 1) = node_y + norm(cpp_rng) * ntw.lyr_height  /2.0;
+                coords.spatial(cell_idx, 2) = node_x + norm(cpp_rng) * ntw.cls_diameter/2.0;
                 
                 // Set node coordinates (col 0 = hemisphere, 1 = subcortical layer, 2 = patch, 3 = cortical layer, 4 = column)
                 coords.node(cell_idx, 0) = h;
@@ -1352,6 +1400,7 @@ void network::make_local_nodes() {
                 coords.node(cell_idx, 2) = p;
                 coords.node(cell_idx, 3) = g.is_sub ? -1 : l;
                 coords.node(cell_idx, 4) = c;
+                coords.node(cell_idx, 5) = -1;
                 
                 // Get neurite information
                 int         axon_branch_count     = neuron_types[per_nrn.neuron_type_num[cell_idx]].axon_branch_count;
@@ -1359,28 +1408,31 @@ void network::make_local_nodes() {
                 std::string apical_target_layer   = neuron_types[per_nrn.neuron_type_num[cell_idx]].apical_target_layer;
                 
                 // Create local axon and dendrite arbors
-                make_arbor(axon_branch_count,     cell_idx, true);
-                make_arbor(dendrite_branch_count, cell_idx, false);
+                make_arbor(axon_branch_count,     cell_idx, true,  false);
+                make_arbor(dendrite_branch_count, cell_idx, false, false);
                 
                 // Create apical dendrite, if any (cortical cells only)
                 if (!g.is_sub && apical_target_layer != "none") {
                   int apical_target_layer_idx = find_first(ntw.hsl_names[2], apical_target_layer);
+                  coords.node(cell_idx, 5) = apical_target_layer_idx; 
                   if (apical_target_layer_idx >= 0) {
                     // MB: Much of this code duplicated from apply_circuit_motif; create function??
                     
                     // Get coordinates of the target node
                     // ... reconstruct target node ID number (cortical stride: g.node_base == 0)
-                    int target_node_idx = p * (ntw.n[2] * ntw.n[3] * ntw.n[0]) + apical_target_layer_idx * (ntw.n[3] * ntw.n[0]) + c * ntw.n[0] + h;
+                    int      target_node_idx  = p * (ntw.n[2] * ntw.n[3] * ntw.n[0]) + apical_target_layer_idx * (ntw.n[3] * ntw.n[0]) + c * ntw.n[0] + h;
                     // ... get spatial position of this node, z (patch), y (layer), x (column)
-                    Vector3d attractor_point               = coords.node_spatial.row(target_node_idx); 
-                    std::vector<Vector3d> attractor_points = { attractor_point };
+                    Vector3d attractor_point  = coords.node_spatial.row(target_node_idx); 
+                    // ... use attractor y and cell z, x as attractor point (i.e., go straight up)
+                    Pnt3     attractor_points = { {coords.spatial(cell_idx, 0), attractor_point(1), coords.spatial(cell_idx, 2)} };
                     
                     // Make apical dendrite arbor
                     make_arbor(
                       dendrite_branch_count, 
                       cell_idx, 
                       false,
-                      -1, // should be a new dendrite
+                      true, // will also trigger hit_attractor
+                      -1,   // should be a new dendrite
                       attractor_points 
                     );
                     
@@ -1407,7 +1459,7 @@ void network::make_local_nodes() {
                   
                   // Search for synapse and compute its transconductance
                   double this_transconductance = find_synapse(
-                    idx_pre, idx_post, val_pre, 
+                    idx_pre, idx_post, false, val_pre, 
                     local_conductance_matrix(t_post, t_pre)
                   );
                   
@@ -1444,6 +1496,28 @@ void network::make_local_nodes() {
     
     // Save to edge types
     edges.type.push_back(local_edges);
+   
+    // Build apical-node -> cell index lookup table.
+    // For each cell with an apical dendrite (coords.node col 5 >= 0), reconstruct
+    // its apical target node index and register the cell under that node.
+    int n_hem_loc = ntw.n[0];
+    int n_lyr_loc = ntw.n[2];
+    int n_cls_loc = ntw.n[3];
+    apical_node_cells.clear();
+    for (int i = 0; i < n_neurons; ++i) {
+      int al = coords.node(i, 5); // apical target layer index; -1 if none
+      if (al < 0) { continue; }
+      int h = coords.node(i, 0);
+      int p = coords.node(i, 2);
+      int c = coords.node(i, 4);
+      // Apical dendrites are cortical-only (node_base == 0)
+      int apical_node_idx = p * (n_lyr_loc * n_cls_loc * n_hem_loc)
+                          + al * (n_cls_loc * n_hem_loc)
+                          + c  * n_hem_loc
+                          + h;
+      apical_node_cells[apical_node_idx].push_back(i);
+      
+    }
     
   }
 
@@ -1451,29 +1525,30 @@ void network::make_local_nodes() {
 double network::find_synapse(
     int    idx_pre,
     int    idx_post,
+    bool   via_apical,
     double val_pre,
     double transductance_bias
   ) {
    
     // Check if this pre-post pair already has a synapse
     if (synapse_idx.arbor(idx_pre, idx_post) >= 0) { return(0.0); } 
-    
-    // Get axon indices 
-    std::vector<int> axon_idx = which(arbors[idx_pre].axon);
-    
+   
     // Get post-synaptic dendrite branch indices
-    std::vector<bool> dendrite_mask = arbors[idx_post].axon; 
-    for (int i = 0; i < dendrite_mask.size(); i++) { dendrite_mask[i] = !dendrite_mask[i]; }
-    std::vector<int>  dendrite_idx  = which(dendrite_mask);
+    int n_arbors = arbors[idx_post].axon.size();
+    Vint  dendrite_idx;
+    for (int i = 0; i < n_arbors; i++) { 
+      if (!arbors[idx_post].axon[i] && arbors[idx_post].apical[i] == via_apical) { dendrite_idx.push_back(i); }
+    }
+    if (dendrite_idx.empty()) { return 0.0; }
     
     // Check all axons 
-    for (int ax : axon_idx) {
+    for (int ax : arbors[idx_pre].axon_idx) {
       // Check all dendrites 
       for (int dd : dendrite_idx) {
         
         // Check for synapses
         // ... first element of neighbor_idx is the axon node idx, second is the dendrite node idx
-        std::vector<int> neighbor_idx = find_first_neighbor(
+        Vint neighbor_idx = find_first_neighbor(
           arbors[idx_pre].coordinates[ax], 
           arbors[idx_post].coordinates[dd],
           ntw.synaptic_neighborhood,
@@ -1502,8 +1577,8 @@ double network::find_synapse(
           synapse_idx.node(idx_pre, idx_post)  = arbors[idx_pre].coordinates[ax].size() - 1;
          
           // Find and return transductance 
-          double trans = R::runif(0.0, 2.0) * transductance_bias;
-          return(trans);
+          double trans = unif(cpp_rng) * 2.0 * transductance_bias;
+          return trans;
           
         }
         
@@ -1529,8 +1604,8 @@ void network::apply_circuit_motif(
     }
     
     // Initialize vectors to track motif edge coordinates
-    std::vector<int> motif_edges_pre; 
-    std::vector<int> motif_edges_post;
+    Vint motif_edges_pre; 
+    Vint motif_edges_post;
     
     // Initialize motif transconductance matrix
     ArrayXXd motif_transconductances = ArrayXXd::Zero(n_neurons, n_neurons);
@@ -1557,23 +1632,9 @@ void network::apply_circuit_motif(
       return {{false, 0, 0}, -1};
     };
     
-    // Pre-make all column masks (coords.node col 4 = column)
-    std::vector<std::vector<bool>> column_masks(n_cls);
-    for (int c = 0; c < n_cls; c++) {
-      column_masks[c] = mask(coords.node(Eigen::all, 4), c);
-    }
-    
-    // Pre-make all patch masks (coords.node col 2 = patch)
-    std::vector<std::vector<bool>> patch_masks(n_pch);
-    for (int p = 0; p < n_pch; p++) {
-      patch_masks[p] = mask(coords.node(Eigen::all, 2), p);
-    }
-    
-    // Pre-make all hemisphere masks (coords.node col 0 = hemisphere)
-    std::vector<std::vector<bool>> hem_masks(n_hem);
-    for (int h = 0; h < n_hem; h++) {
-      hem_masks[h] = mask(coords.node(Eigen::all, 0), h);
-    }
+    // Update arbors with this motif index
+    for (int i = 0; i < n_neurons; ++i) { arbors[i].motifs.push_back(0); }
+    int m_idx = edges.type.size();
     
     // For each projection in the motif
     const int n_projections = cmot.n_projections;
@@ -1581,18 +1642,20 @@ void network::apply_circuit_motif(
       
       // Grab projection
       Projection proj = cmot.projections[pj];
+      if (proj.hem_shift == n_hem) { Rcpp::stop("Can't apply contralateral projection if only one hemisphere"); }
       
       // Grab pre- and post-synaptic cell types for this projection
       std::string pre_type_name  = proj.pre_type;
       std::string post_type_name = proj.post_type;
+      
       // Get indices for neuron_types in this network
       int t_pre  = find_first_by(
-          (int)neuron_types.size(),
+          static_cast<int>(neuron_types.size()),
           [&](int i){ return neuron_types[i].type_name; }, 
           pre_type_name
         );
       int t_post = find_first_by(
-          (int)neuron_types.size(),
+          static_cast<int>(neuron_types.size()),
           [&](int i){ return neuron_types[i].type_name; }, 
           post_type_name
         );
@@ -1605,9 +1668,11 @@ void network::apply_circuit_motif(
         }
         continue;
       }
-      // ... and make masks for neurons in this network
-      std::vector<bool> pre_type_mask  = mask(per_nrn.neuron_type_num, t_pre);
-      std::vector<bool> post_type_mask = mask(per_nrn.neuron_type_num, t_post);
+      
+      // Check dendrite type 
+      if (proj.via_apical) {
+        if (neuron_types[t_post].apical_target_layer == "none") { Rcpp::stop("Projection requests via apical, but target type has no apical dendrite"); }
+      }
       
       // Grab pre-synaptic valence and axon characteristics
       int val_pre           = neuron_types[t_pre].valence;
@@ -1628,28 +1693,37 @@ void network::apply_circuit_motif(
       //   col 3 = cortical layer, col 1 = subcortical layer
       int pre_layer_col  = g_pre.is_sub  ? 1 : 3;
       int post_layer_col = g_post.is_sub ? 1 : 3;
-      std::vector<bool> pre_layer_mask  = mask_and(pre_type_mask,  mask(coords.node(Eigen::all, pre_layer_col),  layer_pre));
-      std::vector<bool> post_layer_mask = mask_and(post_type_mask, mask(coords.node(Eigen::all, post_layer_col), layer_post));
-      
+      Vboo pre__type_layer_mask(n_neurons);
+      Vboo post_type_layer_mask(n_neurons); 
+      for (int i = 0; i < n_neurons; ++i) {
+        pre__type_layer_mask[i] = per_nrn.neuron_type_num[i] == t_pre && coords.node(i, pre_layer_col) == layer_pre; 
+        post_type_layer_mask[i] = proj.via_apical ? 
+          per_nrn.neuron_type_num[i] == t_post : 
+          per_nrn.neuron_type_num[i] == t_post && coords.node(i, post_layer_col) == layer_post;
+      }
+     
       // Grab max column/patch shifts
-      int max_up   = cmot.max_col_shift_up[pj];
-      int max_down = cmot.max_col_shift_down[pj];
-      VectorXi col_range = VectorXi::Constant(2, 0);
-      col_range(0) = -max_down;
-      col_range(1) =  max_up;
+      VectorXi col_range =  VectorXi::Constant(2, 0);
+      col_range(0)       = -cmot.max_col_shift_down[pj];
+      col_range(1)       =  cmot.max_col_shift_up[pj];
+      VectorXi pch_range =  VectorXi::Constant(2, 0);
+      pch_range(0)       = -cmot.max_pch_shift_down[pj];
+      pch_range(1)       =  cmot.max_pch_shift_up[pj];
+      
+      // Is this a intralaminar projection? 
+      bool intralam = layer_pre == layer_post && !proj.via_apical;
       
       // Apply projection to each patch, hemisphere, and column
       for (int p = 0; p < n_pch; p++) {
-        
-        std::vector<bool> pre_patch_mask = mask_and(pre_layer_mask, patch_masks[p]);
-        
         for (int h = 0; h < n_hem; h++) {
           
+          // Determine if this motif applies to this hemisphere 
+          if (cmot.hemi > 0 && cmot.hemi != h) { continue; }
           // Determine post-synaptic hemisphere (hem_shift: 0 = same, 1 = contralateral)
           int th = (h + proj.hem_shift) % n_hem;
           
-          // Get pre-synaptic patch + hemisphere mask
-          std::vector<bool> pre_patch_hem_mask = mask_and(pre_patch_mask, hem_masks[h]);
+          // Is this a long-range projectino? 
+          bool long_range = proj.hem_shift || g_pre.is_sub != g_post.is_sub;
           
           // Apply projection to each column 
           for (int c = 0; c < n_cls; c++) {
@@ -1657,77 +1731,138 @@ void network::apply_circuit_motif(
             // Print progress
             if (verbose) {
               Rcpp::Rcout 
-                << "Applying projection: " << pj << " / " << n_projections 
-                << ", patch: " << p << " / " << n_pch
-                << ", hem: " << h << " / " << n_hem
-                << ", column: " << c << " / " << n_cls
+                << "Applying projection: " << pj + 1 << " / " << n_projections 
+                << ", patch: "             << p  + 1  << " / " << n_pch
+                << ", hem: "               << h  + 1  << " / " << n_hem
+                << ", column: "            << c  + 1  << " / " << n_cls
               << std::endl;
             }
             
             // Find indexes of pre-synaptic cells (layer + patch + hemisphere + column)
-            std::vector<bool> pre_mask = mask_and(pre_patch_hem_mask, column_masks[c]);
-            if (!any_true(pre_mask)) {continue;}
-            std::vector<int> pre_indices = which(pre_mask);
-            
-            // Get coordinates of home (pre-synaptic) node
-            int home_node_idx = g_pre.node_base
+            Vint pre_indices;
+            int pre_node_idx = g_pre.node_base
               + p          * (g_pre.n_layers * n_cls * n_hem)
               + layer_pre  * (n_cls * n_hem)
               + c          * n_hem
               + h;
-            Vector3d home_node_coordinates = coords.node_spatial.row(home_node_idx);
+            int pre_node_range_start = (pre_node_idx == 0) ? 0 : node_range_ends[pre_node_idx - 1] + 1;
+            int pre_node_range_end   = node_range_ends[pre_node_idx];
+            for (int i = pre_node_range_start; i <= pre_node_range_end; ++i) {
+              if (pre__type_layer_mask[i]) { 
+                pre_indices.push_back(i); 
+                arbors[i].motifs[m_idx] = 1;
+              }
+            }
+            if (pre_indices.empty()) { continue; }
+            
+            // Get coordinates of home (pre-synaptic) node
+            Vector3d home_node_coordinates = coords.node_spatial.row(pre_node_idx);
             
             // Compute target column and patch ranges
-            VectorXi col_range_shifted;
-            VectorXi patch_range_shifted;
-            if (col_range[0] == col_range[1]) {
-              col_range_shifted.resize(1);
-              col_range_shifted(0) = c;
-              patch_range_shifted.resize(1);
-              patch_range_shifted(0) = p;
-            } else {
-              col_range_shifted   = col_range.array() + c;
-              patch_range_shifted = col_range.array() + p;
-              if (col_range_shifted[0]   < 0)     {col_range_shifted[0]   = 0;}
-              if (col_range_shifted[1]   >= n_cls) {col_range_shifted[1]   = n_cls - 1;}
-              if (patch_range_shifted[0] < 0)     {patch_range_shifted[0] = 0;}
-              if (patch_range_shifted[1] >= n_pch) {patch_range_shifted[1] = n_pch - 1;}
-            }
+            VectorXi col_range_shifted = col_range.array() + c;
+            VectorXi pch_range_shifted = pch_range.array() + p;
+            if (col_range_shifted[0] < 0)      { col_range_shifted[0] = 0; }
+            if (col_range_shifted[1] >= n_cls) { col_range_shifted[1] = n_cls - 1; }
+            if (pch_range_shifted[0] < 0)      { pch_range_shifted[0] = 0; }
+            if (pch_range_shifted[1] >= n_pch) { pch_range_shifted[1] = n_pch - 1; } 
             
-            // Reconstruct attractor points and post-synaptic mask over target columns/patches
-            std::vector<bool>    post_mask(n_neurons, false);
-            std::vector<Vector3d> attractor_points;
-            for (int tp : patch_range_shifted) {
-              for (int tc : col_range_shifted) {
+            // Construct target cell indices
+            Vint post_indices;
+            for (int tp = pch_range_shifted(0); tp <= pch_range_shifted(1); ++tp) {
+              for (int tc = col_range_shifted(0); tc <= col_range_shifted(1); ++tc) {
                 // Skip same-node self-connections
-                if (g_pre.is_sub == g_post.is_sub && layer_pre == layer_post && h == th && c == tc && p == tp) {continue;}
+                if (intralam && h == th && c == tc && p == tp) { continue; }
                 // Get coordinates of target node (post-synaptic hemisphere = th)
-                int target_node_idx = g_post.node_base
+                int post_node_idx = g_post.node_base
                   + tp         * (g_post.n_layers * n_cls * n_hem)
                   + layer_post * (n_cls * n_hem)
                   + tc         * n_hem
                   + th;
-                Vector3d attractor_point = coords.node_spatial.row(target_node_idx);
-                attractor_points.push_back(attractor_point);
-                // Add post-synaptic neuron mask for this target (hemisphere th)
-                post_mask = mask_or(post_mask,
-                  mask_and(post_layer_mask, mask_and(hem_masks[th], mask_and(patch_masks[tp], column_masks[tc]))));
+                // Check whether each cell is a potential target.
+                // When via_apical, post_node_idx is the apical target node, so use the
+                // apical-node lookup to find cells whose apical dendrites reach it.
+                // Otherwise use the body-node range as usual.
+                if (proj.via_apical) {
+                  auto it = apical_node_cells.find(post_node_idx);
+                  if (it != apical_node_cells.end()) {
+                    for (int i : it->second) {
+                      if (post_type_layer_mask[i]) { post_indices.push_back(i); }
+                    }
+                  }
+                } else {
+                  int post_node_range_start = (post_node_idx == 0) ? 0 : node_range_ends[post_node_idx - 1] + 1;
+                  int post_node_range_end   = node_range_ends[post_node_idx];
+                  for (int i = post_node_range_start; i <= post_node_range_end; ++i) {
+                    if (post_type_layer_mask[i]) { post_indices.push_back(i); }
+                  }
+                }
               }
             }
+            if (post_indices.empty()) { continue; }
             
-            if (!any_true(post_mask)) {continue;}
-            std::vector<int> post_indices = which(post_mask);
+            // Make vectors of cardinal direction pairs
+            Pnt3 tuu, tdd, tud, tdu;
+            // ... check patch up-shift
+            int tpu = pch_range_shifted(1);
+            if (!(intralam && h == th && p == tpu)) {
+              Vector3d tp_up = coords.node_spatial.row(g_post.node_base
+                + tpu        * (g_post.n_layers * n_cls * n_hem)
+                + layer_post * (n_cls * n_hem)
+                + c          * n_hem
+                + th);
+              tuu.push_back(tp_up); 
+              tud.push_back(tp_up); 
+            }
+            // ... check patch down-shift
+            int tpd = pch_range_shifted(0);
+            if (!(intralam && h == th && p == tpd)) {
+              Vector3d tp_down = coords.node_spatial.row(g_post.node_base
+                + tpd        * (g_post.n_layers * n_cls * n_hem)
+                + layer_post * (n_cls * n_hem)
+                + c          * n_hem
+                + th);
+              tdd.push_back(tp_down); 
+              tdu.push_back(tp_down); 
+            }
+            // ... check column up-shift
+            int tcu = col_range_shifted(1);
+            if (!(intralam && h == th && c == tcu)) {
+              Vector3d tc_up = coords.node_spatial.row(g_post.node_base
+                + p          * (g_post.n_layers * n_cls * n_hem)
+                + layer_post * (n_cls * n_hem)
+                + tcu        * n_hem
+                + th);
+              tuu.push_back(tc_up); 
+              tdu.push_back(tc_up); 
+            }
+            // ... check column down-shift
+            int tcd = col_range_shifted(0);
+            if (!(intralam && h == th && c == tcd)) {
+              Vector3d tc_down = coords.node_spatial.row(g_post.node_base
+                + p          * (g_post.n_layers * n_cls * n_hem)
+                + layer_post * (n_cls * n_hem)
+                + tcd        * n_hem
+                + th);
+              tdd.push_back(tc_down);
+              tud.push_back(tc_down);
+            }
+            // Construct admissible attractor points 
+            std::vector<Pnt3> attractor_points;
+            if (!tuu.empty()) { attractor_points.push_back(tuu); }
+            if (!tdd.empty()) { attractor_points.push_back(tdd); }
+            if (!tud.empty()) { attractor_points.push_back(tud); }
+            if (!tdu.empty()) { attractor_points.push_back(tdu); }
+            if (attractor_points.empty()) { continue; }
             
-            // Make mesoscale axon arbors for pre-synaptic cells
+            // Make meso-scale and long-range axon arbors for pre-synaptic cells
+            std::uniform_int_distribution<int> attractor_dist(0, static_cast<int>(attractor_points.size() - 1));
             for (int cell_idx : pre_indices) {
               
               // Select random existing axon branch to extend from, or start from soma
               int axon_parent;
-              std::vector<bool> axon_mask = arbors[cell_idx].axon;
-              std::vector<int>  axon_idx  = which(axon_mask);
-              if (!axon_idx.empty()) {
-                std::uniform_int_distribution<int> dist(0, (int)axon_idx.size() - 1);
-                axon_parent = axon_idx[dist(cpp_rng)];
+              if (!arbors[cell_idx].axon_idx.empty()) {
+                std::uniform_int_distribution<int> dist(0, static_cast<int>(arbors[cell_idx].axon_idx.size() - 1));
+                axon_parent = arbors[cell_idx].axon_idx[dist(cpp_rng)];
               } else {
                 axon_parent = -1;
               }
@@ -1735,9 +1870,11 @@ void network::apply_circuit_motif(
               make_arbor(
                 axon_branch_count, 
                 cell_idx, 
-                true, 
+                true,                                        // is axon
+                false,                                       // is not apical dendrite
                 axon_parent, 
-                attractor_points
+                attractor_points[attractor_dist(cpp_rng)],   // randomly chosen std::vector<Vector3d> (i.e., Pnt3)
+                long_range || !intralam                      // if long-range, ensure attractor is hit
               );
               
             }
@@ -1749,6 +1886,7 @@ void network::apply_circuit_motif(
                 double this_transconductance = find_synapse(
                   idx_pre, 
                   idx_post, 
+                  proj.via_apical, 
                   val_pre, 
                   cmot.projection_conductance[pj]
                 );
@@ -1815,28 +1953,31 @@ List network::fetch_network_components(
       edge_type_matrices[eti] = et_r;
     }
     
-    // Convert arbors into numeric matrix
+    // Convert arbors into numeric matrix; accumulate per-neuron synapse counts
+    NumericMatrix arbor_motifs;
     NumericMatrix arbor_matrix;
+    IntegerVector synapse_counts;
     if (include_arbors) {
       // Count total number of segments across all arbors
       int n_segments = 0;
-      int n_roots = 0;
+      int n_roots    = 0;
       for (int n = 0; n < n_neurons; n++) {
         int n_arbors = arbors[n].axon.size();
-        n_roots += n_arbors;
+        n_roots     += n_arbors;
         for (int a = 0; a < n_arbors; a++) {
           n_segments += arbors[n].coordinates[a].size();
         }
       }
       
-      // Create matrix to hold arbor data
-      arbor_matrix = NumericMatrix(n_segments - n_roots, 13);
+      // Create matrix to hold arbor data, and a per-neuron synapse count vector
+      arbor_matrix           = NumericMatrix(n_segments - n_roots, 13);
       colnames(arbor_matrix) = CharacterVector::create(
         "neuron_idx", "arbor_id", "is_axon", "node_type", "parent_idx", "is_leaf", "is_synapse", 
         "z_start", "y_start", "x_start", "z_end", "y_end", "x_end"
       );
+      synapse_counts         = IntegerVector(n_neurons, 0);
       
-      // Fill matrix with arbor data
+      // Fill matrix with arbor data; accumulate synapse counts in the same pass
       int seg_idx = 0;
       int parent_skip_counter = 0;
       for (int n = 0; n < n_neurons; n++) {
@@ -1861,35 +2002,45 @@ List network::fetch_network_components(
               Rcpp::Rcout << "Unknown node type string: " << node_type_str << std::endl;
               Rcpp::stop("Unknown node type string in arbor structure");
             }
-            if (parent_idx < 0) {                                               // Skip root node since it has no parent
+            if (parent_idx < 0) {                                                // Skip root node since it has no parent
               parent_skip_counter++;
               continue;
-            }                                     
-            arbor_matrix(seg_idx, 0) = (double)n + 1;                           // neuron index, put into 1-indexed form for R
-            arbor_matrix(seg_idx, 1) = (double)arbors[n].arbor_id[a];           // arbor ID number
-            arbor_matrix(seg_idx, 2) = arbor_type;
-            arbor_matrix(seg_idx, 3) = node_type_idx;                           // 0 = "soma", 1 = "dendrite_shaft", 2 = "axon_shaft", or 3 = "spine"
-            arbor_matrix(seg_idx, 4) = parent_idx - parent_skip_counter + 1;    // put into 1-indexed form for R
-            arbor_matrix(seg_idx, 5) = (double)arbors[n].leafs[a][i];           // 1 if node is a leaf, zero if not
-            arbor_matrix(seg_idx, 6) = (double)arbors[n].synapses[a][i];        // 1 if node is a synapse, zero if not
-            arbor_matrix(seg_idx, 7) = arbors[n].coordinates[a][parent_idx][0]; // z_start
-            arbor_matrix(seg_idx, 8) = arbors[n].coordinates[a][parent_idx][1]; // y_start
-            arbor_matrix(seg_idx, 9) = arbors[n].coordinates[a][parent_idx][2]; // x_start
-            arbor_matrix(seg_idx, 10) = arbors[n].coordinates[a][i][0];         // z_end
-            arbor_matrix(seg_idx, 11) = arbors[n].coordinates[a][i][1];         // y_end
-            arbor_matrix(seg_idx, 12) = arbors[n].coordinates[a][i][2];         // x_end
+            }
+            if (arbors[n].synapses[a][i]) synapse_counts[n]++;                   // Accumulate synapse count for this neuron
+            arbor_matrix(seg_idx, 0)  = (double)n + 1;                           // neuron index, put into 1-indexed form for R
+            arbor_matrix(seg_idx, 1)  = (double)arbors[n].arbor_id[a];           // arbor ID number
+            arbor_matrix(seg_idx, 2)  = arbor_type;
+            arbor_matrix(seg_idx, 3)  = node_type_idx;                           // 0 = "soma", 1 = "dendrite_shaft", 2 = "axon_shaft", or 3 = "spine"
+            arbor_matrix(seg_idx, 4)  = parent_idx - parent_skip_counter + 1;    // put into 1-indexed form for R
+            arbor_matrix(seg_idx, 5)  = (double)arbors[n].leafs[a][i];           // 1 if node is a leaf, zero if not
+            arbor_matrix(seg_idx, 6)  = (double)arbors[n].synapses[a][i];        // 1 if node is a synapse, zero if not
+            arbor_matrix(seg_idx, 7)  = arbors[n].coordinates[a][parent_idx][0]; // z_start
+            arbor_matrix(seg_idx, 8)  = arbors[n].coordinates[a][parent_idx][1]; // y_start
+            arbor_matrix(seg_idx, 9)  = arbors[n].coordinates[a][parent_idx][2]; // x_start
+            arbor_matrix(seg_idx, 10) = arbors[n].coordinates[a][i][0];          // z_end
+            arbor_matrix(seg_idx, 11) = arbors[n].coordinates[a][i][1];          // y_end
+            arbor_matrix(seg_idx, 12) = arbors[n].coordinates[a][i][2];          // x_end
             seg_idx++;
           }
         }
       }
-    } else {
-      arbor_matrix = NumericMatrix(1, 1);
+      
     }
+    
+    // Gather which cells have arbors involving which motifs
+    int n_motifs = edges.motif_name.size();
+    arbor_motifs = NumericMatrix(n_neurons, n_motifs);
+    for (int i = 0; i < n_neurons; ++i) {
+      for (int j = 0; j < n_motifs; ++j) {
+        arbor_motifs(i, j) = arbors[i].motifs[j];
+      }
+    }
+    colnames(arbor_motifs) = edges.motif_name;
     
     // Add labels 
     NumericMatrix coordinates_node_R         = to_NumMat(coords.node);
-    // coords.node columns: 0=hemisphere, 1=subcortical layer, 2=patch, 3=cortical layer, 4=column
-    if (coordinates_node_R.size()         > 0) {colnames(coordinates_node_R)         = CharacterVector::create("hem_idx", "sub_lyr_idx", "patch_idx", "lyr_idx", "col_idx");}
+    // coords.node columns: 0=hemisphere, 1=subcortical layer, 2=patch, 3=cortical layer, 4=column, 5=apical layer
+    if (coordinates_node_R.size()         > 0) {colnames(coordinates_node_R)         = CharacterVector::create("hem_idx", "sub_lyr_idx", "patch_idx", "lyr_idx", "col_idx", "apical_lyr");}
     NumericMatrix coordinates_spatial_R      = to_NumMat(coords.spatial); 
     if (coordinates_spatial_R.size()      > 0) {colnames(coordinates_spatial_R)      = CharacterVector::create("z", "y", "x");}
     NumericMatrix node_coordinates_spatial_R = to_NumMat(coords.node_spatial);
@@ -1930,7 +2081,9 @@ List network::fetch_network_components(
       _["edge_type_names"]          = edges.motif_name,
       _["sim_dt"]                   = sim_dt
     );
-    result["arbors"] = arbor_matrix;
+    result["arbor_motifs"]   = arbor_motifs;
+    result["arbors"]         = arbor_matrix;
+    result["synapse_counts"] = synapse_counts;  // length n_neurons when include_arbors = TRUE, empty otherwise
     return result;
    
   }
@@ -1971,12 +2124,12 @@ MatrixXi network::find_pairwise_lags_by_axon(
         
         // Get axon and node idx
         int axon_idx = synapse_idx.arbor(idx_pre, idx_post);
-        if (axon_idx < 0) {continue;} // No synapse from this pre to this post
+        if (axon_idx < 0) { continue; } // No synapse from this pre to this post
         int node_idx = synapse_idx.node(idx_pre, idx_post);
         
         // Grab all nodes along the axon and their parents
-        std::vector<Vector3d> axon_coordinates = arbors[idx_pre].coordinates[axon_idx];
-        std::vector<int> axon_node_parents = arbors[idx_pre].parents[axon_idx];
+        Pnt3 axon_coordinates = arbors[idx_pre].coordinates[axon_idx];
+        Vint axon_node_parents = arbors[idx_pre].parents[axon_idx];
         double dist = 0;
         int parent_node_idx = axon_node_parents[node_idx];
         while (parent_node_idx >= 0) {
@@ -2022,7 +2175,7 @@ void network::SGT(
     // Collapse the transconductances into a single array
     //   ... rows as post-synaptic, cols as pre-synaptic
     ArrayXXd transconductances_sum = ArrayXXd::Zero(n_neurons, n_neurons);
-    for (const auto& m : edges.transconductance) {transconductances_sum += m;}
+    for (const auto& m : edges.transconductance) { transconductances_sum += m; }
     
     // Find pairwise distances between all neurons and convert into timestep lag matrix (rows as pre-synaptic, cols as post-synaptic)
     MatrixXi pair_lags = find_pairwise_lags_by_axon(dt);
@@ -2191,7 +2344,7 @@ void network::SGT(
 RCPP_EXPOSED_CLASS(motif)
 RCPP_MODULE(motif) {
   class_<motif>("motif")
-  .constructor<std::string>()
+  .constructor<std::string, int>()
   .method("load_projection", &motif::load_projection);
 }
 
@@ -2215,5 +2368,6 @@ RCPP_MODULE(Projection) {
   .field("pre_layer",     &Projection::pre_layer)
   .field("post_type",     &Projection::post_type)
   .field("post_layer",    &Projection::post_layer)
-  .field("hem_shift",     &Projection::hem_shift);
+  .field("hem_shift",     &Projection::hem_shift)
+  .field("via_apical",    &Projection::via_apical);
 }

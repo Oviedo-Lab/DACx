@@ -1,7 +1,7 @@
 Package: DACx
 Type: Package
 Title: Digital Auditory Cortex
-Version: 0.1.1
+Version: 1.0
 Date: 2026-04-02
 Author: Michael Barkasi
 Maintainer: Michael Barkasi <barkasi@wustl.edu>

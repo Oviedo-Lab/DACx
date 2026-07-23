@@ -8,12 +8,15 @@ load.projection.into.motif(
   motif,
   presynaptic_layer,
   postsynaptic_layer,
-  projection_conductance = 1e-10,
+  projection_conductance = 0.1,
   presynaptic_type = "principal",
   postsynaptic_type = "principal",
   max_col_shift_up = 0,
   max_col_shift_down = 0,
-  hem_shift = 0L
+  max_pch_shift_up = 0,
+  max_pch_shift_down = 0,
+  hem_shift = 0L,
+  via_apical = FALSE
 )
 }
 \arguments{
@@ -23,11 +26,11 @@ load.projection.into.motif(
 
 \item{postsynaptic_layer}{Character string, or vector of character strings, giving layer of postsynaptic neuron.}
 
-\item{projection_conductance}{Numeric giving overall strength of the projection, as synaptic conductance (default: 1e-10, which assumes implicit units of millisiemens).}
+\item{projection_conductance}{Numeric giving overall strength of the projection, as expected synaptic conductance (nS, default: 0.1).}
 
-\item{presynaptic_type}{Character string giving type of presynaptic neuron, e.g. "excitatory", "inhibitory", etc. (default: "principal").}
+\item{presynaptic_type}{Character string giving type of presynaptic neuron (default: "principal").}
 
-\item{postsynaptic_type}{Character string giving type of postsynaptic neuron, e.g. "excitatory", "inhibitory", etc. (default: "principal").}
+\item{postsynaptic_type}{Character string giving type of postsynaptic neuron (default: "principal").}
 
 \item{max_col_shift_up}{Maximum number of columns upwards (increasing columnar indexes) that the projection can reach (default: 0, should be positive integer).}
 

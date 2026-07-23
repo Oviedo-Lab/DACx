@@ -4,7 +4,12 @@
 \alias{fetch.network.components}
 \title{Fetch network components}
 \usage{
-fetch.network.components(network, include_arbors = FALSE, verbose = TRUE)
+fetch.network.components(
+  network,
+  include_arbors = FALSE,
+  return_arbors = TRUE,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{network}{Network object from which to fetch components.}
