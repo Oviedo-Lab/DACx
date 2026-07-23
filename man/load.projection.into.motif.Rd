@@ -12,7 +12,8 @@ load.projection.into.motif(
   presynaptic_type = "principal",
   postsynaptic_type = "principal",
   max_col_shift_up = 0,
-  max_col_shift_down = 0
+  max_col_shift_down = 0,
+  hem_shift = 0L
 )
 }
 \arguments{
@@ -31,6 +32,8 @@ load.projection.into.motif(
 \item{max_col_shift_up}{Maximum number of columns upwards (increasing columnar indexes) that the projection can reach (default: 0, should be positive integer).}
 
 \item{max_col_shift_down}{Maximum number of columns downwards (decreasing columnar indexes) that the projection can reach (default: 0, should be positive integer).}
+
+\item{hem_shift}{Hemisphere shift for the projection: 0 = same hemisphere (default), 1 = contralateral hemisphere. Ignored when the network has only one hemisphere.}
 }
 \value{
 The updated motif object with the new projection loaded.

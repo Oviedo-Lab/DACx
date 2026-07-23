@@ -19,7 +19,15 @@ set.network.structure(
   patch_separation_factor = 2.5,
   neurons_per_node = 10,
   local_synaptic_conductance = 1e-10,
-  synaptic_neighborhood = 10
+  synaptic_neighborhood = 10,
+  n_hemispheres = 1,
+  hemisphere_names = NULL,
+  hem_separation_factor = 5,
+  n_subcortical_layers = 0,
+  subcortical_layer_names = NULL,
+  sub_separation_factor = 5,
+  subcortical_neurons_per_node = NULL,
+  subcortical_local_conductance = list()
 )
 }
 \arguments{
@@ -27,9 +35,9 @@ set.network.structure(
 
 \item{neuron_types}{Character vector giving types of neurons in the network. Known types can be accessed using \code{print.known.celltypes()}. Default is "principal", which will assign the most common neuron type for each layer, as defined in \code{principal.neurons()}.}
 
-\item{layer_names}{Character vector giving names of layers in the network, ordered deepest to most superficial, e.g. c("L6", "L5", "L4", "L3", "L2", "L1").}
+\item{layer_names}{Character vector giving names of cortical layers in the network, ordered deepest to most superficial, e.g. c("L6", "L5", "L4", "L3", "L2", "L1").}
 
-\item{n_layers}{Integer giving number of layers in the network.}
+\item{n_layers}{Integer giving number of cortical layers in the network.}
 
 \item{n_columns}{Integer giving number of columns in the network.}
 
@@ -47,11 +55,27 @@ set.network.structure(
 
 \item{patch_separation_factor}{Numeric giving mean distance between network patches as a fraction of column diameter (default: 2.5).}
 
-\item{neurons_per_node}{Matrix giving number of neurons of each type per node in each layer; dimensions must match n_layers (rows) and length of neuron_types (columns).}
+\item{neurons_per_node}{Matrix giving mean number of neurons of each type per node in each cortical layer; dimensions must match n_layers (rows) and length of neuron_types (columns).}
 
-\item{local_synaptic_conductance}{List (one entry per layer) of matrices giving synaptic conductance in millisiemens for local connections by cell-type; each matrix must have dimensions matching length of neuron_types (rows and columns).}
+\item{local_synaptic_conductance}{List (one entry per cortical layer) of matrices giving synaptic conductance in millisiemens for local connections by cell-type; each matrix must have dimensions matching length of neuron_types (rows and columns).}
 
 \item{synaptic_neighborhood}{Numeric giving the radius (in microns) within which an axon node will trigger a synapse when near a dendrite node (default: 10.0).}
+
+\item{n_hemispheres}{Integer giving number of hemispheres; must be 1 or 2 (default: 1).}
+
+\item{hemisphere_names}{Character vector of length n_hemispheres giving names for the hemispheres (default: auto-generated as "left" or c("left","right")).}
+
+\item{hem_separation_factor}{Numeric giving distance between hemispheres as a fraction of column diameter (default: 5.0).}
+
+\item{n_subcortical_layers}{Integer giving number of subcortical layers (e.g., thalamic relay nuclei); can be 0 (default: 0).}
+
+\item{subcortical_layer_names}{Character vector of length n_subcortical_layers giving names for the subcortical layers (default: auto-generated as "subL1", "subL2", ...). Must be distinct from all cortical layer names.}
+
+\item{sub_separation_factor}{Numeric giving distance from the cortical sheet to the first subcortical layer as a fraction of layer height (default: 5.0).}
+
+\item{subcortical_neurons_per_node}{Matrix giving mean number of neurons of each type per node in each subcortical layer; dimensions must match n_subcortical_layers (rows) and length of neuron_types (columns). Required if n_subcortical_layers > 0.}
+
+\item{subcortical_local_conductance}{List (one entry per subcortical layer) of matrices giving synaptic conductance for local connections in each subcortical layer. Required if n_subcortical_layers > 0; can be a single matrix or scalar (broadcast to all layers).}
 }
 \value{
 The updated network object with the specified structure and local nodes generated.

@@ -291,6 +291,7 @@ principal.neurons <- function(print_nicely = FALSE) {
 #' @param postsynaptic_type Character string giving type of postsynaptic neuron, e.g. "excitatory", "inhibitory", etc. (default: "principal").
 #' @param max_col_shift_up Maximum number of columns upwards (increasing columnar indexes) that the projection can reach (default: 0, should be positive integer).
 #' @param max_col_shift_down Maximum number of columns downwards (decreasing columnar indexes) that the projection can reach (default: 0, should be positive integer).
+#' @param hem_shift Hemisphere shift for the projection: 0 = same hemisphere (default), 1 = contralateral hemisphere. Ignored when the network has only one hemisphere.
 #' @return The updated motif object with the new projection loaded.
 #' @export
 load.projection.into.motif <- function(
@@ -301,7 +302,8 @@ load.projection.into.motif <- function(
     presynaptic_type = "principal",
     postsynaptic_type = "principal",
     max_col_shift_up = 0,
-    max_col_shift_down = 0
+    max_col_shift_down = 0,
+    hem_shift = 0L
   ) {
    
     # Check length of presynaptic_layer
@@ -315,11 +317,17 @@ load.projection.into.motif <- function(
     n_post_layers <- length(postsynaptic_layer)
     postsynaptic_type <- rep(postsynaptic_type, n_post_layers)
     
-    # Set principal type by layer 
-    if (presynaptic_type == "principal") {presynaptic_type <- principal.neurons()[[presynaptic_layer]] } 
+    # Set principal type by layer (only defined for cortical layers; subcortical layers require explicit type)
+    if (presynaptic_type == "principal") {
+      ptype <- principal.neurons()[[presynaptic_layer]]
+      if (is.null(ptype)) stop(paste0("Cannot resolve 'principal' type for layer '", presynaptic_layer, "'. Specify presynaptic_type explicitly for subcortical layers."))
+      presynaptic_type <- ptype
+    }
     if (postsynaptic_type[1] == "principal") {
       for (i in c(1:n_post_layers)) {
-        postsynaptic_type[i] <- principal.neurons()[[postsynaptic_layer[i]]]
+        ptype <- principal.neurons()[[postsynaptic_layer[i]]]
+        if (is.null(ptype)) stop(paste0("Cannot resolve 'principal' type for layer '", postsynaptic_layer[i], "'. Specify postsynaptic_type explicitly for subcortical layers."))
+        postsynaptic_type[i] <- ptype
       }
     }
     
@@ -328,10 +336,11 @@ load.projection.into.motif <- function(
       # Initialize new projection object
       proj <- new(Projection)
       # Load projection parameters 
-      proj$pre_type <- presynaptic_type
+      proj$pre_type  <- presynaptic_type
       proj$pre_layer <- presynaptic_layer
       proj$post_type <- postsynaptic_type[i]
       proj$post_layer <- postsynaptic_layer[i]
+      proj$hem_shift <- as.integer(hem_shift)
       # Add projection to motif
       motif$load_projection(
         proj,
@@ -351,8 +360,8 @@ load.projection.into.motif <- function(
 #' 
 #' @param network Network object to configure.
 #' @param neuron_types Character vector giving types of neurons in the network. Known types can be accessed using \code{print.known.celltypes()}. Default is "principal", which will assign the most common neuron type for each layer, as defined in \code{principal.neurons()}.
-#' @param layer_names Character vector giving names of layers in the network, ordered deepest to most superficial, e.g. c("L6", "L5", "L4", "L3", "L2", "L1").
-#' @param n_layers Integer giving number of layers in the network.
+#' @param layer_names Character vector giving names of cortical layers in the network, ordered deepest to most superficial, e.g. c("L6", "L5", "L4", "L3", "L2", "L1").
+#' @param n_layers Integer giving number of cortical layers in the network.
 #' @param n_columns Integer giving number of columns in the network.
 #' @param patch_depth Integer giving the number of "patches" (n_layers x n_columns sheets) in the network.
 #' @param layer_height Numeric giving height of each layer (default value is 180.0, which assumes an implicit unit of micron).
@@ -361,9 +370,17 @@ load.projection.into.motif <- function(
 #' @param layer_separation_factor Numeric giving mean distance between layers as a fraction of layer height (default: 2.5).
 #' @param column_separation_factor Numeric giving mean distance between columns as a fraction of column diameter (default: 2.5).
 #' @param patch_separation_factor Numeric giving mean distance between network patches as a fraction of column diameter (default: 2.5). 
-#' @param neurons_per_node Matrix giving number of neurons of each type per node in each layer; dimensions must match n_layers (rows) and length of neuron_types (columns).
-#' @param local_synaptic_conductance List (one entry per layer) of matrices giving synaptic conductance in millisiemens for local connections by cell-type; each matrix must have dimensions matching length of neuron_types (rows and columns).
+#' @param neurons_per_node Matrix giving mean number of neurons of each type per node in each cortical layer; dimensions must match n_layers (rows) and length of neuron_types (columns).
+#' @param local_synaptic_conductance List (one entry per cortical layer) of matrices giving synaptic conductance in millisiemens for local connections by cell-type; each matrix must have dimensions matching length of neuron_types (rows and columns).
 #' @param synaptic_neighborhood Numeric giving the radius (in microns) within which an axon node will trigger a synapse when near a dendrite node (default: 10.0).
+#' @param n_hemispheres Integer giving number of hemispheres; must be 1 or 2 (default: 1).
+#' @param hemisphere_names Character vector of length n_hemispheres giving names for the hemispheres (default: auto-generated as "left" or c("left","right")).
+#' @param hem_separation_factor Numeric giving distance between hemispheres as a fraction of column diameter (default: 5.0).
+#' @param n_subcortical_layers Integer giving number of subcortical layers (e.g., thalamic relay nuclei); can be 0 (default: 0).
+#' @param subcortical_layer_names Character vector of length n_subcortical_layers giving names for the subcortical layers (default: auto-generated as "subL1", "subL2", ...). Must be distinct from all cortical layer names.
+#' @param sub_separation_factor Numeric giving distance from the cortical sheet to the first subcortical layer as a fraction of layer height (default: 5.0).
+#' @param subcortical_neurons_per_node Matrix giving mean number of neurons of each type per node in each subcortical layer; dimensions must match n_subcortical_layers (rows) and length of neuron_types (columns). Required if n_subcortical_layers > 0.
+#' @param subcortical_local_conductance List (one entry per subcortical layer) of matrices giving synaptic conductance for local connections in each subcortical layer. Required if n_subcortical_layers > 0; can be a single matrix or scalar (broadcast to all layers).
 #' @return The updated network object with the specified structure and local nodes generated.
 #' @export
 set.network.structure <- function(
@@ -381,8 +398,36 @@ set.network.structure <- function(
     patch_separation_factor = 2.5,
     neurons_per_node = 10,
     local_synaptic_conductance = 1e-10,
-    synaptic_neighborhood = 10.0
+    synaptic_neighborhood = 10.0,
+    n_hemispheres = 1,
+    hemisphere_names = NULL,
+    hem_separation_factor = 5.0,
+    n_subcortical_layers = 0,
+    subcortical_layer_names = NULL,
+    sub_separation_factor = 5.0,
+    subcortical_neurons_per_node = NULL,
+    subcortical_local_conductance = list()
   ) {
+    
+    # Check hemisphere count and auto-generate hemisphere names
+    if (!(n_hemispheres %in% c(1L, 2L))) stop("n_hemispheres must be 1 or 2.")
+    if (is.null(hemisphere_names)) {
+      hemisphere_names <- if (n_hemispheres == 1) "left" else c("left", "right")
+    }
+    if (length(hemisphere_names) != n_hemispheres) {
+      stop("Length of hemisphere_names must equal n_hemispheres.")
+    }
+    
+    # Auto-generate subcortical layer names if needed
+    if (n_subcortical_layers > 0 && is.null(subcortical_layer_names)) {
+      subcortical_layer_names <- paste0("subL", seq_len(n_subcortical_layers))
+    }
+    if (n_subcortical_layers == 0) {
+      subcortical_layer_names <- character(0)
+    }
+    if (length(subcortical_layer_names) != n_subcortical_layers) {
+      stop("Length of subcortical_layer_names must equal n_subcortical_layers.")
+    }
     
     # Check layer names
     if (length(layer_names) != n_layers) {
@@ -530,56 +575,85 @@ set.network.structure <- function(
       stop("Dimensions of neurons_per_node must match n_layers and length of neuron_types.")
     }
     
-    # Check conductance values
-    if (!("list" %in% class(local_synaptic_conductance))) {
-      if ("matrix" %in% class(local_synaptic_conductance) || "numeric" %in% class(local_synaptic_conductance)) {
-        rm <- as.matrix(local_synaptic_conductance)
-        if (length(rm) != n_neuron_types^2) {
+    # Helper: coerce conductance input to a list of n x n matrices
+    coerce_conductance <- function(cond, n_lyrs, n_types, label) {
+      if (!("list" %in% class(cond))) {
+        if ("matrix" %in% class(cond) || "numeric" %in% class(cond)) {
+          rm <- as.matrix(cond)
           if (length(rm) == 1) {
-            rm <- matrix(
-              rm, 
-              nrow = n_neuron_types, 
-              ncol = n_neuron_types
-            )
-          } else {
-            stop("Dimensions of local_synaptic_conductance matrix must match length of neuron_types, or be a single numeric scalar.")
+            rm <- matrix(rm, nrow = n_types, ncol = n_types)
+          } else if (length(rm) != n_types^2) {
+            stop(paste0("Dimensions of ", label, " matrix must match length of neuron_types, or be a single numeric scalar."))
           }
+          out <- list()
+          for (l in seq_len(n_lyrs)) out[[l]] <- rm
+          return(out)
+        } else {
+          stop(paste0(label, " must be a list of matrices, a single matrix, or a single numeric scalar."))
         }
-        local_synaptic_conductance <- list()
-        for (l in seq_len(n_layers)) local_synaptic_conductance[[l]] <- rm
+      } else if (length(cond) != n_lyrs) {
+        stop(paste0("Length of ", label, " list must match ", n_lyrs, "."))
       } else {
-        stop("local_synaptic_conductance must be a list of matrices, a single matrix, or a single numeric scalar.")
-      }
-    } else if (length(local_synaptic_conductance) != n_layers) {
-      stop("Length of local_synaptic_conductance list must match n_layers.") 
-    } else {
-      for (l in seq_len(n_layers)) {
-        sc_dim <- dim(local_synaptic_conductance[[l]])
-        if (length(sc_dim) != 2) {
-          stop(paste0("local_synaptic_conductance[[", l, "]] must be a matrix."))
+        for (l in seq_len(n_lyrs)) {
+          sc_dim <- dim(cond[[l]])
+          if (length(sc_dim) != 2) stop(paste0(label, "[[", l, "]] must be a matrix."))
+          if (any(sc_dim != c(n_types, n_types))) stop(paste0("Dimensions of ", label, "[[", l, "]] must match length of neuron_types."))
         }
-        if (any(sc_dim != c(n_neuron_types, n_neuron_types))) {
-          stop(paste0("Dimensions of local_synaptic_conductance[[", l, "]] must match length of neuron_types."))
-        }
+        return(cond)
       }
     }
     
-    # Set structure
+    # Check / coerce cortical conductance values
+    local_synaptic_conductance <- coerce_conductance(
+      local_synaptic_conductance, n_layers, n_neuron_types, "local_synaptic_conductance"
+    )
+    
+    # Check / coerce subcortical conductance values
+    if (n_subcortical_layers > 0) {
+      if (length(subcortical_local_conductance) == 0) {
+        stop("subcortical_local_conductance is required when n_subcortical_layers > 0.")
+      }
+      subcortical_local_conductance <- coerce_conductance(
+        subcortical_local_conductance, n_subcortical_layers, n_neuron_types, "subcortical_local_conductance"
+      )
+    }
+    
+    # Build combined neurons_per_node matrix (cortical rows first, then subcortical)
+    if (n_subcortical_layers > 0) {
+      if (is.null(subcortical_neurons_per_node)) {
+        stop("subcortical_neurons_per_node is required when n_subcortical_layers > 0.")
+      }
+      # Coerce to matrix
+      if (is.null(dim(subcortical_neurons_per_node))) {
+        if (length(subcortical_neurons_per_node) == 1) {
+          subcortical_neurons_per_node <- matrix(subcortical_neurons_per_node, nrow = n_subcortical_layers, ncol = n_neuron_types)
+        } else if (length(subcortical_neurons_per_node) == n_neuron_types) {
+          subcortical_neurons_per_node <- matrix(rep(subcortical_neurons_per_node, n_subcortical_layers), nrow = n_subcortical_layers, ncol = n_neuron_types, byrow = TRUE)
+        } else {
+          stop("subcortical_neurons_per_node must have n_subcortical_layers rows and length(neuron_types) columns.")
+        }
+      }
+      if (any(dim(subcortical_neurons_per_node) != c(n_subcortical_layers, n_neuron_types))) {
+        stop("subcortical_neurons_per_node must have n_subcortical_layers rows and length(neuron_types) columns.")
+      }
+      nrn_per_node_combined <- rbind(neurons_per_node, subcortical_neurons_per_node)
+    } else {
+      nrn_per_node_combined <- neurons_per_node
+    }
+    
+    # Set structure (new C++ signature: hsl_names as list, n as 5-vector, sep_factor as 5-vector)
     network$set_network_structure(
       neuron_types,
-      layer_names,
-      as.integer(n_layers),
-      as.integer(n_columns),
-      as.integer(patch_depth),
+      list(hemisphere_names, subcortical_layer_names, layer_names),  # hsl_names: {hem, sub, lyr}
+      as.integer(c(n_hemispheres, n_subcortical_layers, n_layers, n_columns, patch_depth)),  # n
+      c(hem_separation_factor, sub_separation_factor, layer_separation_factor, column_separation_factor, patch_separation_factor),  # sep_factors
       layer_height,
       column_diameter,
       segment_length, 
-      layer_separation_factor,
-      column_separation_factor,
-      patch_separation_factor,
       synaptic_neighborhood,
-      neurons_per_node,
-      local_synaptic_conductance
+      nrn_per_node_combined,
+      local_synaptic_conductance,
+      subcortical_local_conductance
     )
     
     # Make local nodes and return
@@ -627,8 +701,12 @@ fetch.network.components <- function(
       if (include_arbors) {
         cat("\tNumber of synapses:", sum(network.components$arbors[,"is_synapse"]), "\n")
       }
-      cat("\tLayer names:", paste(network.components$layer_names, collapse = ", "), "\n")
-      cat("\tNumber of layers:", network.components$n_layers, "\n")
+      cat("\tHemisphere names:", paste(network.components$hem_names, collapse = ", "), "\n")
+      cat("\tNumber of hemispheres:", network.components$n_hem, "\n")
+      cat("\tSubortical layer names:", paste(network.components$sub_names, collapse = ", "), "\n")
+      cat("\tNumber of subcortical layers:", network.components$n_sub, "\n")
+      cat("\tCortical layer names:", paste(network.components$layer_names, collapse = ", "), "\n")
+      cat("\tNumber of cortical layers:", network.components$n_layers, "\n")
       cat("\tNumber of columns:", network.components$n_columns, "\n")
       cat("\tNumber of patches:", network.components$n_patches, "\n")
       cat("\tCell types used:", paste(unique(network.components$neuron_type_name), collapse = ", "), "\n")
@@ -775,9 +853,23 @@ plot.network <- function(
     neuron_coordinates <- ntw$coordinates_spatial[soma_mask,]
     neuron_types <- ntw$neuron_type_name[soma_mask]
     
-    # Get layer information 
-    layer_names <- ntw$layer_names
-    neuron_layer <- as.factor(layer_names[ntw$coordinates_node[soma_mask, "layer_idx"]])
+    # Get layer information - resolve each neuron to a display name
+    # coords_node columns: hem_idx, sub_lyr_idx, patch_idx, lyr_idx, col_idx
+    # -1 in lyr_idx means subcortical; -1 in sub_lyr_idx means cortical
+    node_tbl    <- ntw$coordinates_node[soma_mask, , drop = FALSE]
+    lyr_idx_vec <- node_tbl[, "lyr_idx"]      # 1-based cortical layer, or -1
+    sub_idx_vec <- node_tbl[, "sub_lyr_idx"]  # 1-based subcortical layer, or -1
+    neuron_layer_labels <- character(nrow(node_tbl))
+    for (.i in seq_len(nrow(node_tbl))) {
+      if (lyr_idx_vec[.i] >= 1) {
+        neuron_layer_labels[.i] <- ntw$layer_names[lyr_idx_vec[.i]]
+      } else if (sub_idx_vec[.i] >= 1) {
+        neuron_layer_labels[.i] <- ntw$sub_names[sub_idx_vec[.i]]
+      } else {
+        neuron_layer_labels[.i] <- "unknown"
+      }
+    }
+    neuron_layer <- as.factor(neuron_layer_labels)
     
     # Find range of possible neurons for arbor plotting, based on cell type if specified
     edge_celltype_mask <- TRUE
@@ -994,9 +1086,9 @@ plot.network <- function(
       
       # Remake level names for plotly
       if (edge_color == "is_axon") {
-        level_names <- c("axon", "dendrite", layer_names)
+        level_names <- c("axon", "dendrite", ntw$layer_names)
       } else if (edge_color == "pre_type") {
-        level_names <- c(unique(edges$pre_type), layer_names)
+        level_names <- c(unique(edges$pre_type), ntw$layer_names)
       } else {
         stop("edge_color must be 'is_axon' or 'pre_type' when reconstructing arbors.")
       }
