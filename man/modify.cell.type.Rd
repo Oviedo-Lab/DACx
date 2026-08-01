@@ -29,37 +29,37 @@ modify.cell.type(
 )
 }
 \arguments{
-\item{type_name}{Character string giving name of the cell type, e.g. "excitatory", "inhibitory", "PV", "SST", etc.}
+\item{type_name}{Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.}
 
 \item{valence}{Valence of each neuron type, +1 for excitatory, -1 for inhibitory.}
 
-\item{tau_fast}{Placeholder}
+\item{tau_fast}{Time constant (ms) of the fast sodium (Na+) current (positive current, time to flow in).}
 
-\item{tau_slow}{Placeholder}
+\item{tau_slow}{Time constant (ms) of the slow calcium (Ca2+) current (negative current, time to pump out).}
 
-\item{tau_Vs}{Placeholder}
+\item{tau_Vs}{Time constant (ms) for restoring presynaptic vesicles, i.e., recovery from short-term depression (STD).}
 
-\item{I_slow}{Placeholder}
+\item{I_slow}{Slow-current molecule (e.g., Ca2+) influx as concentration per spike (concentration/spike).}
 
-\item{U_Vs}{Placeholder}
+\item{U_Vs}{Utilization ratio (concentration/spike) of vesicles per spike.}
 
-\item{max_spike_rate}{Number of spikes which can be "cleared" per ms (spikes/ms).}
+\item{max_spike_rate}{Constant (spikes/ms) controlling estimation of spike rate and its maximum value.}
 
-\item{transmission_velocity}{Transmission velocity (in microns/ms) for each neuron type.}
+\item{transmission_velocity}{Transmission velocity (in microns/ms) along axon, for each neuron type.}
 
-\item{spine_density}{Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine.}
+\item{spine_density}{Scale controlling percentage of dendrite nodes with spines: zero means none, one means all.}
 
 \item{axon_target}{Character string giving target of axon projections, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft".}
 
-\item{I_spike}{Spike current, in pA; absolute value (plus a little bit) used as \code{dHdv_bound}.}
+\item{I_spike}{Spike current, in pA; absolute value plus a little bit used as \code{dHdv_bound}.}
 
-\item{spike_potential}{Magnitude of each spike, in mV.}
+\item{spike_potential}{Peak potential during a spike, in mV.}
 
-\item{resting_potential}{Resting potential, in mV; absolute value (plus a little bit) used as \code{v_bound}.}
+\item{resting_potential}{Resting potential, in mV; absolute value plus a little bit used as \code{v_bound}.}
 
 \item{threshold}{Spike threshold, in mV.}
 
-\item{leak_conductance}{Conductance controlling the leak current, \code{I_leak = leak_conductance (resting_potential - v)}, in nS.}
+\item{leak_conductance}{Conductance controlling the leak current, \code{I_leak = leak_conductance * (resting_potential - v)}, in nS.}
 
 \item{axon_branch_count}{Expected number of axon branches.}
 

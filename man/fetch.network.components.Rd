@@ -16,6 +16,8 @@ fetch.network.components(
 
 \item{include_arbors}{Logical indicating whether to include arbor information in the fetched components (can be large and computationally intensive, default = FALSE).}
 
+\item{return_arbors}{Logical indicating whether to return the raw arbor matrix in the output. When FALSE and include_arbors is TRUE, the arbor matrix is dropped to reduce memory usage (default: TRUE). The arbor matrix can be large (> 1 GB) and is used internally for computation but may not be needed by the user.}
+
 \item{verbose}{Logical indicating whether to print a summary of the fetched components (default: TRUE).}
 }
 \value{

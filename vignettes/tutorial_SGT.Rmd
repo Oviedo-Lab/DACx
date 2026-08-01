@@ -1,7 +1,7 @@
 ---
 title: "Spatial growth-transform models"
 author: "Michael Barkasi"
-date: "July 13, 2026 (v1.0)"
+date: "August 1, 2026 (v1.0)"
 ---
 
 ```{r Rmdsetup, echo=FALSE}
@@ -263,35 +263,4 @@ plt <- plot.network.traces(network.node, return_plot = TRUE)  +
   ggplot2::geom_vline(xintercept = stim_start * dt, linewidth = 1)
 print(plt)
 ```
-
-```{r}
-integrating_cell <- new.network()
-add.cell.type(
-    "leaky_integrator",
-    valence   = 1.0,     # excititory cell
-    temporal_modulation_bias      = 10.0, 
-    temporal_modulation_amplitude = 0.0,
-    #spike_recovery_rate           = 0.01, # spikes/ms (default)
-    threshold = -55    # the default, showing for clarity
-  )
-
-integrating_cell <- set.network.structure(
-    integrating_cell, 
-    neuron_types = c("leaky_integrator"), 
-    neurons_per_node = 1
-  )
-```
-
-```{r SGT_integrating}
-stim  <- matrix(0, nrow = 1, ncol = n_steps)
-stim[1,] <- stimulus_current_matrix[1,]
-integrating_cell_results <- run.SGT(
-  integrating_cell,
-  stim,
-  dt,
-  initial_potential = -70
-)
-plot.network.traces(integrating_cell, input_matrix = stim)
-```
-
 

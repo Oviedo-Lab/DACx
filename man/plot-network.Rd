@@ -17,9 +17,9 @@ plot.network(
  reconstruct_arbors = TRUE,
  edge_color = "pre_type", 
  soma_color = "layer", 
- soma_size_factor = 3.0, 
- return_plot = FALSE,
- return_cell_arbor_idx = FALSE
+ soma_size_factor = 0.5, 
+ return_plot = TRUE,
+ return_cell_arbor_idx = TRUE
 )
 }
 \arguments{
@@ -47,7 +47,7 @@ plot.network(
 
 \item{soma_color}{Character string specifying how to color the nodes; options include "layer" to color by layer index or "type" to color by neuron type (default: "layer").}
 
-\item{soma_size_factor}{Numeric value controlling how cell size in the plot scales to the number of cells.}
+\item{soma_size_factor}{Numeric value controlling how cell size in the plot scales to the number of cells (default: 0.5).}
 
 \item{return_plot}{Logical indicating whether to return the ggplot object or print the plot directly (default: TRUE).}
 

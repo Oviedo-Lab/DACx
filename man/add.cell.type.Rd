@@ -33,33 +33,33 @@ add.cell.type(
 
 \item{valence}{Valence of each neuron type, +1 for excitatory, -1 for inhibitory.}
 
-\item{tau_fast}{Placeholder}
+\item{tau_fast}{Time constant (ms) of the fast sodium (Na+) current (positive current, time to flow in). Default is 1.0.}
 
-\item{tau_slow}{Placeholder}
+\item{tau_slow}{Time constant (ms) of the slow calcium (Ca2+) current (negative current, time to pump out). Default is 60.0.}
 
-\item{tau_Vs}{Placeholder}
+\item{tau_Vs}{Time constant (ms) for restoring presynaptic vesicles, i.e., recovery from short-term depression (STD). Default is 100.0.}
 
-\item{I_slow}{Placeholder}
+\item{I_slow}{Slow-current molecule (e.g., Ca2+) influx as concentration per spike (concentration/spike). Default is 0.01.}
 
-\item{U_Vs}{Placeholder}
+\item{U_Vs}{Utilization ratio (concentration/spike) of vesicles per spike. Default is 0.05.}
 
-\item{max_spike_rate}{Number of spikes which can be "cleared" per ms (spikes/ms). Default is 0.01.}
+\item{max_spike_rate}{Constant (spikes/ms) controlling estimation of spike rate and its maximum value. Default is 0.1.}
 
-\item{transmission_velocity}{Transmission velocity (in microns/ms) for each neuron type. Default value is 30e3.}
+\item{transmission_velocity}{Transmission velocity (in microns/ms) along axon, for each neuron type. Default value is 30e3.}
 
-\item{spine_density}{Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0.}
+\item{spine_density}{Scale controlling percentage of dendrite nodes with spines: zero means none, one means all. Default is 0.0.}
 
-\item{axon_target}{Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".}
+\item{axon_target}{Character string giving target of axon projections, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".}
 
-\item{I_spike}{Spike current, in pA. Default value is 1e3 (i.e., 1 nA); absolute value (plus a little bit) used as \code{dHdv_bound}.}
+\item{I_spike}{Spike current, in pA; absolute value plus a little bit used as \code{dHdv_bound}. Default value is 1e3 (i.e., 1 nA).}
 
-\item{spike_potential}{Magnitude of each spike, in mV. Default value is 35.0.}
+\item{spike_potential}{Peak potential during a spike, in mV. Default value is 35.0.}
 
-\item{resting_potential}{Resting potential, in mV. Default value is -70.0; absolute value (plus a little bit) used as \code{v_bound}.}
+\item{resting_potential}{Resting potential, in mV; absolute value plus a little bit used as \code{v_bound}. Default value is -70.0.}
 
 \item{threshold}{Spike threshold, in mV. Default value is -55.0.}
 
-\item{leak_conductance}{Conductance controlling the leak current, \code{I_leak = leak_conductance (resting_potential - v)}, in nS. Default value is 10 nS.}
+\item{leak_conductance}{Conductance controlling the leak current, \code{I_leak = leak_conductance * (resting_potential - v)}, in nS. Default value is 10.0.}
 
 \item{axon_branch_count}{Expected number of axon branches. Default is 10.}
 
@@ -69,7 +69,7 @@ add.cell.type(
 
 \item{branch_spread}{Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma. Default is 0.5.}
 
-\item{apical_target_layer}{Character string giving target layer for apical dendrites. Default: "none".}
+\item{apical_target_layer}{Character string giving target layer for apical dendrites. Default is "none".}
 }
 \value{
 Nothing.

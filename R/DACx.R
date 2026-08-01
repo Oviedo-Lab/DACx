@@ -93,72 +93,72 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 #' 
 #' @param type_name Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.
 #' @param valence Valence of each neuron type, +1 for excitatory, -1 for inhibitory.
-#' @param tau_fast Placeholder
-#' @param tau_slow Placeholder
-#' @param tau_Vs Placeholder
-#' @param I_slow Placeholder 
-#' @param U_Vs Placeholder 
-#' @param max_spike_rate Number of spikes which can be "cleared" per ms (spikes/ms). Default is 0.01.
-#' @param transmission_velocity Transmission velocity (in microns/ms) for each neuron type. Default value is 30e3.
-#' @param spine_density Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine. Default is 0.0. 
-#' @param axon_target Character string giving target of axon projections for each neuron type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".
-#' @param I_spike Spike current, in pA. Default value is 1e3 (i.e., 1 nA); absolute value (plus a little bit) used as \code{dHdv_bound}.
-#' @param spike_potential Magnitude of each spike, in mV. Default value is 35.0.
-#' @param resting_potential Resting potential, in mV. Default value is -70.0; absolute value (plus a little bit) used as \code{v_bound}.
+#' @param tau_fast Time constant (ms) of the fast sodium (Na+) current (positive current, time to flow in). Default is 1.0.
+#' @param tau_slow Time constant (ms) of the slow calcium (Ca2+) current (negative current, time to pump out). Default is 60.0.
+#' @param tau_Vs Time constant (ms) for restoring presynaptic vesicles, i.e., recovery from short-term depression (STD). Default is 100.0.
+#' @param I_slow Slow-current molecule (e.g., Ca2+) influx as concentration per spike (concentration/spike). Default is 0.01.
+#' @param U_Vs Utilization ratio (concentration/spike) of vesicles per spike. Default is 0.05.
+#' @param max_spike_rate Constant (spikes/ms) controlling estimation of spike rate and its maximum value. Default is 0.1.
+#' @param transmission_velocity Transmission velocity (in microns/ms) along axon, for each neuron type. Default value is 30e3.
+#' @param spine_density Scale controlling percentage of dendrite nodes with spines: zero means none, one means all. Default is 0.0. 
+#' @param axon_target Character string giving target of axon projections, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".
+#' @param I_spike Spike current, in pA; absolute value plus a little bit used as \code{dHdv_bound}. Default value is 1e3 (i.e., 1 nA).
+#' @param spike_potential Peak potential during a spike, in mV. Default value is 35.0.
+#' @param resting_potential Resting potential, in mV; absolute value plus a little bit used as \code{v_bound}. Default value is -70.0.
 #' @param threshold Spike threshold, in mV. Default value is -55.0.
-#' @param leak_conductance Conductance controlling the leak current, \code{I_leak = leak_conductance (resting_potential - v)}, in nS. Default value is 10 nS.
+#' @param leak_conductance Conductance controlling the leak current, \code{I_leak = leak_conductance * (resting_potential - v)}, in nS. Default value is 10.0.
 #' @param axon_branch_count Expected number of axon branches. Default is 10. 
 #' @param dendrite_branch_count Expected number of dendrite branches. Default is 10. 
 #' @param branch_independence Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma. Default is 0.5.
 #' @param branch_spread Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma. Default is 0.5.
-#' @param apical_target_layer Character string giving target layer for apical dendrites. Default: "none".
+#' @param apical_target_layer Character string giving target layer for apical dendrites. Default is "none".
 #' @return Nothing.
 #' @export
 add.cell.type <- function(
     type_name,
     valence,
-    tau_fast                         = 1.0,
-    tau_slow                         = 60.0,
-    tau_Vs                           = 100.0,
-    I_slow                           = 0.01, 
-    U_Vs                             = 0.05, 
-    max_spike_rate                   = 0.1,
-    transmission_velocity            = 30e3,
-    spine_density                    = 0.0,
-    axon_target                      = "dendrite_shaft",
-    I_spike                          = 1e3,
-    spike_potential                  = 35.0,
-    resting_potential                = -70.0,
-    threshold                        = -55.0,
-    leak_conductance                 = 10.0,
-    axon_branch_count                = 10L,
-    dendrite_branch_count            = 10L,
-    branch_independence              = 0.5,
-    branch_spread                    = 0.5,
-    apical_target_layer              = "none"
+    tau_fast              = 1.0,
+    tau_slow              = 60.0,
+    tau_Vs                = 100.0,
+    I_slow                = 0.01, 
+    U_Vs                  = 0.05, 
+    max_spike_rate        = 0.1,
+    transmission_velocity = 30e3,
+    spine_density         = 0.0,
+    axon_target           = "dendrite_shaft",
+    I_spike               = 1e3,
+    spike_potential       = 35.0,
+    resting_potential     = -70.0,
+    threshold             = -55.0,
+    leak_conductance      = 10.0,
+    axon_branch_count     = 10L,
+    dendrite_branch_count = 10L,
+    branch_independence   = 0.5,
+    branch_spread         = 0.5,
+    apical_target_layer   = "none"
   ) {
     add_cell_type(list(
-      type_name                        = type_name,
-      valence                          = as.integer(valence),
-      tau_fast                         = tau_fast, 
-      tau_slow                         = tau_slow, 
-      tau_Vs                           = tau_Vs, 
-      I_slow                           = I_slow, 
-      U_Vs                             = U_Vs, 
-      max_spike_rate                   = max_spike_rate,
-      transmission_velocity            = transmission_velocity,
-      spine_density                    = spine_density,
-      axon_target                      = axon_target,
-      I_spike                          = I_spike,
-      spike_potential                  = spike_potential,
-      resting_potential                = resting_potential,
-      threshold                        = threshold,
-      leak_conductance                 = leak_conductance,
-      axon_branch_count                = as.integer(axon_branch_count),
-      dendrite_branch_count            = as.integer(dendrite_branch_count),
-      branch_independence              = branch_independence,
-      branch_spread                    = branch_spread,
-      apical_target_layer              = apical_target_layer
+      type_name             = type_name,
+      valence               = as.integer(valence),
+      tau_fast              = tau_fast, 
+      tau_slow              = tau_slow, 
+      tau_Vs                = tau_Vs, 
+      I_slow                = I_slow, 
+      U_Vs                  = U_Vs, 
+      max_spike_rate        = max_spike_rate,
+      transmission_velocity = transmission_velocity,
+      spine_density         = spine_density,
+      axon_target           = axon_target,
+      I_spike               = I_spike,
+      spike_potential       = spike_potential,
+      resting_potential     = resting_potential,
+      threshold             = threshold,
+      leak_conductance      = leak_conductance,
+      axon_branch_count     = as.integer(axon_branch_count),
+      dendrite_branch_count = as.integer(dendrite_branch_count),
+      branch_independence   = branch_independence,
+      branch_spread         = branch_spread,
+      apical_target_layer   = apical_target_layer
     ))
   }
 
@@ -166,22 +166,22 @@ add.cell.type <- function(
 #' 
 #' This function modifies parameters of an existing cell type in the current session. Parameters can be updated selectively. If a parameter is not specified (or is specified as \code{NULL}), the existing value will be kept.
 #' 
-#' @param type_name Character string giving name of the cell type, e.g. "excitatory", "inhibitory", "PV", "SST", etc.
+#' @param type_name Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.
 #' @param valence Valence of each neuron type, +1 for excitatory, -1 for inhibitory.
-#' @param tau_fast Placeholder
-#' @param tau_slow Placeholder
-#' @param tau_Vs Placeholder
-#' @param I_slow Placeholder 
-#' @param U_Vs Placeholder 
-#' @param max_spike_rate Number of spikes which can be "cleared" per ms (spikes/ms).
-#' @param transmission_velocity Transmission velocity (in microns/ms) for each neuron type.
-#' @param spine_density Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is a spine.
+#' @param tau_fast Time constant (ms) of the fast sodium (Na+) current (positive current, time to flow in).
+#' @param tau_slow Time constant (ms) of the slow calcium (Ca2+) current (negative current, time to pump out).
+#' @param tau_Vs Time constant (ms) for restoring presynaptic vesicles, i.e., recovery from short-term depression (STD).
+#' @param I_slow Slow-current molecule (e.g., Ca2+) influx as concentration per spike (concentration/spike).
+#' @param U_Vs Utilization ratio (concentration/spike) of vesicles per spike.
+#' @param max_spike_rate Constant (spikes/ms) controlling estimation of spike rate and its maximum value.
+#' @param transmission_velocity Transmission velocity (in microns/ms) along axon, for each neuron type.
+#' @param spine_density Scale controlling percentage of dendrite nodes with spines: zero means none, one means all.
 #' @param axon_target Character string giving target of axon projections, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft".
-#' @param I_spike Spike current, in pA; absolute value (plus a little bit) used as \code{dHdv_bound}.
-#' @param spike_potential Magnitude of each spike, in mV.
-#' @param resting_potential Resting potential, in mV; absolute value (plus a little bit) used as \code{v_bound}.
+#' @param I_spike Spike current, in pA; absolute value plus a little bit used as \code{dHdv_bound}.
+#' @param spike_potential Peak potential during a spike, in mV.
+#' @param resting_potential Resting potential, in mV; absolute value plus a little bit used as \code{v_bound}.
 #' @param threshold Spike threshold, in mV.
-#' @param leak_conductance Conductance controlling the leak current, \code{I_leak = leak_conductance (resting_potential - v)}, in nS.
+#' @param leak_conductance Conductance controlling the leak current, \code{I_leak = leak_conductance * (resting_potential - v)}, in nS.
 #' @param axon_branch_count Expected number of axon branches.
 #' @param dendrite_branch_count Expected number of dendrite branches.
 #' @param branch_independence Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma.
@@ -191,70 +191,70 @@ add.cell.type <- function(
 #' @export
 modify.cell.type <- function(
     type_name,
-    valence                          = NULL,
-    tau_fast         = NULL,
-    tau_slow = NULL,
-    tau_Vs    = NULL,
-    I_slow = NULL, 
-    U_Vs = NULL, 
-    max_spike_rate              = NULL,
-    transmission_velocity            = NULL,
-    spine_density                    = NULL,
-    axon_target                      = NULL,
-    I_spike                          = NULL,
-    spike_potential                  = NULL,
-    resting_potential                = NULL,
-    threshold                        = NULL,
-    leak_conductance                 = NULL,
-    axon_branch_count                = NULL,
-    dendrite_branch_count            = NULL,
-    branch_independence              = NULL,
-    branch_spread                    = NULL,
-    apical_target_layer              = NULL
+    valence                 = NULL,
+    tau_fast                = NULL,
+    tau_slow                = NULL,
+    tau_Vs                  = NULL,
+    I_slow                  = NULL, 
+    U_Vs                    = NULL, 
+    max_spike_rate          = NULL,
+    transmission_velocity   = NULL,
+    spine_density           = NULL,
+    axon_target             = NULL,
+    I_spike                 = NULL,
+    spike_potential         = NULL,
+    resting_potential       = NULL,
+    threshold               = NULL,
+    leak_conductance        = NULL,
+    axon_branch_count       = NULL,
+    dendrite_branch_count   = NULL,
+    branch_independence     = NULL,
+    branch_spread           = NULL,
+    apical_target_layer     = NULL
   ) {
     ep <- fetch.cell.type.params(type_name)  # existing params
-    if (is.null(valence))                          valence                          <- ep$valence
-    if (is.null(tau_fast))         tau_fast         <- ep$tau_fast
-    if (is.null(tau_slow)) tau_slow <- ep$tau_slow
-    if (is.null(tau_Vs))    tau_Vs    <- ep$tau_Vs
-    if (is.null(I_slow))    I_slow    <- ep$I_slow
-    if (is.null(U_Vs))    U_Vs    <- ep$U_Vs
-    if (is.null(max_spike_rate))              max_spike_rate              <- ep$max_spike_rate
-    if (is.null(transmission_velocity))            transmission_velocity            <- ep$transmission_velocity
-    if (is.null(spine_density))                    spine_density                    <- ep$spine_density
-    if (is.null(axon_target))                      axon_target                      <- ep$axon_target
-    if (is.null(I_spike))                          I_spike                          <- ep$I_spike
-    if (is.null(spike_potential))                  spike_potential                  <- ep$spike_potential
-    if (is.null(resting_potential))                resting_potential                <- ep$resting_potential
-    if (is.null(threshold))                        threshold                        <- ep$threshold
-    if (is.null(leak_conductance))                 leak_conductance                 <- ep$leak_conductance
-    if (is.null(axon_branch_count))                axon_branch_count                <- ep$axon_branch_count
-    if (is.null(dendrite_branch_count))            dendrite_branch_count            <- ep$dendrite_branch_count
-    if (is.null(branch_independence))              branch_independence              <- ep$branch_independence
-    if (is.null(branch_spread))                    branch_spread                    <- ep$branch_spread
-    if (is.null(apical_target_layer))              apical_target_layer              <- ep$apical_target_layer
+    if (is.null(valence))                valence               <- ep$valence
+    if (is.null(tau_fast))               tau_fast              <- ep$tau_fast
+    if (is.null(tau_slow))               tau_slow              <- ep$tau_slow
+    if (is.null(tau_Vs))                 tau_Vs                <- ep$tau_Vs
+    if (is.null(I_slow))                 I_slow                <- ep$I_slow
+    if (is.null(U_Vs))                   U_Vs                  <- ep$U_Vs
+    if (is.null(max_spike_rate))         max_spike_rate        <- ep$max_spike_rate
+    if (is.null(transmission_velocity))  transmission_velocity <- ep$transmission_velocity
+    if (is.null(spine_density))          spine_density         <- ep$spine_density
+    if (is.null(axon_target))            axon_target           <- ep$axon_target
+    if (is.null(I_spike))                I_spike               <- ep$I_spike
+    if (is.null(spike_potential))        spike_potential       <- ep$spike_potential
+    if (is.null(resting_potential))      resting_potential     <- ep$resting_potential
+    if (is.null(threshold))              threshold             <- ep$threshold
+    if (is.null(leak_conductance))       leak_conductance      <- ep$leak_conductance
+    if (is.null(axon_branch_count))      axon_branch_count     <- ep$axon_branch_count
+    if (is.null(dendrite_branch_count))  dendrite_branch_count <- ep$dendrite_branch_count
+    if (is.null(branch_independence))    branch_independence   <- ep$branch_independence
+    if (is.null(branch_spread))          branch_spread         <- ep$branch_spread
+    if (is.null(apical_target_layer))    apical_target_layer   <- ep$apical_target_layer
     modify_cell_type(type_name, list(
-      type_name                        = type_name,
-      valence                          = as.integer(valence),
-      tau_fast                         = tau_fast, 
-      tau_slow                         = tau_slow, 
-      tau_Vs                           = tau_Vs, 
-      I_slow                           = I_slow, 
-      U_Vs                             = U_Vs, 
-      max_spike_rate                   = max_spike_rate,
-      transmission_velocity            = transmission_velocity,
-      spine_density                    = spine_density,
-      axon_target                      = axon_target,
-      I_spike                          = I_spike,
-      spike_potential                  = spike_potential,
-      resting_potential                = resting_potential,
-      threshold                        = threshold,
-      leak_conductance                 = leak_conductance,
-      axon_branch_count                = as.integer(axon_branch_count),
-      dendrite_branch_count            = as.integer(dendrite_branch_count),
-      branch_independence              = branch_independence,
-      branch_spread                    = branch_spread,
-      apical_target_layer              = apical_target_layer
+      type_name             = type_name,
+      valence               = as.integer(valence),
+      tau_fast              = tau_fast, 
+      tau_slow              = tau_slow, 
+      tau_Vs                = tau_Vs, 
+      I_slow                = I_slow, 
+      U_Vs                  = U_Vs, 
+      max_spike_rate        = max_spike_rate,
+      transmission_velocity = transmission_velocity,
+      spine_density         = spine_density,
+      axon_target           = axon_target,
+      I_spike               = I_spike,
+      spike_potential       = spike_potential,
+      resting_potential     = resting_potential,
+      threshold             = threshold,
+      leak_conductance      = leak_conductance,
+      axon_branch_count     = as.integer(axon_branch_count),
+      dendrite_branch_count = as.integer(dendrite_branch_count),
+      branch_independence   = branch_independence,
+      branch_spread         = branch_spread,
+      apical_target_layer   = apical_target_layer
     ))
   }
 
@@ -319,15 +319,13 @@ load.projection.into.motif <- function(
     via_apical             = FALSE
   ) {
    
-    # Check length of presynaptic_layer
+    # Checks
     if (length(presynaptic_layer) != 1) {stop("presynaptic_layer must be a single layer name.")}
-    
-    # Check length of type inputs
-    if (length(presynaptic_type) != 1) {stop("presynaptic_type must be a single type name.")}
-    if (length(postsynaptic_type) != 1) {stop("postsynaptic_type must be a single type name.")}
+    if (length(presynaptic_type)  != 1) {stop("presynaptic_type must be a single type name."  )}
+    if (length(postsynaptic_type) != 1) {stop("postsynaptic_type must be a single type name." )}
     
     # Get length of postsynaptic_layer input
-    n_post_layers <- length(postsynaptic_layer)
+    n_post_layers     <- length(postsynaptic_layer)
     postsynaptic_type <- rep(postsynaptic_type, n_post_layers)
     
     # Set principal type by layer (only defined for cortical layers; subcortical layers require explicit type)
@@ -473,13 +471,13 @@ set.network.structure <- function(
       
       # ... remake neuron_types
       principals_by_layer <- sapply(layer_names_all, function(ln) principal.neurons()[[ln]])
-      principals <- unique(principals_by_layer)
-      principal_idx <- which(neuron_types == "principal")
-      neuron_types <- c(principals, neuron_types[-principal_idx])
-      n_p <- length(principals)
-      n_t <- length(neuron_types)
-      nn_p_range <- c(min(n_p + 1, n_t):n_t)
-      n_types_old <- n_t - n_p + 1
+      principals          <- unique(principals_by_layer)
+      principal_idx       <- which(neuron_types == "principal")
+      neuron_types        <- c(principals, neuron_types[-principal_idx])
+      n_p                 <- length(principals)
+      n_t                 <- length(neuron_types)
+      nn_p_range          <- c(min(n_p + 1, n_t):n_t)
+      n_types_old         <- n_t - n_p + 1
       
       # ... remake neurons_per_node
       neurons_per_node_new <- matrix(NA, nrow = num_of_rows, ncol = n_t)
@@ -507,7 +505,7 @@ set.network.structure <- function(
         
         # Given a single matrix or numeric value
         if ("matrix" %in% class(local_synaptic_conductance) || "numeric" %in% class(local_synaptic_conductance)) {
-          rm <- as.matrix(local_synaptic_conductance)
+          rm     <- as.matrix(local_synaptic_conductance)
           rm_new <- matrix(0, nrow = n_t, ncol = n_t)
           local_synaptic_conductance <- list()
           for (l in seq_len(n_layers)) {
@@ -517,7 +515,7 @@ set.network.structure <- function(
                 rm_new[nn_p_range, nn_p_range] <- rm
                 for (t in seq_along(principals)) {
                   if (principals[t] == principal.neurons()[[layer_names[l]]]) {
-                    rm_new[t, t] <- rm
+                    rm_new[t,          t] <- rm
                     rm_new[t, nn_p_range] <- rm
                     rm_new[nn_p_range, t] <- rm
                   }
@@ -531,7 +529,7 @@ set.network.structure <- function(
                 rm_new[nn_p_range, nn_p_range] <- rm[-principal_idx, -principal_idx]
                 for (t in seq_along(principals)) {
                   if (principals[t] == principal.neurons()[[layer_names[l]]]) {
-                    rm_new[t, t] <- rm[principal_idx, principal_idx]
+                    rm_new[t,          t] <- rm[principal_idx, principal_idx]
                     rm_new[t, nn_p_range] <- rm[principal_idx, -principal_idx]
                     rm_new[nn_p_range, t] <- rm[-principal_idx, principal_idx]
                   }
@@ -549,7 +547,7 @@ set.network.structure <- function(
         
         # Given a list (... hopefully of matrices)
         for (l in seq_along(local_synaptic_conductance)) {
-          rm <- local_synaptic_conductance[[l]]
+          rm     <- local_synaptic_conductance[[l]]
           rm_new <- matrix(0, nrow = n_t, ncol = n_t)
           # Check if we have a matrix
           if (length(dim(rm)) != 2) {
@@ -590,14 +588,14 @@ set.network.structure <- function(
       if (length(neurons_per_node) == 1) {
         if (n_layers + n_subcortical_layers > 1) {
           neurons_per_node <- matrix(neurons_per_node, nrow = n_layers + n_subcortical_layers, ncol = n_neuron_types)
-          npn_dim <- dim(neurons_per_node)
+          npn_dim          <- dim(neurons_per_node)
         } else {
           neurons_per_node <- matrix(rep(neurons_per_node, n_neuron_types), nrow = 1, ncol = n_neuron_types)
-          npn_dim <- c(1, length(neurons_per_node))
+          npn_dim.         <- c(1, length(neurons_per_node))
         }
       } else if (length(neurons_per_node) == n_neuron_types) {
         neurons_per_node <- matrix(rep(neurons_per_node, n_layers + n_subcortical_layers), nrow = n_layers + n_subcortical_layers, ncol = n_neuron_types, byrow = TRUE)
-        npn_dim <- dim(neurons_per_node)
+        npn_dim          <- dim(neurons_per_node)
       } else {
         stop("Dimensions of neurons_per_node must match n_layers + n_subcortical_layers (or possibly 2x this if there are two hemispheres) and length of neuron_types, or be inferable from them.")
       }
@@ -644,6 +642,8 @@ set.network.structure <- function(
       subcortical_local_conductance <- coerce_conductance(
         subcortical_local_conductance, n_subcortical_layers, n_neuron_types, "subcortical_local_conductance"
       )
+    } else {
+      subcortical_local_conductance = list()
     }
     
     # Set structure (new C++ signature: hsl_names as list, n as 5-vector, sep_factor as 5-vector)
@@ -672,6 +672,7 @@ set.network.structure <- function(
 #' This function retrieves the components of a network object. 
 #' @param network Network object from which to fetch components.
 #' @param include_arbors Logical indicating whether to include arbor information in the fetched components (can be large and computationally intensive, default = FALSE).
+#' @param return_arbors Logical indicating whether to return the raw arbor matrix in the output. When FALSE and include_arbors is TRUE, the arbor matrix is dropped to reduce memory usage (default: TRUE). The arbor matrix can be large (> 1 GB) and is used internally for computation but may not be needed by the user.
 #' @param verbose Logical indicating whether to print a summary of the fetched components (default: TRUE).
 #' @return A list containing the components of the network.
 #' @export
@@ -685,15 +686,13 @@ fetch.network.components <- function(
     # Grab raw components
     network.components <- network$fetch_network_components(include_arbors)
     
-    # Compute synapse distribution
-    # synapse_counts is accumulated in C++ during the arbor-matrix fill pass,
-    # so no per-neuron R loop is needed here.
+    # Compute synapse distribution; synapse_counts is accumulated in C++ during the arbor-matrix fill pass
     if (include_arbors) {
       n_neurons <- network.components$n_neurons
       synapse_info <- data.frame(
-        neuron_idx  = seq_len(n_neurons),
-        neuron_type = network.components$neuron_type_name,
-        n_synapses  = network.components$synapse_counts,
+        neuron_idx       = seq_len(n_neurons),
+        neuron_type      = network.components$neuron_type_name,
+        n_synapses       = network.components$synapse_counts,
         stringsAsFactors = FALSE
       )
       network.components$synapse_info <- synapse_info
@@ -709,21 +708,21 @@ fetch.network.components <- function(
     # Print summary
     if (verbose) {
       cat("Summary of network:\n")
-      cat("\tNumber of neurons:", network.components$n_neurons, "\n")
+      cat("\tNumber of neurons:",            network.components$n_neurons,       "\n")
       if (include_arbors) {
-        cat("\tNumber of synapses:", sum(network.components$synapse_counts), "\n")
+        cat("\tNumber of synapses:", sum(    network.components$synapse_counts), "\n")
       }
-      cat("\tHemisphere names:", paste(network.components$hem_names, collapse = ", "), "\n")
-      cat("\tNumber of hemispheres:", network.components$n_hem, "\n")
-      cat("\tSubortical layer names:", paste(network.components$sub_names, collapse = ", "), "\n")
-      cat("\tNumber of subcortical layers:", network.components$n_sub, "\n")
-      cat("\tCortical layer names:", paste(network.components$layer_names, collapse = ", "), "\n")
-      cat("\tNumber of cortical layers:", network.components$n_layers, "\n")
-      cat("\tNumber of columns:", network.components$n_columns, "\n")
-      cat("\tNumber of patches:", network.components$n_patches, "\n")
+      cat("\tHemisphere names:", paste(      network.components$hem_names,         collapse = ", "), "\n")
+      cat("\tNumber of hemispheres:",        network.components$n_hem,           "\n")
+      cat("\tSubortical layer names:", paste(network.components$sub_names,         collapse = ", "), "\n")
+      cat("\tNumber of subcortical layers:", network.components$n_sub,           "\n")
+      cat("\tCortical layer names:", paste(  network.components$layer_names,       collapse = ", "), "\n")
+      cat("\tNumber of cortical layers:",    network.components$n_layers,        "\n")
+      cat("\tNumber of columns:",            network.components$n_columns,       "\n")
+      cat("\tNumber of patches:",            network.components$n_patches,       "\n")
       cat("\tCell types used:", paste(unique(network.components$neuron_type_name), collapse = ", "), "\n")
       if (network.components$n_neurons > 0) {
-        cat("\tMotifs used:", paste(network.components$edge_type_names, collapse = ", "), "\n")
+        cat("\tMotifs used:", paste(         network.components$edge_type_names,   collapse = ", "), "\n")
       } else {
         cat("\tMotifs used:\n")
       }
@@ -770,9 +769,9 @@ apply.circuit.motif <- function(
 #'  reconstruct_arbors = TRUE,
 #'  edge_color = "pre_type", 
 #'  soma_color = "layer", 
-#'  soma_size_factor = 3.0, 
-#'  return_plot = FALSE,
-#'  return_cell_arbor_idx = FALSE
+#'  soma_size_factor = 0.5, 
+#'  return_plot = TRUE,
+#'  return_cell_arbor_idx = TRUE
 #' )
 #' @param network Network object to plot.
 #' @param soma_mask Logical vector of length equal to the number of neurons in the network, indicating which neurons to include in the plot (TRUE for included neurons, FALSE for excluded neurons). If NULL (default), a random sample of neurons will be selected based on the specified soma_density. Useful for reproducing the same cells across plots. 
@@ -786,7 +785,7 @@ apply.circuit.motif <- function(
 #' @param reconstruct_arbors Logical indicating whether to reconstruct axonal and dendritic arbors for the neurons in the plot, or whether to instead show synaptic connections as straight edges (default: TRUE, but can be computationally intensive).
 #' @param edge_color Character string specifying how to color the edges; options include "pre_type" to color by presynaptic neuron type, "post_type" to color by postsynaptic neuron type, "motif" to color by motif type, and "is_axon" to color by whether a reconstructed arbor is an axon or dendrite (default: "pre_type"). Cannot use "post_type" or "motif" when reconstructing arbors, as arbor edges can be defined by multiple postsynaptic neuron types and motifs. Cannot use "is_axon" when not reconstructing arbors, as edges are not defined by axonal vs. dendritic processes.
 #' @param soma_color Character string specifying how to color the nodes; options include "layer" to color by layer index or "type" to color by neuron type (default: "layer").
-#' @param soma_size_factor Numeric value controlling how cell size in the plot scales to the number of cells. 
+#' @param soma_size_factor Numeric value controlling how cell size in the plot scales to the number of cells (default: 0.5). 
 #' @param return_plot Logical indicating whether to return the ggplot object or print the plot directly (default: TRUE).
 #' @param return_cell_arbor_idx Logical indicating whether to return the soma_mask and arbor_idx used for plotting or not (default: TRUE).
 #' @return Either prints the plot directly or returns the ggplot object, depending on the value of return_plot.
@@ -884,12 +883,12 @@ plot.network <- function(
     if (is.null(arbor_idx)) {
       n_arbors <- 1
       if (arbor_density > 0) n_arbors <- round(sum(soma_mask) * min(1, arbor_density)) 
-      arbor_idx <- sort(sample(which(celltype_motif_mask), n_arbors, replace = FALSE))
+      arbor_idx             <- sort(sample(which(celltype_motif_mask), n_arbors, replace = FALSE))
     } else {
-      arbor_mask <- rep(FALSE, length(soma_mask))
+      arbor_mask            <- rep(FALSE, length(soma_mask))
       arbor_mask[arbor_idx] <- TRUE 
-      arbor_mask <- arbor_mask & soma_mask
-      arbor_idx <- which(arbor_mask)
+      arbor_mask            <- arbor_mask & soma_mask
+      arbor_idx             <- which(arbor_mask)
     }
     
     # Get layer information - resolve each neuron to a display name
@@ -917,12 +916,12 @@ plot.network <- function(
       z_coord <- "y"
     }
     soma <- data.frame(
-      idx = c(1:n_soma), 
-      x = ntw$coordinates_spatial[soma_mask, "x"], 
-      y = ntw$coordinates_spatial[soma_mask, y_coord],
-      z = ntw$coordinates_spatial[soma_mask, z_coord],
+      idx   = c(1:n_soma), 
+      x     = ntw$coordinates_spatial[soma_mask, "x"], 
+      y     = ntw$coordinates_spatial[soma_mask, y_coord],
+      z     = ntw$coordinates_spatial[soma_mask, z_coord],
       layer = as.factor(neuron_layer_labels),
-      type = ntw$neuron_type_name[soma_mask]
+      type  = ntw$neuron_type_name[soma_mask]
     )
     
     # Get cell edge pairs / reconstruct arbors
@@ -935,17 +934,17 @@ plot.network <- function(
       # Find the number of edges in reconstruction
       n_downsample_edges <- c()
       for (n in arbor_idx) {
-        n_edges <- sum(edges[,"neuron_idx"] == n)
+        n_edges            <- sum(edges[,"neuron_idx"] == n)
         n_downsample_edges <- c(n_downsample_edges, n_edges)
       }
       
       # Make downsampled matrix
       edges_downsampled <- matrix(NA, nrow = sum(n_downsample_edges), ncol = ncol(edges))
-      idx_start <- 1
-      idx_end <- 0
+      idx_start         <- 1
+      idx_end           <- 0
       for (i in seq_along(arbor_idx)) {
         idx_start <- idx_end + 1
-        idx_end <- idx_end + n_downsample_edges[i]
+        idx_end   <- idx_end + n_downsample_edges[i]
         edges_downsampled[idx_start:idx_end, ] <- edges[edges[,"neuron_idx"] == arbor_idx[i], ]
       }
       
@@ -990,24 +989,22 @@ plot.network <- function(
       
       # Getting motifs for plotting
       edge_type_names <- ntw$edge_type_names
-      et_masked <- seq_along(edge_type_names)
+      et_masked       <- seq_along(edge_type_names)
       if (plot_motif != "all") {
-        edge_type_mask <- edge_type_names %in% plot_motif
-        if (sum(edge_type_mask) == 0) {
-          stop("No edge types match the specified plot_motif.")
-        }
+        edge_type_mask  <- edge_type_names %in% plot_motif
         edge_type_names <- edge_type_names[edge_type_mask]
-        et_masked <- which(edge_type_mask)
+        et_masked       <- which(edge_type_mask)
+        if (sum(edge_type_mask) == 0) stop("No edge types match the specified plot_motif.")
       }
       
       # Collect edges by motifs
       edges <- matrix(0, nrow = 0, ncol = 5)
       for (et in seq_along(edge_type_names)) {
-        et_name <- edge_type_names[et]
+        et_name  <- edge_type_names[et]
         et_edges <- ntw$edge_idx_by_type[[et_masked[et]]]
         for (ni in unique(et_edges[, "pre_neuron_idx"])) {
           if (sum(ni == arbor_idx) == 0) {
-            ni_mask <- et_edges[, "pre_neuron_idx"] != ni
+            ni_mask  <- et_edges[, "pre_neuron_idx"] != ni
             et_edges <- et_edges[ni_mask, ]
           }
         }
@@ -1026,9 +1023,9 @@ plot.network <- function(
       edges$x_start <- soma[edges$pre_idx, "x"]
       edges$y_start <- soma[edges$pre_idx, "y"]
       edges$z_start <- soma[edges$pre_idx, "z"]
-      edges$x_end <- soma[edges$post_idx, "x"]
-      edges$y_end <- soma[edges$post_idx, "y"]
-      edges$z_end <- soma[edges$post_idx, "z"]
+      edges$x_end   <- soma[edges$post_idx, "x"]
+      edges$y_end   <- soma[edges$post_idx, "y"]
+      edges$z_end   <- soma[edges$post_idx, "z"]
       
     }
     
@@ -1043,44 +1040,44 @@ plot.network <- function(
         unique(as.character(soma[,soma_color])))
       )
     known_label_colors <- list(
-      "cell" = "gray50",
-      "thalamus" = "gray20", 
-      "layer" = "gray50",
-      "L1" = "gray50",
-      "L2" = "lightskyblue3",
-      "L2/3" = "lightskyblue2",
-      "L23" = "lightskyblue2",
-      "L3" = "lightskyblue1",
-      "L4" = "slateblue1",
-      "L5" = "skyblue1",
-      "L6" = "royalblue1",
-      "principal" = "green3",
-      "thalmacortical" = "lightgreen", 
-      "PN" = "green3", 
-      "excitatory" = "green3",
-      "pyramidal" = "green4",
-      "callosal_pyramidal"= "darkolivegreen2",
-      "pyramidal_L6" = "green4",
-      "spiny_stellate" = "green2",
-      "interneuron" = "red",
-      "inhibitory" = "red", 
+      "cell"               = "gray50",
+      "thalamus"           = "gray20", 
+      "layer"              = "gray50",
+      "L1"                 = "gray50",
+      "L2"                 = "lightskyblue3",
+      "L2/3"               = "lightskyblue2",
+      "L23"                = "lightskyblue2",
+      "L3"                 = "lightskyblue1",
+      "L4"                 = "slateblue1",
+      "L5"                 = "skyblue1",
+      "L6"                 = "royalblue1",
+      "principal"          = "green3",
+      "thalmacortical"     = "lightgreen", 
+      "PN"                 = "green3", 
+      "excitatory"         = "green3",
+      "pyramidal"          = "green4",
+      "callosal_pyramidal" = "darkolivegreen2",
+      "pyramidal_L6"       = "green4",
+      "spiny_stellate"     = "green2",
+      "interneuron"        = "red",
+      "inhibitory"         = "red", 
       "neurogliaform_cell" = "red", 
-      "PV" = "violetred2",
-      "callosal_PV" = "palevioletred3",
-      "SOM" = "red3",
-      "SST" = "tomato",
-      "VIP" = "darkred",
-      "axon" = "green3",
-      "dendrite" = "darkred"
+      "PV"                 = "violetred2",
+      "callosal_PV"        = "palevioletred3",
+      "SOM"                = "red3",
+      "SST"                = "tomato",
+      "VIP"                = "darkred",
+      "axon"               = "green3",
+      "dendrite"           = "darkred"
     )
     unknown_label_colors <- c("aquamarine1", "gray95", "gray55", "gray75", "cyan", "cornflowerblue", "coral", "burlywood", "darkolivegreen")
-    label_colors <- rep("white", length(colored_labels))
+    label_colors        <- rep("white", length(colored_labels))
     names(label_colors) <- colored_labels
     for (cl in seq_along(colored_labels)) {
-      label <- colored_labels[cl]
+      label    <- colored_labels[cl]
       hit_mask <- label == names(known_label_colors)
       if (any(hit_mask)) {
-        hit_idx <- which(hit_mask)[1]
+        hit_idx          <- which(hit_mask)[1]
         label_colors[cl] <- known_label_colors[[hit_idx]]
       } else {
         label_colors[cl] <- sample(unknown_label_colors, 1)
@@ -1120,40 +1117,40 @@ plot.network <- function(
       }
       
       # Reset levels in soma and edge data frames
-      soma$layer <- factor(soma$layer, levels = level_names, labels = level_names)
+      soma$layer         <- factor(soma$layer, levels = level_names, labels = level_names)
       edges[,edge_color] <- factor(edges[,edge_color], levels = level_names, labels = level_names) 
       
       # Make long version of edges for faster ploting in plotly
       edges_long <- data.frame(
-        x = c(rbind(edges$x_start, edges$x_end, NA)),
-        y = c(rbind(edges$y_start, edges$y_end, NA)),
-        z = c(rbind(edges$z_start, edges$z_end, NA)),
+        x     = c(rbind(edges$x_start, edges$x_end, NA)),
+        y     = c(rbind(edges$y_start, edges$y_end, NA)),
+        z     = c(rbind(edges$z_start, edges$z_end, NA)),
         group = rep(edges[[edge_color]], each = 3)
       )
       
       # Initialize plotly plot with edges
       plt <- plotly::plot_ly(
         edges_long,
-        x = ~x,
-        y = ~z,
-        z = ~y,
-        type = "scatter3d",
-        mode = "lines",
-        color = ~factor(group),
+        x      = ~x,
+        y      = ~z,
+        z      = ~y,
+        type   = "scatter3d",
+        mode   = "lines",
+        color  = ~factor(group),
         colors = hex
       )
       
       # Add soma as points
       plt <- plt |>
         plotly::add_trace(
-          data = soma,
-          x = ~x,
-          y = ~y,
-          z = ~z,
-          type = "scatter3d",
-          mode = "markers",
+          data   = soma,
+          x      = ~x,
+          y      = ~y,
+          z      = ~z,
+          type   = "scatter3d",
+          mode   = "markers",
           marker = list(size = soma_size),
-          color = ~factor(layer),
+          color  = ~factor(layer),
           colors = hex
         ) 
       
@@ -1161,14 +1158,14 @@ plot.network <- function(
       if (synapses_included) {
         plt <- plt |> 
           plotly::add_trace(
-            data = synapse_coordinates,
-            x = ~x,
-            y = ~z,
-            z = ~y,
-            type = "scatter3d",
-            mode = "markers",
+            data   = synapse_coordinates,
+            x      = ~x,
+            y      = ~z,
+            z      = ~y,
+            type   = "scatter3d",
+            mode   = "markers",
             marker = list(size = soma_size/2),
-            color = ~synapse,
+            color  = ~synapse,
             colors = hex
           )
       }
@@ -1176,11 +1173,11 @@ plot.network <- function(
       # Label axes and fix colors into light mode 
       plt <- plt |>
         plotly::layout(
-          template = "plotly_white",
+          template      = "plotly_white",
           paper_bgcolor = "white",
-          plot_bgcolor = "white",
-          font = list(color = "black"),
-          scene = list(
+          plot_bgcolor  = "white",
+          font          = list(color = "black"),
+          scene         = list(
             xaxis = list(title = "Cortical Columns", color = "black", backgroundcolor = "white"),
             zaxis = list(title = "Cortical Layers", color = "black", backgroundcolor = "white"),
             yaxis = list(title = "Cortical Patches", color = "black", backgroundcolor = "white")
@@ -1212,24 +1209,22 @@ plot.network <- function(
         ggplot2::theme_minimal() +
         ggplot2::labs(
           title = title, 
-          x = paste0("columnar coordinate (", units_distance, ")"), 
-          y = paste0("laminar coordinate (", units_distance, ")")
+          x     = paste0("columnar coordinate (", units_distance, ")"), 
+          y     = paste0("laminar coordinate (", units_distance, ")")
         ) + 
         ggplot2::scale_colour_manual(
-          name = "Types",
+          name   = "Types",
           values = label_colors
         ) +
         ggplot2::guides(color = ggplot2::guide_legend(override.aes = list(alpha = 1))) +
         ggplot2::theme(
           panel.background = ggplot2::element_rect(fill = "white", colour = NA),
           plot.background  = ggplot2::element_rect(fill = "white", colour = NA),
-          #panel.grid = ggplot2::element_line(color = "gray80", linewidth = 0.25),
-          plot.title = ggplot2::element_text(hjust = 0.5, size = title_size),
-          axis.title = ggplot2::element_text(size = axis_size),
-          axis.text = ggplot2::element_text(size = axis_size),
-          legend.title = ggplot2::element_text(size = legend_size),
-          legend.text = ggplot2::element_text(size = legend_size) #,
-          #legend.position = "bottom"
+          plot.title       = ggplot2::element_text(hjust = 0.5, size = title_size),
+          axis.title       = ggplot2::element_text(size = axis_size),
+          axis.text        = ggplot2::element_text(size = axis_size),
+          legend.title     = ggplot2::element_text(size = legend_size),
+          legend.text      = ggplot2::element_text(size = legend_size) 
         )
       
       # Add synapses 

@@ -1,7 +1,7 @@
 ---
-title: "Mathematics of SGT models"
+title: "Mathematics of GT models"
 author: "Michael Barkasi"
-date: "July 13, 2026 (v1.0)"
+date: "August 1, 2026 (v1.0)"
 ---
 
 ```{r Rmdsetup, echo=FALSE}
@@ -12,21 +12,28 @@ knitr::opts_chunk$set(class.output = "scroll-output", cache = TRUE)
 
 <h2>Introduction</h2>
 
-GT models are hybrids, in so far as they directly model *subthreshold* membrane potential dynamics, while leaving out any mechanistic modeling of spikes themselves. Instead, spikes are modeled as a constant and instantaneous value $v_\mathrm{spike}$ (variable <span class = "code_variable">spike_potential</span> in the simulation) added to the subthreshold dynamics when the spike threshold is crossed. Thus, what follows is an explanation of the subthreshold component of membrane potential $v$, although we leave the qualifier "subthreshold" implicit. 
-
 Suppose our network has $n$ neurons $N$. We want to run a simulation of the membrane potential $v(t)$ of each neuron $N$ over time $t$. Naturally, the system evolves so that: 
 \[v(t+1) = v(t) + \left.\frac{\partial v}{\partial t}\right|_{t+1}\]
-The hard part, of course, is to compute $\partial v/\partial t$. That is, how do membrane potentials evolve over time? [Gangopadhyay and Chakrabartty](https://doi.org/10.3389/fnins.2020.00425) answered this question by applying the [Baum-Eagon inequality](https://doi.org/10.1090/S0002-9904-1967-11751-8) to $\mathcal{H}$ on $v$ to derive $\partial v/\partial t$ as a growth-transform. This amounts to assuming that net metabolic power $\mathcal{H}$ is minimized over time. In this section, we will work directly from this minimization assumption and use a biologically inspired interpretation of the variables. 
+The hard part, of course, is to compute $\partial v/\partial t$. That is, how do membrane potentials evolve over time? 
 
 <h2>Power minimization</h2>
 
-GT models tackle this question with a minimization principle: $\partial v/\partial t$ is always such that the system minimizes net (metabolic) power $\mathcal{H}$:
+To tackle this question, [Gangopadhyay and Chakrabartty](https://doi.org/10.3389/fnins.2020.00425) applied the [Baum-Eagon inequality](https://doi.org/10.1090/S0002-9904-1967-11751-8) to the net metabolic power $\mathcal{H}$ of $v$ to derive $\partial v/\partial t$ as a growth-transform of $v$. That is, they assumed that $\partial v/\partial t$ is always such that:
+\[\mathcal{H}(v)\leq \mathcal{H}(v + \partial v/\partial t)\]
+This amounts to assuming that $\mathcal{H}$ is minimized over time:
 \[\frac{\partial\mathcal{H}}{\partial v}\frac{\partial v}{\partial t} \leq 0\]
-For simplicity, let us assume that $\partial\mathcal{H}/\partial t = 0$, i.e., that the metabolic power is not changing over time. 
+Here, we will work directly from this minimization assumption and use a biologically inspired interpretation of the variables to derive $\partial v/\partial t$. For simplicity, let us assume that $\partial\mathcal{H}/\partial t = 0$, i.e., that the metabolic power is not changing over time. 
 
-It's plausible that the membrane potential $v$ is a scalar multiple $fv_\mathrm{rest}$ of the resting potential $v_\mathrm{rest}$, where the scale factor $f$ is a function of $\partial\mathcal{H}/\partial v$. In other words, we assume that the scale factor $f$ depends on how a small change $\partial v$ in membrane potential would change the metabolic power $\mathcal{H}$. Hence, we have that: 
+Also, let us assume that $v$ represents only the _subthreshold_ membrane potential and thus that $\partial v/\partial t$ only _directly_ models subthreshold membrane potential dynamics.[^1] This leaves out any mechanistic modeling of spikes themselves. Instead, spikes are modeled as a constant and instantaneous value $v_\mathrm{spike}$ (variable <span class = "code_variable">spike_potential</span> in the simulation) added to the subthreshold dynamics when the spike threshold is crossed. We will explain below how spikes are nevertheless still critical to the evolution of the system.
+
+[^1]: Hereafter we leave the qualifier "subthreshold" implicit. 
+
+Where do we begin? It's plausible that the membrane potential $v$ is a scalar multiple $fv_\mathrm{rest}$ of the resting potential $v_\mathrm{rest}$,[^rest] where the scale factor $f$ is a function of $\partial\mathcal{H}/\partial v$. In other words, we assume that the scale factor $f$ depends on how a small change $\partial v$ in membrane potential would change net metabolic power $\mathcal{H}$. Hence, we have that:[^vbound]
 \[v(t+1) =  v(t) + \left.\frac{\partial v}{\partial t}\right|_{t+1} = f\left(\left.\frac{\partial\mathcal{H}}{\partial v}\right|_{t+1}\right)v_\mathrm{rest}\]
-Actually, in practice [Gangopadhyay and Chakrabartty](https://doi.org/10.3389/fnins.2020.00425) assume that the quantity of which $v$ is a multiple is a positive value $v_\mathrm{bound}$. The only constraint on this value is that it must bound $v$ from above and below, i.e., $-v_\mathrm{bound} \leq v \leq v_\mathrm{bound}$. Thus, it would be more mathematically accurate to say that $v$ is a scalar multiple of the absolute value of $v_\mathrm{rest}$. Within the simulation code, the relevant variable is <span class = "code_variable">v_bound</span> with a default value of $75$ mV, slightly higher than the absolute value of $v_\mathrm{rest}$. 
+
+[^rest]: Technically, the resting potential is the equilibrium point towards which the membrane potential tends in the absence of any input.
+
+[^vbound]: [Gangopadhyay and Chakrabartty](https://doi.org/10.3389/fnins.2020.00425) assume that the absolute value of the quantity of which membrane potential is a multiple is a bound on membrane potential. Within the simulation code, the relevant variable is <span class = "code_variable">v_bound</span>, which is given a value slightly higher than the absolute value of the rest potential. If the value isn't increased slightly, the rest potential becomes an infinite well that can't be escaped.
 
 <h2>Scale factor</h2>
 
@@ -38,15 +45,15 @@ Assuming $\partial\mathcal{H}/\partial v \neq 0$, this equation implies that:
 \[v(t-1) = f\left(\left.\frac{\partial\mathcal{H}}{\partial v}\right|_t\right)v_\mathrm{rest}\]
 And so: 
 \[f\left(\left.\frac{\partial\mathcal{H}}{\partial v}\right|_t\right) = \frac{v(t-1)}{v_\mathrm{rest}}\]
-Hence, we see that $f$ is a function of the metabolic power gradient $\partial\mathcal{H}/\partial v$ that's equal to the ratio of $v$ over the rest potential $v_\mathrm{rest}$. An immediate consequence is that, when $v\approx v_\mathrm{rest}$, the scale factor $f$ is approximately $1$.
+Hence, we see that $f$ is a function of the metabolic power gradient $\partial\mathcal{H}/\partial v$ that's equal to the ratio of $v$ over the rest potential $v_\mathrm{rest}$. An immediate consequence is that, when $v\approx v_\mathrm{rest}$, the scale factor $f$ is approximately $1$. Hence, we are assuming that $v_\mathrm{rest}$ is an equilibrium point (as defined by dynamical systems theory) of the membrane potential. 
 
 Notice that this derivation implies that $\partial v/\partial t=0$, which may seem obviously wrong. However, we are attempting to derive a formula for $\partial v/\partial t$ which makes $\partial\mathcal{H}/\partial t=0$. The "makes" is aspirational: of course, $\partial v/\partial t\neq 0$, but, what general form of $\partial v/\partial t$ will tend to make $\partial\mathcal{H}/\partial t=0$ over time? In terms of biology, we can alternatively think of the system as _trying_ to maintain a stable rest voltage $v_\mathrm{rest}$, and the question is: what form of $\partial v/\partial t$ will best achieve this goal?
 
 <h2>Rest vs spike power</h2>
 
-In order to solve for $f$, it's helpful to think about the metabolic power gradient $\partial\mathcal{H}/\partial v$ and how it relates to two quantities: the metabolic power $\mathcal{H}_\mathrm{rest}$ of maintaining rest potential $v_\mathrm{rest}$ and the metabolic power $\mathcal{H}_\mathrm{spike}$ of initiating a spike under the conditions which hold at time $t$. At least as a linear approximation, we have that: 
+In order to solve for $f$, it's helpful to think about the metabolic power gradient $\partial\mathcal{H}/\partial v$ and how it relates to two quantities: the metabolic power $\mathcal{H}_\mathrm{rest}$ of maintaining rest potential $v_\mathrm{rest}$ and the metabolic power $\mathcal{H}_\mathrm{spike}$ of initiating a spike under the conditions which hold at time $t$. As a linear approximation, we have that: 
 \[\mathcal{H}_\mathrm{rest} = v_\mathrm{rest}\left.\frac{\partial\mathcal{H}}{\partial v}\right|_t\]
-This equation is justified because the metabolic power $\mathcal{H}_\mathrm{rest}$ of maintaining rest potential $v_\mathrm{rest}$ is equal to the power used to maintain the negative potential $v_\mathrm{rest}$ under the natural positive flow of charge into the cell. Unit analysis ($\mathrm{Watts} = \mathrm{Volts} \times \mathrm{Ampere}$) implies that this latter quantity must be the energy gradient $\partial\mathcal{H}/\partial v$ evaluated at $t$. 
+This equation is justified because the metabolic power $\mathcal{H}_\mathrm{rest}$ of maintaining rest potential $v_\mathrm{rest}$ is equal to the power used to maintain the negative potential $v_\mathrm{rest}$ under the natural positive flow of charge into the cell. Unit analysis ($\mathrm{Watts} = \mathrm{Volts} \times \mathrm{Ampere}$) implies that this latter quantity must be the power gradient $\partial\mathcal{H}/\partial v$ evaluated at $t$. 
 
 What about the metabolic power $\mathcal{H}_\mathrm{spike}$ of initiating a spike? If $v_\mathrm{threshold}$ is the membrane potential at spike threshold, then (by the above unit analysis) the change $\partial I_\mathrm{influx}$ in current $I$ across the membrane at spike initiation is: 
 \[\partial I_\mathrm{influx} = \left.\frac{\partial\mathcal{H}}{\partial v}\right|_{v_\mathrm{threshold}}\]
@@ -83,17 +90,25 @@ v\partial I_\mathrm{influx} - v_\mathrm{rest}\left.\frac{\partial\mathcal{H}}{\p
 }{
 v_\mathrm{rest}\partial I_\mathrm{influx} - v\left.\frac{\partial\mathcal{H}}{\partial v}\right|_t
 }\right) - v(t-1)\]
-This is equation given by [Gangopadhyay and Chakrabartty](https://doi.org/10.3389/fnins.2020.00425) for GT models. It ensures the minimization condition that $\partial\mathcal{H}/\partial t = 0$. 
+This is the equation given by [Gangopadhyay and Chakrabartty](https://doi.org/10.3389/fnins.2020.00425) for GT models. It ensures the minimization condition, that is, ensures that $\partial\mathcal{H}/\partial t = 0$. 
 
-How do we determine $\partial I_\mathrm{influx}$? Well, $\partial I_\mathrm{influx}$ is the change in current $I$ across the membrane at spike initiation. Following Gangopadhyay and Chakrabartty, we will treat it as a constant empirical parameter that bounds the power gradient, i.e., $\partial I_\mathrm{influx} \geq \left.\partial\mathcal{H}/\partial v\right|_t$ for all $t$. This treatment is plausible, as presumably the moment of spike initiation involves the largest change in membrane current a neuron will experience. 
+How do we determine $\partial I_\mathrm{influx}$? Well, $\partial I_\mathrm{influx}$ is the change in current $I$ across the membrane at spike initiation. Following Gangopadhyay and Chakrabartty, we will treat it as a constant empirical parameter that bounds the power gradient, i.e., $\partial I_\mathrm{influx} \geq \left.\partial\mathcal{H}/\partial v\right|_t$ for all $t$. This treatment is plausible, as presumably the moment of spike initiation involves the largest change in membrane current a neuron will experience.[^Ispike]
+
+[^Ispike]: In the code for DACx, this bound on the power gradient is variable <span class = "code_variable">dHdv_bound</span> and is set to be slightly more than the absolute value of the spike current <span class = "code_variable">I_spike</span>.
 
 Second, how do we determine $\partial\mathcal{H}/\partial v$? Intuitively (and, as before, following Gangopadhyay and Chakrabartty), we have: 
-\[\frac{\partial\mathcal{H}}{\partial v} = I_\mathrm{synaptic\;transmission} - I_\mathrm{stimulus\;input} + I_\mathrm{spike}\]
-In this equation, $I_\mathrm{synaptic\;transmission}$ is the input current induced by synaptic transmission across all synapses, $I_\mathrm{stimulus\;input}$ gives the input current to each neuron from outside stimuli, and $I_\mathrm{spike}$ gives the spike current (if any). The stimulus input $I_\mathrm{stimulus\;input}$ is what's specified by the simulation variable <span class = "code_variable">stimulus_current_matrix</span>. The spike current $I_\mathrm{spike}$ is determined by simple thresholding: $I_\mathrm{spike}=0$ if $v < v_\mathrm{threshold}$ and otherwise is equal to the value of the simulation variable <span class = "code_variable">I_spike</span> for the cell type. 
+\[\frac{\partial\mathcal{H}}{\partial v} = I_\mathrm{synaptic\;transmission} - I_\mathrm{membrane\;current} + I_\mathrm{spike}\]
+In this equation, $I_\mathrm{synaptic\;transmission}$ is the input current induced by synaptic transmission across all synapses, $I_\mathrm{membrane\;current}$ gives the current across the membrane of each neuron due to external stimuli ($I_\mathrm{stim}$) and intrinsic membrane leak ($I_\mathrm{leak}$), and $I_\mathrm{spike}$ gives the spike current (if any). The stimulus current $I_\mathrm{stim}$ is what's specified by the simulation variable <span class = "code_variable">stimulus_current_matrix</span>, while the membrane leak current $I_\mathrm{leak}$ is determiend by the cell type parameter <span class = "code_variable">leak_conductance</span>. The spike current $I_\mathrm{spike}$ is determined by simple thresholding: $I_\mathrm{spike}=0$ if $v < v_\mathrm{threshold}$ and otherwise is equal to the value of the simulation variable <span class = "code_variable">I_spike</span> for the cell type. 
 
 <h2>Membrane potential reset</h2>
 
-Notice that unlike a leaky integrate-and-fire neuron, the definition of $\partial v/\partial t$ itself produces the reset after a spike. When $v$ is very near the threshold $v_\mathrm{threshold}$, then (by the definition given above) we have that $\partial I_\mathrm{influx} = \left.\partial\mathcal{H}/\partial v \right|_{v_\mathrm{threshold}}$, and hence $f\approx -1$ (because, in general, $(x-y)/(y-x)=-1$). Thus, when $v\approx v_\mathrm{threshold}$, $\partial v/\partial t\approx -v_\mathrm{rest} - v_\mathrm{threshold}$. Hence, $v_\mathrm{threshold} + \partial v/\partial t \approx -v_\mathrm{rest}$. However, recall that the actual math for the model uses $v_\mathrm{bound}=|v_\mathrm{rest}| + \epsilon$ for some small $\epsilon$, so that $v_\mathrm{threshold} + \partial v/\partial t \approx -v_\mathrm{bound} \approx v_\mathrm{rest}$. Thus, the model produces a reset to a value near the rest potential after a spike, without any explicit reset mechanism.
+Notice that unlike a leaky integrate-and-fire neuron, the definition of $\partial v/\partial t$ itself produces the reset after a spike. When $v$ is very near the threshold $v_\mathrm{threshold}$, then (by the definition given above) we have that:
+\[\partial I_\mathrm{influx} = \left.\frac{\partial\mathcal{H}}{\partial v} \right|_{v_\mathrm{threshold}}\]
+and hence $f\approx -1$, because, in general, $(x-y)/(y-x)=-1$. Thus, when $v\approx v_\mathrm{threshold}$, 
+\[\frac{\partial v}{\partial t}\approx -v_\mathrm{rest} - v_\mathrm{threshold}\]
+Hence: 
+\[v_\mathrm{threshold} + \frac{\partial v}{\partial t }\approx -v_\mathrm{rest}\]
+However, recall that the actual math for the model uses $v_\mathrm{bound}=|v_\mathrm{rest}| + \epsilon$ for some small $\epsilon$, so that $v_\mathrm{threshold} + \partial v/\partial t \approx -v_\mathrm{bound} \approx v_\mathrm{rest}$. Thus, the model produces a reset to a value near the rest potential after a spike, without any explicit reset mechanism.
 
 <h2>Spatial lag</h2> 
 

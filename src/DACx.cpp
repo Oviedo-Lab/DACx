@@ -529,8 +529,8 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
   // Default shared values
   double tau_fast                 = 1.0;
   double tau_slow                 = 60.0;
-  double tau_Vs                   = 100.0;   // ms/spike
-  double I_slow                   = 0.01; // Default is no bursting; increase to induce bursting (or lower tau_slow)
+  double tau_Vs                   = 100.0; // ms/spike
+  double I_slow                   = 0.01;  // Default is no bursting; increase to induce bursting (or lower tau_slow)
   double U_Vs                     = 0.05; 
   double max_spike_rate           = 0.1;   // spikes/ms
   double transmission_velocity    = 30e3;  // microns/ms
