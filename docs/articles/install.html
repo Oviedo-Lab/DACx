@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">DACx</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -42,7 +42,10 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Tutorials</h6></li>
     <li><a class="dropdown-item" href="../articles/tutorial_network_topology.html">Network topology from circuit motifs</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_math.html">Mathematics of GT models</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_membrane_temporal_dynamics.html">Single-cell temporal dynamics</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial_SGT.html">Spatial growth-transform models</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_celltypes.html">Cell types</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Legal</h6></li>
     <li><a class="dropdown-item" href="../articles/license.html">Dependency licenses</a></li>
@@ -79,7 +82,7 @@
                         <h4 data-toc-skip class="author">Michael
 Barkasi</h4>
             
-            <h4 data-toc-skip class="date">2026-04-19</h4>
+            <h4 data-toc-skip class="date">August 3, 2026 (v1.0)</h4>
       
 
       <div class="d-none name"><code>install.Rmd</code></div>
@@ -98,8 +101,8 @@ install the package<br>
 <li>To ensure a clean start, run:</li>
 </ol>
 <div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">rm</span> <span class="at">-f</span> src/<span class="pp">*</span>.o src/<span class="pp">*</span>.so</span>
-<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">rm</span> <span class="at">-rf</span> neurons.Rcheck</span>
-<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="fu">rm</span> <span class="at">-f</span> neurons_<span class="pp">*</span>.tar.gz</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">rm</span> <span class="at">-rf</span> DACx.Rcheck</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="fu">rm</span> <span class="at">-f</span> DACx_<span class="pp">*</span>.tar.gz</span>
 <span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="ex">./build_install.sh</span></span></code></pre></div>
 <div class="section level2">
 <h2 id="build-documentation">Build documentation<a class="anchor" aria-label="anchor" href="#build-documentation"></a>

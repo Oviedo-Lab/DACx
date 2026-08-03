@@ -28,6 +28,10 @@ articles:
 - title: Tutorials
   navbar: Tutorials
   contents: 
+  - tutorial_network_topology
+  - tutorial_math
+  - tutorial_membrane_temporal_dynamics
+  - tutorial_SGT
   - starts_with("tutorial_")
 
 - title: Legal

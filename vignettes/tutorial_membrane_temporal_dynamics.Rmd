@@ -233,7 +233,7 @@ plot(bursting_cell_results[["Vs_traces"]][1,], type = "l", ylab = "Vs (STD)")
 plot(bursting_cell_results[["T_traces"]][1,], type = "l", ylab = "T")
 ```
 
-```{r SGT_bursting}
+```{r SGT_integrating_long}
 integrating_cell_results <- run.SGT(
   integrating_cell,
   long_stims,
@@ -245,7 +245,7 @@ plot(integrating_cell_results[["slow_current_traces"]][1,], type = "l", ylab = "
 plot(integrating_cell_results[["Ca_traces"]][1,], type = "l", ylab = "Calcium")
 plot(integrating_cell_results[["tau_slow_effect_traces"]][1,], type = "l", ylab = "tau_slow (bursting)")
 plot(integrating_cell_results[["Vs_traces"]][1,], type = "l", ylab = "Vs (STD)")
-plot(integrating_cell_results[["T_traces"]][1,], type = "l", ylab = "T")
+plot(integrating_cell_results[["T_traces"]][1,],  type = "l", ylab = "T")
 ```
 
 ```{r}
@@ -286,4 +286,17 @@ integrating_cell_results <- run.SGT(
 )
 plot.network.traces(integrating_cell, input_matrix = continuous_stim)
 ```
+
+
+<h2>Temporal modulation</h2>
+
+The final step in GT models (including SGT models) is to divide the rate of change for membrane potential $\partial v/\partial t$ by a temporal modulation term $T$, such that: 
+\[v(t+1) =  v(t) + \frac{\left.\frac{\partial v}{\partial t}\right|_{t+1}}{T}\]
+This term $T$ is given by the following exponential decay model: 
+\[T = b + A\exp\left(-\frac{x}{\tau}\right)\]
+where $b$ is the temporal modulation bias, $A$ is the temporal modulation amplitude, and $\tau$ is the temporal modulation time constant. The traditional input $x$ is filled by $B$, a "burst" step counter. The step counter $B$ is merely a numerical device in the simulation to carry $T$ repeatedly across the exponential decay via the input $x$. When $T<b$, $B$ resets to zero (and thus $T$ jumps again to a high number), resetting the exponential decay.  
+
+When the amplitude $A$ is zero, the exponential decay has no effect and all that's relevant is the bias $b$. When $A>0$, the effect is to increase $T$ at the start of the step counter, thereby shrinking the effect of $\partial v/\partial t$. This shrinkage follows the exponential decay of $T$, so that there is little chance in $v$ (i.e., small $\partial v/\partial t$) at the start of the step counter, but the possibility for large changes in $v$ at the end of the step counter. Thus, when at the end of the step counter, neurons are prone to many spikes as their membrane potential rapidly changes, creating a bursting effect.
+
+
 

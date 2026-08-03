@@ -1,7 +1,7 @@
 # Run Spatial Growth-Transform network simulation
 
 This function uses a Spatial Growth-Transform (SGT) model to run a spike
-simulation on a given network object for a specified matrix of input
+simulation on a given network object for a specified matrix of membrane
 currents over time. A matrix containing the spike traces of all neurons
 over time after the simulation (neurons as rows, sample times as
 columns) is saved in the network object, along with a vector of spike
@@ -11,7 +11,7 @@ in a list.
 ## Usage
 
 ``` r
-run.SGT(network, stimulus_current_matrix, dt = 0.001)
+run.SGT(network, stimulus_current_matrix, dt = 0.001, initial_potential = -70)
 ```
 
 ## Arguments
@@ -22,19 +22,23 @@ run.SGT(network, stimulus_current_matrix, dt = 0.001)
 
 - stimulus_current_matrix:
 
-  Matrix of input currents, with rows representing neurons and columns
-  representing sample times.
+  Matrix of stimulus currents, with rows representing neurons and
+  columns representing sample times.
 
 - dt:
 
-  Time step length in the unit_time of the network (default: 1e-3, or 1
-  micosecond time steps).
+  Time step length in ms (default: 1e-3, i.e., 1 micosecond time steps).
+
+- initial_potential:
+
+  Initial value for membrane potential, applied to all cells (Default is
+  -70 mV).
 
 ## Value
 
 List containing the following elements:
 
-- sim_traces:
+- v_traces:
 
   Matrix of simulated spike traces for all neurons over time (neurons as
   rows, sample times as columns).

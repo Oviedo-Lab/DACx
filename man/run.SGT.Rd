@@ -4,19 +4,27 @@
 \alias{run.SGT}
 \title{Run Spatial Growth-Transform network simulation}
 \usage{
-run.SGT(network, stimulus_current_matrix, dt = 0.001, initial_potential = -70)
+run.SGT(
+  network,
+  stimulus_current_matrix,
+  dt = 0.001,
+  initial_potential = -70,
+  return_v_only = TRUE
+)
 }
 \arguments{
 \item{network}{Network object on which to run the simulation.}
 
 \item{stimulus_current_matrix}{Matrix of stimulus currents, with rows representing neurons and columns representing sample times.}
 
-\item{dt}{Time step length in the implicit time units of the network (default: 1e-3, which is 1 micosecond time steps, assuming an implicit time unit of ms).}
+\item{dt}{Time step length in ms (default: 1e-3, i.e., 1 micosecond time steps).}
 
-\item{initial_potential}{Initial value for membrane potential, applied to all cells (Default is -70 mV).}
+\item{initial_potential}{Initial value for membrane potential, applied to all cells (default is -70 mV).}
+
+\item{return_v_only}{Boolean specifying whether to return only the membrane potential traces and related spike counts. If FALSE, will also return matrices containing traces related to the temporal modulation term (default is TRUE).}
 }
 \value{
-List containing the following elements: \item{v_traces}{Matrix of simulated spike traces for all neurons over time (neurons as rows, sample times as columns).} \item{spike_counts}{Vector of spike counts for each neuron in the network.}
+List containing the following elements: \item{v_traces}{Matrix of simulated subthreshold voltage + spike traces for all neurons over time (neurons as rows, sample times as columns).} \item{spike_counts}{Vector of spike counts for each neuron in the network.} If return_v_only is FALSE, will also include, in the same matrix format as v_traces: \item{slow_current_traces}{Slow current trigger: When 1, indicates that the slow-current molecule (e.g., CA2+) is flowing into the cell; when 0, indicates that the slow-current molecule is being pumped out.} \item{Ca_traces}{Intracellular calcium concentrations (or, whatever molecule controls the slow current). Unitless, ratio [0,1].} \item{tau_slow_effect_traces}{Membrane response to slow currents, e.g., Ca2+ (calcium), for modeling bursting. Unitless, ratio [0,1].} \item{Vs_traces}{Synaptic vesicle concentration, models STD. Unitless, ratio [0,1].} \item{T_traces}{Temporal modulation term, units of 1/ms.}
 }
 \description{
 This function uses a Spatial Growth-Transform (SGT) model to run a spike simulation on a given network object for a specified matrix of membrane currents over time. A matrix containing the spike traces of all neurons over time after the simulation (neurons as rows, sample times as columns) is saved in the network object, along with a vector of spike counts for each neuron in the network. Both are returned on the R side in a list.

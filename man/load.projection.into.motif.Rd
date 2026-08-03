@@ -8,7 +8,7 @@ load.projection.into.motif(
   motif,
   presynaptic_layer,
   postsynaptic_layer,
-  projection_conductance = 0.1,
+  pre_neuron_fraction = 0.5,
   presynaptic_type = "principal",
   postsynaptic_type = "principal",
   max_col_shift_up = 0,
@@ -26,7 +26,7 @@ load.projection.into.motif(
 
 \item{postsynaptic_layer}{Character string, or vector of character strings, giving layer of postsynaptic neuron.}
 
-\item{projection_conductance}{Numeric giving overall strength of the projection, as expected synaptic conductance (nS, default: 0.1).}
+\item{pre_neuron_fraction}{Numeric between 0 and 1 giving the fraction of eligible presynaptic neurons that send axons in this projection (default: 0.5). This controls projection sparsity; conductance values are automatically looked up from neuron type properties.}
 
 \item{presynaptic_type}{Character string giving type of presynaptic neuron (default: "principal").}
 

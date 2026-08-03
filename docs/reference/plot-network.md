@@ -21,9 +21,9 @@ plot.network(
  reconstruct_arbors = TRUE,
  edge_color = "pre_type", 
  soma_color = "layer", 
- soma_size_factor = 3.0, 
- return_plot = FALSE,
- return_cell_arbor_idx = FALSE
+ soma_size_factor = 0.5, 
+ return_plot = TRUE,
+ return_cell_arbor_idx = TRUE
 )
 ```
 
@@ -120,7 +120,7 @@ plot.network(
 - soma_size_factor:
 
   Numeric value controlling how cell size in the plot scales to the
-  number of cells.
+  number of cells (default: 0.5).
 
 - return_plot:
 

@@ -52,13 +52,13 @@ new.motif <- function(
 #' 
 #' This function initializes a new network object with specified parameters. Networks are used to simulate two-dimensional cortical patches (of layers and columns) using Growth Transform dynamical systems. 
 #' 
-#' Mathematically, networks are points (representing neurons) connected by directed edges. Within the growth-transform (GT) model framework, these edges are transconductance values representing synaptic connections between neurons.
+#' Mathematically, networks are points (representing neurons) connected by directed edges. Within the growth-transform (GT) model framework, these edges are synaptic conductance values representing synaptic connections between neurons.
 #' 
 #' Point types: Points can be grouped by types, which affect their behavior and connectivity. Within the GT model framework, these types each have their own temporal modulation constants (determining, e.g., whether the cell bursts or fires singular spikes) and valence (excitatory or inhibitory).
 #' 
 #' Global structure: Modelling the mammalian cortex, networks are assumed to divide into a coarse-grained two-dimensional coordinate system of layers (rows) and columns (columns). Each point is assigned to a layer-column coordinate (called a "node"), having both local x-y coordinates within that node and a global x-y coordinate within the network. 
 #'  
-#' Local structure: Each layer-column coordinate defines a "node" containing a number of points determined by layer and type. Connections (edges) within a node are determined by a local recurrence factor matrix determining the transconductance between points of each type. These edges are called "local". 
+#' Local structure: Each layer-column coordinate defines a "node" containing a number of points determined by layer and type. Connections (edges) within a node are determined by a local recurrence factor matrix determining the synaptic conductance between points of each type. These edges are called "local". 
 #' 
 #' Long-range projections: Connections (edges) between points in different nodes are determined by a long-range projection motif and labelled with the same of that motif. 
 #' 
@@ -89,12 +89,13 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 
 #' Add new cell type
 #' 
-#' This function adds a user-defined cell type to the current session. It's just a wrapper for the Rcpp-exported \code{add_cell_type} function. Technically, \code{cell_type} is a struct defined in the Rcpp backend of the DACx package. They are essentially labeled lists whose fields are described by the parameters below. Each session stores cell types in the Rcpp backend in an \code{unordered_map} with string labels. All parameters come with biologically realistic (and mathematically workable) default values, except for \code{type_name} and \code{valence}. 
+#' This function adds a user-defined cell type to the current session. It's just a wrapper for the Rcpp-exported \code{add_cell_type} function. Technically, \code{cell_type} is a struct defined in the Rcpp backend of the DACx package. They are essentially labeled lists whose fields are described by the parameters below. Each session stores cell types in the Rcpp backend in an \code{unordered_map} with string labels. All parameters come with biologically realistic (and mathematically workable) default values, except for \code{type_name}, \code{synaptic_conductance}, and \code{equilibrium_potential}. 
 #' 
 #' @param type_name Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.
-#' @param valence Valence of each neuron type, +1 for excitatory, -1 for inhibitory.
-#' @param tau_fast Time constant (ms) of the fast sodium (Na+) current (positive current, time to flow in). Default is 1.0.
-#' @param tau_slow Time constant (ms) of the slow calcium (Ca2+) current (negative current, time to pump out). Default is 60.0.
+#' @param synaptic_conductance Conductance (nS) of this cell type's synapses, treating this cell type as post-synaptic and indexing by the type of each possible pre-synaptic cell. Can be a single number (applied uniformly to every pre-synaptic type), a numeric vector ordered as in \code{print.known.celltypes()}, or a named list keyed by pre-synaptic type name, e.g. \code{list(pyramidal = 0.15, PV = 0.08)}.
+#' @param equilibrium_potential Induced potential (mV) at which no current naturally flows across this cell type's membrane, given the neurotransmitter released by each possible pre-synaptic cell type (e.g., 0 mV for an excitatory pre-synaptic cell, -70 mV for an inhibitory pre-synaptic cell). Accepts the same formats as \code{synaptic_conductance}.
+#' @param tau_fast Time constant (ms) of the fast sodium (Na+) current (Na+ influx is inward, i.e. negative under the outward-positive convention; time to flow in). Default is 1.0.
+#' @param tau_slow Time constant (ms) of the slow calcium (Ca2+) current (Ca2+ influx is inward, i.e. negative under the outward-positive convention; time to pump out). Default is 60.0.
 #' @param tau_Vs Time constant (ms) for restoring presynaptic vesicles, i.e., recovery from short-term depression (STD). Default is 100.0.
 #' @param I_slow Slow-current molecule (e.g., Ca2+) influx as concentration per spike (concentration/spike). Default is 0.01.
 #' @param U_Vs Utilization ratio (concentration/spike) of vesicles per spike. Default is 0.05.
@@ -102,11 +103,13 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 #' @param transmission_velocity Transmission velocity (in microns/ms) along axon, for each neuron type. Default value is 30e3.
 #' @param spine_density Scale controlling percentage of dendrite nodes with spines: zero means none, one means all. Default is 0.0. 
 #' @param axon_target Character string giving target of axon projections, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".
-#' @param I_spike Spike current, in pA; absolute value plus a little bit used as \code{dHdv_bound}. Default value is 1e3 (i.e., 1 nA).
+#' @param I_spike Spike current, in pA. Default value is 1e3 (i.e., 1 nA).
+#' @param dHdv_bound Bound on derivative of metabolic energy wrt potential, such that \code{dHdv_bound > abs(dHdv)}, in pA, for each neuron in the network, based on its type. Default value is 1.05e3.
 #' @param spike_potential Peak potential during a spike, in mV. Default value is 35.0.
+#' @param spike_width Time spike activates synapse, in ms. Default value is 1.0. 
 #' @param resting_potential Resting potential, in mV; absolute value plus a little bit used as \code{v_bound}. Default value is -70.0.
 #' @param threshold Spike threshold, in mV. Default value is -55.0.
-#' @param leak_conductance Conductance controlling the leak current, \code{I_leak = leak_conductance * (resting_potential - v)}, in nS. Default value is 10.0.
+#' @param leak_conductance Conductance controlling the leak current, \code{I_leak = leak_conductance * (v - resting_potential)} (outward-positive), in nS. Default value is 10.0.
 #' @param axon_branch_count Expected number of axon branches. Default is 10. 
 #' @param dendrite_branch_count Expected number of dendrite branches. Default is 10. 
 #' @param branch_independence Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma. Default is 0.5.
@@ -116,7 +119,8 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 #' @export
 add.cell.type <- function(
     type_name,
-    valence,
+    synaptic_conductance,
+    equilibrium_potential,
     tau_fast              = 1.0,
     tau_slow              = 60.0,
     tau_Vs                = 100.0,
@@ -127,7 +131,9 @@ add.cell.type <- function(
     spine_density         = 0.0,
     axon_target           = "dendrite_shaft",
     I_spike               = 1e3,
+    dHdv_bound            = 1.05,
     spike_potential       = 35.0,
+    spike_width           = 1.0, 
     resting_potential     = -70.0,
     threshold             = -55.0,
     leak_conductance      = 10.0,
@@ -138,27 +144,30 @@ add.cell.type <- function(
     apical_target_layer   = "none"
   ) {
     add_cell_type(list(
-      type_name             = type_name,
-      valence               = as.integer(valence),
-      tau_fast              = tau_fast, 
-      tau_slow              = tau_slow, 
-      tau_Vs                = tau_Vs, 
-      I_slow                = I_slow, 
-      U_Vs                  = U_Vs, 
-      max_spike_rate        = max_spike_rate,
-      transmission_velocity = transmission_velocity,
-      spine_density         = spine_density,
-      axon_target           = axon_target,
-      I_spike               = I_spike,
-      spike_potential       = spike_potential,
-      resting_potential     = resting_potential,
-      threshold             = threshold,
-      leak_conductance      = leak_conductance,
-      axon_branch_count     = as.integer(axon_branch_count),
-      dendrite_branch_count = as.integer(dendrite_branch_count),
-      branch_independence   = branch_independence,
-      branch_spread         = branch_spread,
-      apical_target_layer   = apical_target_layer
+      type_name              = type_name,
+      synaptic_conductance   = synaptic_conductance,
+      equilibrium_potential  = equilibrium_potential,
+      tau_fast               = tau_fast, 
+      tau_slow               = tau_slow, 
+      tau_Vs                 = tau_Vs, 
+      I_slow                 = I_slow, 
+      U_Vs                   = U_Vs, 
+      max_spike_rate         = max_spike_rate,
+      transmission_velocity  = transmission_velocity,
+      spine_density          = spine_density,
+      axon_target            = axon_target,
+      I_spike                = I_spike,
+      dHdv_bound             = dHdv_bound,
+      spike_potential        = spike_potential,
+      spike_width            = spike_width, 
+      resting_potential      = resting_potential,
+      threshold              = threshold,
+      leak_conductance       = leak_conductance,
+      axon_branch_count      = as.integer(axon_branch_count),
+      dendrite_branch_count  = as.integer(dendrite_branch_count),
+      branch_independence    = branch_independence,
+      branch_spread          = branch_spread,
+      apical_target_layer    = apical_target_layer
     ))
   }
 
@@ -167,9 +176,10 @@ add.cell.type <- function(
 #' This function modifies parameters of an existing cell type in the current session. Parameters can be updated selectively. If a parameter is not specified (or is specified as \code{NULL}), the existing value will be kept.
 #' 
 #' @param type_name Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.
-#' @param valence Valence of each neuron type, +1 for excitatory, -1 for inhibitory.
-#' @param tau_fast Time constant (ms) of the fast sodium (Na+) current (positive current, time to flow in).
-#' @param tau_slow Time constant (ms) of the slow calcium (Ca2+) current (negative current, time to pump out).
+#' @param synaptic_conductance Conductance (nS) of this cell type's synapses, treating this cell type as post-synaptic and indexing by the type of each possible pre-synaptic cell. Can be a single number (applied uniformly to every pre-synaptic type), a numeric vector ordered as in \code{print.known.celltypes()}, or a named list keyed by pre-synaptic type name, e.g. \code{list(pyramidal = 0.15, PV = 0.08)}.
+#' @param equilibrium_potential Induced potential (mV) at which no current naturally flows across this cell type's membrane, given the neurotransmitter released by each possible pre-synaptic cell type (e.g., 0 mV for an excitatory pre-synaptic cell, -70 mV for an inhibitory pre-synaptic cell). Accepts the same formats as \code{synaptic_conductance}.
+#' @param tau_fast Time constant (ms) of the fast sodium (Na+) current (Na+ influx is inward, i.e. negative under the outward-positive convention; time to flow in).
+#' @param tau_slow Time constant (ms) of the slow calcium (Ca2+) current (Ca2+ influx is inward, i.e. negative under the outward-positive convention; time to pump out).
 #' @param tau_Vs Time constant (ms) for restoring presynaptic vesicles, i.e., recovery from short-term depression (STD).
 #' @param I_slow Slow-current molecule (e.g., Ca2+) influx as concentration per spike (concentration/spike).
 #' @param U_Vs Utilization ratio (concentration/spike) of vesicles per spike.
@@ -177,11 +187,13 @@ add.cell.type <- function(
 #' @param transmission_velocity Transmission velocity (in microns/ms) along axon, for each neuron type.
 #' @param spine_density Scale controlling percentage of dendrite nodes with spines: zero means none, one means all.
 #' @param axon_target Character string giving target of axon projections, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft".
-#' @param I_spike Spike current, in pA; absolute value plus a little bit used as \code{dHdv_bound}.
+#' @param I_spike Spike current, in pA.
+#' @param dHdv_bound Scale factor giving the bound on derivative of metabolic energy wrt potential, such that \code{dHdv_bound * I_spike > abs(dHdv)}, for each neuron in the network, based on its type.
 #' @param spike_potential Peak potential during a spike, in mV.
+#' @param spike_width Time spike activates synapse, in ms. 
 #' @param resting_potential Resting potential, in mV; absolute value plus a little bit used as \code{v_bound}.
 #' @param threshold Spike threshold, in mV.
-#' @param leak_conductance Conductance controlling the leak current, \code{I_leak = leak_conductance * (resting_potential - v)}, in nS.
+#' @param leak_conductance Conductance controlling the leak current, \code{I_leak = leak_conductance * (v - resting_potential)} (outward-positive), in nS.
 #' @param axon_branch_count Expected number of axon branches.
 #' @param dendrite_branch_count Expected number of dendrite branches.
 #' @param branch_independence Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma.
@@ -191,7 +203,8 @@ add.cell.type <- function(
 #' @export
 modify.cell.type <- function(
     type_name,
-    valence                 = NULL,
+    synaptic_conductance    = NULL,
+    equilibrium_potential   = NULL,
     tau_fast                = NULL,
     tau_slow                = NULL,
     tau_Vs                  = NULL,
@@ -202,7 +215,9 @@ modify.cell.type <- function(
     spine_density           = NULL,
     axon_target             = NULL,
     I_spike                 = NULL,
+    dHdv_bound              = NULL,
     spike_potential         = NULL,
+    spike_width             = NULL,
     resting_potential       = NULL,
     threshold               = NULL,
     leak_conductance        = NULL,
@@ -213,7 +228,6 @@ modify.cell.type <- function(
     apical_target_layer     = NULL
   ) {
     ep <- fetch.cell.type.params(type_name)  # existing params
-    if (is.null(valence))                valence               <- ep$valence
     if (is.null(tau_fast))               tau_fast              <- ep$tau_fast
     if (is.null(tau_slow))               tau_slow              <- ep$tau_slow
     if (is.null(tau_Vs))                 tau_Vs                <- ep$tau_Vs
@@ -224,7 +238,9 @@ modify.cell.type <- function(
     if (is.null(spine_density))          spine_density         <- ep$spine_density
     if (is.null(axon_target))            axon_target           <- ep$axon_target
     if (is.null(I_spike))                I_spike               <- ep$I_spike
+    if (is.null(dHdv_bound))             dHdv_bound            <- ep$dHdv_bound
     if (is.null(spike_potential))        spike_potential       <- ep$spike_potential
+    if (is.null(spike_width))            spike_width           <- ep$spike_width
     if (is.null(resting_potential))      resting_potential     <- ep$resting_potential
     if (is.null(threshold))              threshold             <- ep$threshold
     if (is.null(leak_conductance))       leak_conductance      <- ep$leak_conductance
@@ -233,28 +249,33 @@ modify.cell.type <- function(
     if (is.null(branch_independence))    branch_independence   <- ep$branch_independence
     if (is.null(branch_spread))          branch_spread         <- ep$branch_spread
     if (is.null(apical_target_layer))    apical_target_layer   <- ep$apical_target_layer
+    if (is.null(synaptic_conductance))   synaptic_conductance  <- ep$synaptic_conductance
+    if (is.null(equilibrium_potential))  equilibrium_potential <- ep$equilibrium_potential
     modify_cell_type(type_name, list(
-      type_name             = type_name,
-      valence               = as.integer(valence),
-      tau_fast              = tau_fast, 
-      tau_slow              = tau_slow, 
-      tau_Vs                = tau_Vs, 
-      I_slow                = I_slow, 
-      U_Vs                  = U_Vs, 
-      max_spike_rate        = max_spike_rate,
-      transmission_velocity = transmission_velocity,
-      spine_density         = spine_density,
-      axon_target           = axon_target,
-      I_spike               = I_spike,
-      spike_potential       = spike_potential,
-      resting_potential     = resting_potential,
-      threshold             = threshold,
-      leak_conductance      = leak_conductance,
-      axon_branch_count     = as.integer(axon_branch_count),
-      dendrite_branch_count = as.integer(dendrite_branch_count),
-      branch_independence   = branch_independence,
-      branch_spread         = branch_spread,
-      apical_target_layer   = apical_target_layer
+      type_name              = type_name,
+      synaptic_conductance   = synaptic_conductance,
+      equilibrium_potential  = equilibrium_potential,
+      tau_fast               = tau_fast, 
+      tau_slow               = tau_slow, 
+      tau_Vs                 = tau_Vs, 
+      I_slow                 = I_slow, 
+      U_Vs                   = U_Vs, 
+      max_spike_rate         = max_spike_rate,
+      transmission_velocity  = transmission_velocity,
+      spine_density          = spine_density,
+      axon_target            = axon_target,
+      I_spike                = I_spike,
+      dHdv_bound             = dHdv_bound,
+      spike_potential        = spike_potential,
+      spike_width            = spike_width, 
+      resting_potential      = resting_potential,
+      threshold              = threshold,
+      leak_conductance       = leak_conductance,
+      axon_branch_count      = as.integer(axon_branch_count),
+      dendrite_branch_count  = as.integer(dendrite_branch_count),
+      branch_independence    = branch_independence,
+      branch_spread          = branch_spread,
+      apical_target_layer    = apical_target_layer
     ))
   }
 
@@ -296,7 +317,7 @@ principal.neurons <- function(print_nicely = FALSE) {
 #' @param motif Motif object into which to load the projection.
 #' @param presynaptic_layer Character string giving layer of presynaptic neuron, e.g. "L1", "L2", "L3", "L4", etc.
 #' @param postsynaptic_layer Character string, or vector of character strings, giving layer of postsynaptic neuron.
-#' @param projection_conductance Numeric giving overall strength of the projection, as expected synaptic conductance (nS, default: 0.1).
+#' @param pre_neuron_fraction Numeric between 0 and 1 giving the fraction of eligible presynaptic neurons that send axons in this projection (default: 0.5). This controls projection sparsity; conductance values are automatically looked up from neuron type properties.
 #' @param presynaptic_type Character string giving type of presynaptic neuron (default: "principal").
 #' @param postsynaptic_type Character string giving type of postsynaptic neuron (default: "principal").
 #' @param max_col_shift_up Maximum number of columns upwards (increasing columnar indexes) that the projection can reach (default: 0, should be positive integer).
@@ -308,7 +329,7 @@ load.projection.into.motif <- function(
     motif,
     presynaptic_layer,
     postsynaptic_layer,
-    projection_conductance = 0.1,
+    pre_neuron_fraction    = 0.5,
     presynaptic_type       = "principal",
     postsynaptic_type      = "principal",
     max_col_shift_up       = 0,
@@ -360,7 +381,7 @@ load.projection.into.motif <- function(
         as.integer(max_col_shift_down),
         as.integer(max_pch_shift_up),
         as.integer(max_pch_shift_down),
-        projection_conductance
+        pre_neuron_fraction
       )
     }
     
@@ -385,7 +406,6 @@ load.projection.into.motif <- function(
 #' @param column_separation_factor Numeric giving mean distance between columns as a fraction of column diameter (default: 2.5).
 #' @param patch_separation_factor Numeric giving mean distance between network patches as a fraction of column diameter (default: 2.5). 
 #' @param neurons_per_node Matrix giving mean number of neurons of each type per node in each layer, with cortical layers first and then subcortical layers; dimensions must match n_layers + n_subcortical_layers (rows) and length of neuron_types (columns), or 2 * (n_layers + n_subcortical_layers) if specifying different cell type counts for a second hemisphere. If there are two hemispheres but only n_layers + n_subcortical_layers rows, then the counts are reused for the second hemisphere. 
-#' @param local_synaptic_conductance List (one entry per cortical layer) of matrices giving synaptic conductance in nS for local connections by cell-type; each matrix must have dimensions matching length of neuron_types (rows and columns).
 #' @param synaptic_neighborhood Numeric giving the radius (in microns) within which an axon node will trigger a synapse when near a dendrite node (default: 10.0).
 #' @param n_hemispheres Integer giving number of hemispheres; must be 1 or 2 (default: 1).
 #' @param hemisphere_names Character vector of length n_hemispheres giving names for the hemispheres (default: auto-generated as "left" or c("left","right")).
@@ -393,7 +413,6 @@ load.projection.into.motif <- function(
 #' @param n_subcortical_layers Integer giving number of subcortical layers (e.g., thalamic relay nuclei); can be 0 (default: 0).
 #' @param subcortical_layer_names Character vector of length n_subcortical_layers giving names for the subcortical layers (default: auto-generated as "subL1", "subL2", ...). Must be distinct from all cortical layer names.
 #' @param sub_separation_factor Numeric giving distance from the cortical sheet to the first subcortical layer as a fraction of layer height (default: 5.0).
-#' @param subcortical_local_conductance List (one entry per subcortical layer) of matrices giving synaptic conductance for local connections in each subcortical layer. Required if n_subcortical_layers > 0; can be a single matrix or scalar (broadcast to all layers).
 #' @return The updated network object with the specified structure and local nodes generated.
 #' @export
 set.network.structure <- function(
@@ -415,8 +434,6 @@ set.network.structure <- function(
     layer_separation_factor       = 2.5,
     column_separation_factor      = 2.5,
     patch_separation_factor       = 2.5,
-    local_synaptic_conductance    = 0.1,
-    subcortical_local_conductance = 0.1,
     synaptic_neighborhood         = 10.0,
     neurons_per_node              = 10
   ) {
@@ -500,78 +517,7 @@ set.network.structure <- function(
         }
       }
       
-      # ... remake local_synaptic_conductance
-      if (!("list" %in% class(local_synaptic_conductance))) {
-        
-        # Given a single matrix or numeric value
-        if ("matrix" %in% class(local_synaptic_conductance) || "numeric" %in% class(local_synaptic_conductance)) {
-          rm     <- as.matrix(local_synaptic_conductance)
-          rm_new <- matrix(0, nrow = n_t, ncol = n_t)
-          local_synaptic_conductance <- list()
-          for (l in seq_len(n_layers)) {
-            if (length(rm) != n_types_old^2) {
-              if (length(rm) == 1) {
-                # Remake the matrix
-                rm_new[nn_p_range, nn_p_range] <- rm
-                for (t in seq_along(principals)) {
-                  if (principals[t] == principal.neurons()[[layer_names[l]]]) {
-                    rm_new[t,          t] <- rm
-                    rm_new[t, nn_p_range] <- rm
-                    rm_new[nn_p_range, t] <- rm
-                  }
-                }
-              } else {
-                stop("Dimensions of local_synaptic_conductance matrix must match length of neuron_types, or be a single numeric scalar.")
-              }
-            } else {
-              # Remake the matrix
-              if (length(rm[-principal_idx, -principal_idx]) > 0) {
-                rm_new[nn_p_range, nn_p_range] <- rm[-principal_idx, -principal_idx]
-                for (t in seq_along(principals)) {
-                  if (principals[t] == principal.neurons()[[layer_names[l]]]) {
-                    rm_new[t,          t] <- rm[principal_idx, principal_idx]
-                    rm_new[t, nn_p_range] <- rm[principal_idx, -principal_idx]
-                    rm_new[nn_p_range, t] <- rm[-principal_idx, principal_idx]
-                  }
-                }
-              }
-            }
-            local_synaptic_conductance[[l]] <- rm_new
-          }
-          
-        } else {
-          stop("local_synaptic_conductance must be a list of matrices, a single matrix, or a single numeric scalar.")
-        }
-        
-      } else { 
-        
-        # Given a list (... hopefully of matrices)
-        for (l in seq_along(local_synaptic_conductance)) {
-          rm     <- local_synaptic_conductance[[l]]
-          rm_new <- matrix(0, nrow = n_t, ncol = n_t)
-          # Check if we have a matrix
-          if (length(dim(rm)) != 2) {
-            stop(paste0("local_synaptic_conductance[[", l, "]] must be a matrix."))
-          }
-          # Check dimensions 
-          if (ncol(rm) != n_types_old) {
-            if (ncol(rm) != nrow(rm)) {
-              stop(paste0("Dimensions of local_synaptic_conductance[[", l, "]] must match length of neuron_types."))
-            }
-          }
-          # Set new recurrence matrix 
-          rm_new[nn_p_range, nn_p_range] <- rm[-principal_idx, -principal_idx]
-          for (t in seq_along(principals)) {
-            if (principals[t] == principal.neurons()[[layer_names[l]]]) {
-              rm_new[t, t] <- rm[principal_idx, principal_idx]
-              if (ncol(rm[principal_idx, -principal_idx]) > 0) rm_new[t, nn_p_range] <- rm[principal_idx, -principal_idx]
-              if (nrow(rm[-principal_idx, principal_idx]) > 0) rm_new[nn_p_range, t] <- rm[-principal_idx, principal_idx]
-            }
-          }
-          local_synaptic_conductance[[l]] <- rm_new
-        }
-        
-      }
+
       
     }
    
@@ -602,51 +548,9 @@ set.network.structure <- function(
     }
     
     # Helper: coerce conductance input to a list of n x n matrices
-    coerce_conductance <- function(cond, n_lyrs, n_types, label) {
-      if (!("list" %in% class(cond))) {
-        if ("matrix" %in% class(cond) || "numeric" %in% class(cond)) {
-          rm <- as.matrix(cond)
-          if (length(rm) == 1) {
-            rm <- matrix(rm, nrow = n_types, ncol = n_types)
-          } else if (length(rm) != n_types^2) {
-            stop(paste0("Dimensions of ", label, " matrix must match length of neuron_types, or be a single numeric scalar."))
-          }
-          out <- list()
-          for (l in seq_len(n_lyrs)) out[[l]] <- rm
-          return(out)
-        } else {
-          stop(paste0(label, " must be a list of matrices, a single matrix, or a single numeric scalar."))
-        }
-      } else if (length(cond) != n_lyrs) {
-        stop(paste0("Length of ", label, " list must match ", n_lyrs, "."))
-      } else {
-        for (l in seq_len(n_lyrs)) {
-          sc_dim <- dim(cond[[l]])
-          if (length(sc_dim) != 2) stop(paste0(label, "[[", l, "]] must be a matrix."))
-          if (any(sc_dim != c(n_types, n_types))) stop(paste0("Dimensions of ", label, "[[", l, "]] must match length of neuron_types."))
-        }
-        return(cond)
-      }
-    }
-    
-    # Check / coerce cortical conductance values
-    local_synaptic_conductance <- coerce_conductance(
-      local_synaptic_conductance, n_layers, n_neuron_types, "local_synaptic_conductance"
-    )
-    
-    # Check / coerce subcortical conductance values
-    if (n_subcortical_layers > 0) {
-      if (length(subcortical_local_conductance) == 0) {
-        stop("subcortical_local_conductance is required when n_subcortical_layers > 0.")
-      }
-      subcortical_local_conductance <- coerce_conductance(
-        subcortical_local_conductance, n_subcortical_layers, n_neuron_types, "subcortical_local_conductance"
-      )
-    } else {
-      subcortical_local_conductance = list()
-    }
-    
+
     # Set structure (new C++ signature: hsl_names as list, n as 5-vector, sep_factor as 5-vector)
+    # Note: synaptic conductances are now automatically looked up from neuron type properties
     network$set_network_structure(
       neuron_types,
       list(hemisphere_names, subcortical_layer_names, layer_names),  # hsl_names: {hem, sub, lyr}
@@ -656,9 +560,7 @@ set.network.structure <- function(
       column_diameter,
       segment_length, 
       synaptic_neighborhood,
-      neurons_per_node,
-      local_synaptic_conductance,
-      subcortical_local_conductance
+      neurons_per_node
     )
     
     # Make local nodes and return
@@ -738,15 +640,13 @@ fetch.network.components <- function(
 #' 
 #' @param network Network object to which the motif will be applied.
 #' @param motif Motif object defining the circuit motif to apply.
-#' @param verbose Logical indicating whether to print progress messages during motif application (default: TRUE).
 #' @return The updated network object with the motif applied.
 #' @export
 apply.circuit.motif <- function(
     network,
-    motif,
-    verbose = FALSE
+    motif
   ) {
-    network$apply_circuit_motif(motif, verbose)
+    network$apply_circuit_motif(motif)
     return(network)
   }
 
@@ -1275,21 +1175,64 @@ plot.network.traces <- function(
   ) {
     
     # Get the traces to print
-    v_traces <- network$fetch_sim_results()$v_traces
+    v_traces <- network$fetch_sim_results(TRUE)$v_traces
     
     # Get network components
     ntw <- network$fetch_network_components(FALSE) # Retrieve arbors?
     
+    # Print input? 
+    print_input <- TRUE
+    if (is.null(input_matrix)) {
+      print_input  <- FALSE 
+    } else {
+      if (sum(dim(input_matrix) == dim(v_traces)) != 2) stop("input matrix and v_traces differ in dimensions")
+    }
+    
+    # Downsample, preserving spike columns
+    time_seq <- seq(1, by = ntw$sim_dt, length.out = ncol(v_traces))
+    if (length(v_traces) > 1e6) {
+      
+      target_cols <- floor(1e6 / nrow(v_traces))
+      
+      # Detect spike columns: any neuron shows a large upward jump at this time step.
+      # Spikes are single-step events, so they appear as large positive diffs.
+      col_diffs      <- v_traces[, -1, drop = FALSE] - v_traces[, -ncol(v_traces), drop = FALSE]
+      jump_threshold <- 20  # mV
+      spike_cols     <- which(apply(col_diffs, 2, max) > jump_threshold) + 1L
+      
+      # Budget: how many non-spike columns can we keep?
+      n_spike  <- length(spike_cols)
+      n_fill   <- max(target_cols - n_spike, 0L)
+      
+      non_spike_cols <- setdiff(seq_len(ncol(v_traces)), spike_cols)
+      fill_cols <- if (n_fill >= length(non_spike_cols)) {
+        non_spike_cols
+      } else {
+        non_spike_cols[round(seq(1, length(non_spike_cols), length.out = n_fill))]
+      }
+      
+      keep_cols    <- sort(unique(c(fill_cols, spike_cols)))
+      v_traces     <- v_traces[, keep_cols, drop = FALSE]
+      time_seq     <- time_seq[keep_cols]
+      if (print_input) input_matrix <- input_matrix[, keep_cols, drop = FALSE]
+    }
+    
+    # Print input? 
+    if (!print_input) {
+      input_matrix <- as.data.frame(matrix(NA, nrow = nrow(v_traces), ncol = ncol(v_traces)))
+    } else {
+      if (sum(dim(input_matrix) == dim(v_traces)) != 2) stop("input matrix and v_traces differ in dimensions")
+    }
+    
     # Initialize R data frame for ggplot
-    v_traces_long <- data.frame()
-    time_seq        <- seq(1, by = ntw$sim_dt, length.out = ncol(v_traces))
-    sim_steps       <- c(1:ncol(v_traces))
+    v_traces_long     <- data.frame()
     for (i in 1:nrow(v_traces)) {
       neuron_trace <- data.frame(
         time      = time_seq,
-        potential = v_traces[i, sim_steps],
+        potential = v_traces[i,],
         id        = i,
-        type      = ntw$neuron_type_name[i]
+        type      = ntw$neuron_type_name[i],
+        input     = input_matrix[i,]
       )
       v_traces_long <- rbind(v_traces_long, neuron_trace)
     }
@@ -1299,7 +1242,7 @@ plot.network.traces <- function(
     title_size  <- 14 
     axis_size   <- 12 
     legend_size <- 10
-    plt <- ggplot2::ggplot(v_traces_long, ggplot2::aes(x = time, y = potential, group = id, color=id)) +
+    plt <- ggplot2::ggplot(v_traces_long, ggplot2::aes(x = time, y = potential, group = id, color = id)) +
       ggplot2::geom_line() +
       ggplot2::facet_wrap(~ type, ncol = 1) +
       ggplot2::theme_minimal() +
@@ -1309,8 +1252,6 @@ plot.network.traces <- function(
         plot.title       = ggplot2::element_text(hjust = 0.5, size = title_size),
         axis.title       = ggplot2::element_text(size = axis_size),
         axis.text        = ggplot2::element_text(size = axis_size),
-        legend.title     = ggplot2::element_text(size = legend_size),
-        legend.text      = ggplot2::element_text(size = legend_size),
         legend.position  = "none") +
       ggplot2::labs(
         title = "SGT Simulation Traces",
@@ -1319,7 +1260,7 @@ plot.network.traces <- function(
       )
     
     # Add input matrix 
-    if (!is.null(input_matrix)) {
+    if (print_input) {
       
       # Remove x axis
       plt <- plt +
@@ -1329,15 +1270,16 @@ plot.network.traces <- function(
           axis.text.x  = ggplot2::element_blank()
         )
       
-      # Make stimulus plot
-      df <- data.frame(
-        t = rep(seq_len(ncol(input_matrix)) * ntw$sim_dt, each = nrow(input_matrix)), 
-        x = as.numeric(input_matrix)
-      )
-      
-      plt_stim <- ggplot2::ggplot(df, ggplot2::aes(t, x)) +
+      # Make input plot
+      plt_stim <- ggplot2::ggplot(
+          v_traces_long, 
+          ggplot2::aes(x = time, y = input, group = id, color = id)) +
         ggplot2::geom_line(linewidth = 0.6) +
         ggplot2::theme_minimal() +
+        ggplot2::theme(
+          panel.background = ggplot2::element_rect(fill = "white", colour = NA),
+          plot.background  = ggplot2::element_rect(fill = "white", colour = NA),
+          legend.position  = "none") +
         ggplot2::xlab("Time (ms)") +
         ggplot2::ylab("Stimulus (pA)")
       
@@ -1361,16 +1303,18 @@ plot.network.traces <- function(
 #' 
 #' @param network Network object on which to run the simulation.
 #' @param stimulus_current_matrix Matrix of stimulus currents, with rows representing neurons and columns representing sample times.
-#' @param dt Time step length in the implicit time units of the network (default: 1e-3, which is 1 micosecond time steps, assuming an implicit time unit of ms).
-#' @param initial_potential Initial value for membrane potential, applied to all cells (Default is -70 mV).
-#' @return List containing the following elements: \item{v_traces}{Matrix of simulated spike traces for all neurons over time (neurons as rows, sample times as columns).} \item{spike_counts}{Vector of spike counts for each neuron in the network.} 
+#' @param dt Time step length in ms (default: 1e-3, i.e., 1 micosecond time steps).
+#' @param initial_potential Initial value for membrane potential, applied to all cells (default is -70 mV).
+#' @param return_v_only Boolean specifying whether to return only the membrane potential traces and related spike counts. If FALSE, will also return matrices containing traces related to the temporal modulation term (default is TRUE).
+#' @return List containing the following elements: \item{v_traces}{Matrix of simulated subthreshold voltage + spike traces for all neurons over time (neurons as rows, sample times as columns).} \item{spike_counts}{Vector of spike counts for each neuron in the network.} If return_v_only is FALSE, will also include, in the same matrix format as v_traces: \item{slow_current_traces}{Slow current trigger: When 1, indicates that the slow-current molecule (e.g., CA2+) is flowing into the cell; when 0, indicates that the slow-current molecule is being pumped out.} \item{Ca_traces}{Intracellular calcium concentrations (or, whatever molecule controls the slow current). Unitless, ratio [0,1].} \item{tau_slow_effect_traces}{Membrane response to slow currents, e.g., Ca2+ (calcium), for modeling bursting. Unitless, ratio [0,1].} \item{Vs_traces}{Synaptic vesicle concentration, models STD. Unitless, ratio [0,1].} \item{T_traces}{Temporal modulation term, units of 1/ms.}
 #' @export
 run.SGT <- function(
     network,
     stimulus_current_matrix, 
     dt                = 1e-3,  
-    initial_potential = -70.0
+    initial_potential = -70.0,
+    return_v_only     = TRUE
   ) {
     network$SGT(stimulus_current_matrix, dt, initial_potential)
-    return(network$fetch_sim_results())
+    return(network$fetch_sim_results(return_v_only))
   }

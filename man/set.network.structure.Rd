@@ -23,8 +23,6 @@ set.network.structure(
   layer_separation_factor = 2.5,
   column_separation_factor = 2.5,
   patch_separation_factor = 2.5,
-  local_synaptic_conductance = 0.1,
-  subcortical_local_conductance = 0.1,
   synaptic_neighborhood = 10,
   neurons_per_node = 10
 )
@@ -65,10 +63,6 @@ set.network.structure(
 \item{column_separation_factor}{Numeric giving mean distance between columns as a fraction of column diameter (default: 2.5).}
 
 \item{patch_separation_factor}{Numeric giving mean distance between network patches as a fraction of column diameter (default: 2.5).}
-
-\item{local_synaptic_conductance}{List (one entry per cortical layer) of matrices giving synaptic conductance in nS for local connections by cell-type; each matrix must have dimensions matching length of neuron_types (rows and columns).}
-
-\item{subcortical_local_conductance}{List (one entry per subcortical layer) of matrices giving synaptic conductance for local connections in each subcortical layer. Required if n_subcortical_layers > 0; can be a single matrix or scalar (broadcast to all layers).}
 
 \item{synaptic_neighborhood}{Numeric giving the radius (in microns) within which an axon node will trigger a synapse when near a dendrite node (default: 10.0).}
 

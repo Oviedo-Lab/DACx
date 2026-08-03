@@ -6,6 +6,8 @@
 #include <RcppEigen.h>
 #include <nlopt.hpp>
 #include <random>
+#include <algorithm>
+#include <fstream>
 using namespace Rcpp;
 using namespace Eigen;
 
@@ -57,25 +59,28 @@ int find_first_by(
 struct cell_type {
     // ID information
     std::string type_name;
-    // Excitatory or inhibitory?
-    int         valence;                 // valence of each neuron type, +1 for excitatory, -1 for inhibitory
     // Membrane kinetics
-    double      tau_fast;                // time constant (ms) of the fast sodium (Na+) current (positive current, time to flow in)
-    double      tau_slow;                // time constant (ms) of the slow calcium (Ca2+) current (negative current, time to pump out)
+    double      tau_fast;                // time constant (ms) of the fast sodium (Na+) current (Na+ influx is inward, i.e. negative under the outward-positive convention; time to flow in)
+    double      tau_slow;                // time constant (ms) of the slow calcium (Ca2+) current (Ca2+ influx is inward, i.e. negative under the outward-positive convention; time to pump out)
     double      tau_Vs;                  // time constant (ms) for restoring presynaptic vesicles, i.e., recovery from short-term depression (STD)
     double      I_slow;                  // slow-current molecule (e.g., Ca2+) influx as concentration per spike (concentration/spike)
     double      U_Vs;                    // utilization ratio (concentration/spike) of vesicles per spike
     double      max_spike_rate;          // constant (spikes/ms) controlling estimation of spike rate and its max value
-    double      leak_conductance;        // conductance (nS) controlling the leak current: I_leak = leak_conductance * (resting_potential - v)
+    double      leak_conductance;        // conductance (nS) controlling the leak current: I_leak = leak_conductance * (v - resting_potential) (outward-positive)
     // Intercell transmission
-    double      transmission_velocity;   // transmission velocity (in micron/ms) along axon, for each neuron type
+    double      transmission_velocity;   // transmission velocity (micron/ms) along axon, for each neuron type
     double      spine_density;           // scale controlling percentage of dendrite nodes with spines: zero means none, one means all.
     std::string axon_target;             // "spine", "dendrite_shaft", "soma", and "axon_shaft"
-    // Membrane potential and spiking
-    double      I_spike;                 // spike current (pA); absolute value plus a little bit used as dHdv_bound
+    // Spiking
+    double      I_spike;                 // spike current (pA)
+    double      dHdv_bound;              // Scale factor giving the bound on derivative of metabolic energy wrt potential, such that dHdv_bound * I_spike > abs(dHdv). 
     double      spike_potential;         // peak potential during a spike spike (mV)
-    double      resting_potential;       // resting potential (mV); absolute value plus a little bit used as v_bound
+    double      spike_width;             // time spike activates synapse (ms)
     double      threshold;               // spike threshold (mV)
+    Vdbl        equilibrium_potential;   // induced potential at which no current naturally flows across membrane (mV), given the neurotransmitters of each possible pre-synaptic cell type
+    // Membrane characteristics
+    double      resting_potential;       // resting potential (mV); absolute value plus a little bit used as v_bound
+    Vdbl        synaptic_conductance;    // conductance of cell's synapses to neurotransmitters of each possible pre-synaptic cell type
     // Neurite structure
     int         axon_branch_count;       // expected number of axon branches
     int         dendrite_branch_count;   // expected number of dendrite branches
@@ -148,27 +153,29 @@ struct ntw_struct {
 
 // per-neuron cell-type based GT parameters
 struct per_nrn_params {
-    Vint    neuron_type_num;        // vector giving the type of each neuron in the network, as an integer index
-    ArrayXd v_bound;                // vector giving potential bound, in mV, for each neuron
-    ArrayXd dHdv_bound;             // vector giving bound on derivative of metabolic energy wrt potential, in pA, for each neuron
-    ArrayXd I_spike;                // vector giving spike current, in pA, for each neuron
-    ArrayXd spike_potential;        // vector giving magnitude of each spike, in mV, for each neuron
-    ArrayXd resting_potential;      // vector giving resting potential, in mV, for each neuron
-    ArrayXd threshold;              // vector giving spike threshold, in mV, for each neuron
-    ArrayXd leak_conductance;       // vector giving leak conductance, in nS, for each neuron
-    ArrayXd max_spike_rate;         // vector giving the number of spikes which can be "cleared" per ms, for each neuron
-    ArrayXd tau_fast; 
-    ArrayXd tau_slow; 
-    ArrayXd tau_Vs;                 // vector giving STD recovery time constant, in ms/spike, for each neuron
-    ArrayXd I_slow; 
-    ArrayXd U_Vs; 
-    ArrayXd transmission_velocity;  // vector giving the transmission delay (ms) for each neuron
+    Vint     neuron_type_num;        // vector giving the type of each neuron in the network, as an integer index
+    ArrayXd  v_bound;                // vector giving potential bound, in mV, for each neuron
+    ArrayXd  dHdv_bound;             // vector giving scale factor (w.r.t. I_spike) of bound on derivative of metabolic energy wrt potential, for each neuron
+    ArrayXd  I_spike;                // vector giving spike current, in pA, for each neuron
+    ArrayXd  spike_potential;        // vector giving magnitude of each spike, in mV, for each neuron
+    ArrayXd  spike_width;            // vector giving time a spike activates a synapse, in ms, for each neuron
+    ArrayXd  resting_potential;      // vector giving resting potential, in mV, for each neuron
+    ArrayXd  threshold;              // vector giving spike threshold, in mV, for each neuron
+    ArrayXd  leak_conductance;       // vector giving leak conductance, in nS, for each neuron
+    ArrayXd  max_spike_rate;         // vector giving the number of spikes which can be "cleared" per ms, for each neuron
+    ArrayXd  tau_fast; 
+    ArrayXd  tau_slow; 
+    ArrayXd  tau_Vs;                 // vector giving STD recovery time constant, in ms/spike, for each neuron
+    ArrayXd  I_slow; 
+    ArrayXd  U_Vs; 
+    ArrayXd  transmission_velocity;  // vector giving the transmission delay (ms) for each neuron
+    ArrayXXd equilibrium_potential;  // array giving the equilibrium potential (mV) for each post-synaptic cell (rows), given each pre-synaptic cell's type (columns)
   };
 
 // Network edges (connections), per motif
 struct ntw_edges {
-    std::vector<ArrayXXd> transconductance; // vector of square arrays, each giving the transconductance (nS) between each neuron in the network, one array per motif
-    std::vector<MatrixXi> type;             // vector of integer matrices giving all transconductance matrix coordinates for each edge type
+    std::vector<ArrayXXd> synaptic_conductance;  // vector of square arrays, each giving the synaptic_conductance (nS) between each neuron in the network, one array per motif
+    std::vector<MatrixXi> type;                  // vector of integer matrices giving all synaptic_conductance matrix coordinates for each edge type
     CharacterVector       motif_name = {"local connections"};
   }; 
 
@@ -213,7 +220,7 @@ class motif {
     Vint                    max_col_shift_down;           // maximum number of columns to shift down when applying motif
     Vint                    max_pch_shift_up;             // maximum number of patches to shift up when applying motif
     Vint                    max_pch_shift_down;           // maximum number of patches to shift down when applying motif
-    Vdbl                    projection_conductance;       // expected (initial) strength of connection for each projection (nS)
+    Vdbl                    projection_fraction;          // fraction of eligible pre-neurons that send axons for each projection [0.0, 1.0]; clipped to [1/n_pre, 1.0]
     int                     n_projections = 0;            // number of projections in motif
     int                     hemi = -1;                    // hemisphere to which motif is to be applied; -1 = all, 0 = the first (i.e., left), 1 = the second (i.e., right).
     
@@ -229,7 +236,7 @@ class motif {
       int               max_col_down,
       int               max_pch_up,
       int               max_pch_down,
-      double            proj_conductance
+      double            pre_neuron_fraction
     );
     
   };
@@ -250,13 +257,12 @@ class network {
     
     // Network structure
     std::vector<cell_type>   neuron_types;           // Types of neurons in network, e.g., "pyramidal", "PV", "SST", "VIP"
+    Vstr                     neuron_type_names;      // Names of neuron types, indexed by local type index
     ntw_struct               ntw;                    // Network structure
     
     // Network components 
     int                      n_neurons = 0;          // total number of neurons in the network
     std::vector<cell_arbors> arbors;                 // vector of length n_neurons
-    std::vector<ArrayXXd>    local_conductance;      // vector of arrays of the expected value of local transconductances (nS) between neurons of each type, one array per cortical layer
-    std::vector<ArrayXXd>    sub_local_conductance;  // same as local_conductance but one array per subcortical layer
     syn_idx                  synapse_idx;            // structure holding matrices giving indexes for synapses
     ntw_edges                edges;                  // structure holding network edges (connections), per motif
     ntw_coords               coords;                 // structure holding coordinates for cells and nodes
@@ -287,9 +293,7 @@ class network {
       double          cls_diameter,
       double          seg_length, 
       double          synaptic_neighborhood,
-      IntegerMatrix   nrn_per_node,
-      List            local_conductance_R,     // one matrix per cortical layer
-      List            sub_local_conductance_R  // one matrix per subcortical layer (empty List if n_sub == 0)
+      IntegerMatrix   nrn_per_node
     );
     
     // Build network
@@ -304,33 +308,30 @@ class network {
               bool            hit_attractor = false
             );
     void    make_arbor(
-              int         n_branches,         
-              int         cell_idx, 
-              bool        is_axon, 
-              bool        is_apical, 
-              int         parent_branch_idx = -1, 
-              const Pnt3& attractor_points = {{0.0, 0.0, 0.0}}, 
-              bool        hit_attractor = false
+              int             n_branches,         
+              int             cell_idx, 
+              bool            is_axon, 
+              bool            is_apical, 
+              int             parent_branch_idx = -1, 
+              const Pnt3&     attractor_points = {{0.0, 0.0, 0.0}}, 
+              bool            hit_attractor = false
             );
     void    apply_circuit_motif(
-              const motif& cmot, 
-              bool         verbose = true
+              const motif&    cmot
             );
     double  find_synapse(
-              int    idx_pre, 
-              int    idx_post, 
-              bool   via_apical, 
-              double val_pre, 
-              double transductance_bias
+              int             idx_pre, 
+              int             idx_post, 
+              bool            via_apical
             );
     
     // SGT simulations 
-    MatrixXi find_pairwise_lags_by_axon(double dt);
+    ArrayXXi find_pairwise_lags_by_axon(double dt);
     void     SGT(const NumericMatrix& stimulus_current_R, double dt, double initial_potential);
     
     // Fetch
     List     fetch_network_components(bool include_arbors = false) const;
-    List     fetch_sim_results() const; 
+    List     fetch_sim_results(bool v_only) const; 
     
   };
 
@@ -427,7 +428,7 @@ ArrayXd v_barrier(
 // Create lagged voltage trace matrix to simulate transmission delays
 ArrayXXd lagged_traces(
     int n,                            // Current step index
-    const MatrixXi& lag,              // Pairwise lags, in time steps, for signal to get from neuron (row) i to j
+    const ArrayXXi& lag,              // Pairwise lags, in time steps, for signal to get from neuron (row) i to j
     const ArrayXXd& v                 // Membrane potential traces
   ) {
     const int n_neuron = v.rows();
@@ -441,47 +442,6 @@ ArrayXXd lagged_traces(
       }
     }
     return v_lagged;
-    
-  }
-
-// Gradient of total dissipated metabolic power in network, w.r.t. membrane potential
-ArrayXd network_power_dissipation_gradient(
-    const ArrayXXd& v_lagged,         // n_neuron x n_neuron array giving membrane potentials in mV, with each column j giving the membrane potentials of all neurons as seen by neuron j at this time step
-    const ArrayXd&  v,                // n_neuron column vector of membrane potentials in mV, from which to calculate derivative
-    const ArrayXd&  membrane_current, // n_neuron column vector of membrane currents in pA, from which to calculate derivative
-    const ArrayXXd& transconductance, // n_neuron x n_neuron transconductance array, giving connections between neurons in nS
-    const ArrayXd&  I_spike,          // spike current in pA
-    const ArrayXd&  threshold         // spike threshold in mV
-  ) {  
-    // Change dH in total dissipated metabolic power in network (a current) from small change dv in membrane potential, 
-    //  given the membrane potential at time step n, for each neuron in network
-    //  ... Notice that this function implies that row indices represent post-synaptic neurons, column indices represent pre-synaptic neurons
-    ArrayXd lagged_synaptic_power_dissipation =
-      (transconductance * v_lagged.transpose()).rowwise().sum();
-    // ... transconductance(i, j) = conductance from neuron j to neuron i
-    // ... v_lagged(i, j)  = neuron i's membrane potential as seen by neuron j at this time step
-    // ... v_lagged.transpose()(i, j) = neuron j's membrane potential as seen by neuron i at this time step
-    // ... so, row-wise sum gives power dissipation from input into i
-    ArrayXd dHdv = 
-      lagged_synaptic_power_dissipation -       // power dissipation (electrical current) from coupling between neurons
-      membrane_current +                        // power dissipation (electrical current) from current across the membrane (negative because in-flowing positive current takes energy to pump out)
-      v_barrier(v, threshold, I_spike);         // power dissipation (electrical current) from neural responses (namely, spikes)
-    return dHdv;
-    
-    /*
-     * transconductance * v_lagged >>>
-     *      (rows are post-synaptic neuron, columns are pre-synaptic neuron) >>>
-     *        transconductance row i * v_lagged col j = input into neuron i from all other neurons.
-     * ... so, need v_lagged to be a matrix, with each column j giving the membrane potentials of all neurons as seen by neuron j at this time step.
-     * ... then the relevant output is the diagonal of the output matrix. 
-     *      so, compute only (transconductance.cwiseProduct(v_lagged.transpose())).rowwise().sum()
-     * ... How do I make the v_lagged matrix? 
-     * ... Need to know, for each neuron i, how many time steps it takes the soma potential of neuron j to reach neuron i (for all j). 
-     * ... Time for i to reach j, lag(i, j) = distance(i, j)/conduction_velocity(i), rounded to nearest time step.
-     * ... v_lagged(n).col(j)(i) = neuron i's membrane potential at time step n - lag(i, j)
-     * ... v_lagged(n).col(j)(i) = v(i, n - lag(i, j));
-     */
-    
   }
 
 // Derivative of intracellular slow-current molecule concentrations
@@ -523,24 +483,56 @@ ArrayXd dVsdt(
  *   get_cell_types()["PV"].I_slow = 0.03;
  */
 
+// Canonical, ordered list of all known global cell type names.
+// Single source of truth: used both to build the default registry and to
+// parse user-supplied named synaptic_conductance lists. Order must stay
+// consistent with the hardcoded conductance_matrix below and with any code
+// that relies on positional indexing into this list.
+const Vstr& get_all_type_names() {
+  static const Vstr all_type_names = {
+    // Excitatory
+    "pyramidal", "callosal_pyramidal", "pyramidal_L6", "spiny_stellate", "thalmacortical",
+    // Inhibitory
+    "neurogliaform_cell", "PV", "callosal_PV", "SST", "VIP"
+  };
+  return all_type_names;
+}
+
 static std::unordered_map<std::string, cell_type> make_default_cell_types() {
   std::unordered_map<std::string, cell_type> ct_map;
 
+  // Pre-define the names of all known cell types (order must be consistent)
+  const Vstr& all_type_names = get_all_type_names();
+  const int n_all_types      = all_type_names.size();
+  
+  // Hardcoded synaptic conductance matrix [post_type][pre_type] in nS
+  // Indexed by position in all_type_names vector
+  std::vector<Vdbl> conductance_matrix(n_all_types);
+  for (int i = 0; i < n_all_types; i++) {
+    conductance_matrix[i].resize(n_all_types, 0.1); // Default 0.1 nS for all connections
+  }
+  
+  // Set cell type valence 
+  Vdbl equilibrium_potential(n_all_types, 0.0);                              // Default to excitatory, 0 mV
+  for (int i = 5; i < n_all_types; ++i) { equilibrium_potential[i] = - 70; } // Set pre-synaptic inhibitory cells to -70mV
+
   // Default shared values
-  double tau_fast                 = 1.0;
-  double tau_slow                 = 60.0;
-  double tau_Vs                   = 100.0; // ms/spike
-  double I_slow                   = 0.01;  // Default is no bursting; increase to induce bursting (or lower tau_slow)
-  double U_Vs                     = 0.05; 
+  double tau_fast                 = 1.0;   // ms
+  double tau_slow                 = 60.0;  // ms
+  double tau_Vs                   = 100.0; // ms
+  double I_slow                   = 0.01;  // concentration/spike; Default is no bursting; increase to induce bursting (or lower tau_slow)
+  double U_Vs                     = 0.05;  // concentration/spike
   double max_spike_rate           = 0.1;   // spikes/ms
+  double leak_conductance         = 10.0;  // nS
   double transmission_velocity    = 30e3;  // microns/ms
   double spine_density            = 0.0;
   std::string axon_target         = "dendrite_shaft";
   double I_spike                  = 1e3;   // pA
+  double dHdv_bound               = 1.05; 
   double spike_potential          = 35.0;  // mV
-  double resting_potential        = -70.0; // mV
+  double spike_width              = 1.0;   // ms
   double threshold                = -55.0; // mV
-  double leak_conductance         = 10.0;  // nS
+  double resting_potential        = -70.0; // mV
   int    axon_branch_count        = 10;
   int    dendrite_branch_count    = 10;
   double branch_independence      = 0.5;
@@ -549,92 +541,102 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
 
   // Excitatory cells
   ct_map["pyramidal"] = cell_type{ // Slow responders, 10-50 ms, No bursting 
-    "pyramidal", 1,
+    "pyramidal",
     tau_fast, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate, leak_conductance,
     transmission_velocity, 0.5, "spine",
-    I_spike, spike_potential, resting_potential, threshold, 
+    I_spike, dHdv_bound, spike_potential, spike_width, threshold, equilibrium_potential,
+    resting_potential, conductance_matrix[0],
     axon_branch_count, dendrite_branch_count,
     branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
     "L1" // Harris2013a, for cells in L2, L3, and L5
   };
   ct_map["callosal_pyramidal"] = cell_type{ // Slow responders, 10-50 ms, No bursting 
-    "callosal_pyramidal", 1,
+    "callosal_pyramidal", 
     tau_fast, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate, leak_conductance,
     transmission_velocity, 0.5, "spine",
-    I_spike, spike_potential, resting_potential, threshold, 
+    I_spike, dHdv_bound, spike_potential, spike_width, threshold, equilibrium_potential,
+    resting_potential, conductance_matrix[1], 
     axon_branch_count * 2, dendrite_branch_count,
     branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
     "L1" // Harris2013a, for cells in L2, L3, and L5
   };
   ct_map["pyramidal_L6"] = cell_type{ // No bursting 
-    "pyramidal_L6", 1,
+    "pyramidal_L6", 
     tau_fast, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate, leak_conductance,
     transmission_velocity, 0.5, "spine",
-    I_spike, spike_potential, resting_potential, threshold,
+    I_spike, dHdv_bound, spike_potential, spike_width, threshold, equilibrium_potential,
+    resting_potential, conductance_matrix[2], 
     axon_branch_count, dendrite_branch_count,
     branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
     "L4" // Harris2013a
   };
   ct_map["spiny_stellate"] = cell_type{ // No bursting 
-    "spiny_stellate", 1,
+    "spiny_stellate",
     tau_fast, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate, leak_conductance,
     transmission_velocity, 0.5, "spine",
-    I_spike, spike_potential, resting_potential, threshold,
+    I_spike, dHdv_bound, spike_potential, spike_width, threshold, equilibrium_potential,
+    resting_potential, conductance_matrix[3],
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.5, branch_spread * 1.5, // Increased branching
     apical_target_layer
   };
   ct_map["thalmacortical"] = cell_type{ // No bursting, strong STD
-    "thalmacortical", 1,
+    "thalmacortical",
     tau_fast, tau_slow, tau_Vs * 1.5, I_slow, U_Vs * 1.5, max_spike_rate, leak_conductance,
     transmission_velocity, 0.5, "spine",
-    I_spike, spike_potential, resting_potential, threshold,
+    I_spike, dHdv_bound, spike_potential, spike_width, threshold, equilibrium_potential,
+    resting_potential, conductance_matrix[4],
     static_cast<int>(std::round(axon_branch_count * 0.5)), dendrite_branch_count,
     0.1, 0.9,
     apical_target_layer
   };
   // Inhibitory cells
   ct_map["neurogliaform_cell"] = cell_type{ // bursting, Slower transmission, slow decay (i.e., large tau_slow, see Huang2024a p. 190)
-    "neurogliaform_cell", -1,
+    "neurogliaform_cell",
     tau_fast, tau_slow * 2.0, tau_Vs, I_slow * 3.5, U_Vs, max_spike_rate, leak_conductance,
     transmission_velocity * 0.5, spine_density, axon_target, 
-    I_spike, spike_potential, resting_potential, threshold,
+    I_spike, dHdv_bound, spike_potential, spike_width, threshold, equilibrium_potential,
+    resting_potential, conductance_matrix[5],
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.5, branch_spread * 1.5, // Increased branching
     apical_target_layer
   };
   ct_map["PV"] = cell_type{ // Faster responders, ~5 ms; No bursting
-    "PV", -1,
-    tau_fast, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate, leak_conductance,
+    "PV", 
+    tau_fast * 0.5, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate * 3.0, leak_conductance * 2.0,
     transmission_velocity, spine_density, "soma",
-    I_spike, spike_potential, resting_potential, threshold,
+    I_spike, dHdv_bound, spike_potential, 0.3, threshold, equilibrium_potential,
+    resting_potential, conductance_matrix[6],
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.25, branch_spread * 1.25, // Increased branching
     apical_target_layer
   };
   ct_map["callosal_PV"] = cell_type{ // Faster responders, ~5 ms; No bursting
-    "callosal_PV", -1,
-    tau_fast, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate, leak_conductance,
+    "callosal_PV",  
+    tau_fast * 0.5, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate * 3.0, leak_conductance * 2.0,
     transmission_velocity, spine_density, "soma",
-    I_spike, spike_potential, resting_potential, threshold,
+    I_spike, dHdv_bound, spike_potential, 0.3, threshold, equilibrium_potential,
+    resting_potential, conductance_matrix[7],
     axon_branch_count * 2, dendrite_branch_count,
     branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
     apical_target_layer
   };
   ct_map["SST"] = cell_type{ // Slower responders, 10-30 ms
-    "SST", -1,
+    "SST",  
     tau_fast, tau_slow, tau_Vs, I_slow * 3.5, U_Vs, max_spike_rate, leak_conductance,
     transmission_velocity, spine_density, axon_target,
-    I_spike, spike_potential, resting_potential, threshold,
+    I_spike, dHdv_bound, spike_potential, spike_width, threshold, equilibrium_potential,
+    resting_potential, conductance_matrix[8],
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.5, branch_spread * 1.5, // Increased branching
     apical_target_layer
   };
   ct_map["VIP"] = cell_type{ // Slow responders, 15-40 ms
-    "VIP", -1,
+    "VIP", 
     tau_fast, tau_slow, tau_Vs, I_slow * 3.5, U_Vs, max_spike_rate, leak_conductance,
     transmission_velocity, spine_density, axon_target,
-    I_spike, spike_potential, resting_potential, threshold,
+    I_spike, dHdv_bound, spike_potential, spike_width, threshold, equilibrium_potential,
+    resting_potential, conductance_matrix[9],
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.25, branch_spread * 1.25, // Increased branching
     apical_target_layer
@@ -649,38 +651,94 @@ std::unordered_map<std::string, cell_type>& get_cell_types() {
   return cell_types;
 }
 
+Vdbl parse_pre(SEXP X) {
+    int n_all_types = get_cell_types().size();
+    Vdbl out(n_all_types, 0.0);
+    // Handle single numeric value: replicate across all known cell types
+    if (Rf_isNumeric(X) && Rf_length(X) == 1) {
+      double scalar_value = as<double>(X);
+      out.assign(n_all_types, scalar_value);
+    }
+    // Handle vector: use as-is
+    else if (Rf_isNumeric(X)) {
+      out = as<Vdbl>(X);
+    }
+    // Handle named list for specific post-pre pairs: 
+    else if (Rf_isNewList(X)) {
+      // Get list of all known cell type names
+      const Vstr& all_type_names = get_all_type_names();
+      
+      // Get names from list
+      List sc_list = as<List>(X);
+      CharacterVector sc_names = sc_list.names();
+      
+      // For each named entry, update the corresponding pre-type conductance
+      for (int i = 0; i < sc_list.size(); i++) {
+        std::string key = as<std::string>(sc_names[i]);
+        double value = as<double>(sc_list[i]);
+        
+        // Find matching pre-type index
+        auto it = std::find(all_type_names.begin(), all_type_names.end(), key);
+        if (it != all_type_names.end()) {
+          int idx = std::distance(all_type_names.begin(), it);
+          if (idx < static_cast<int>(out.size())) {
+            out[idx] = value;
+          }
+        } else {
+          Rcpp::warning("Unknown pre-synaptic cell type in specification: %s", key.c_str());
+        }
+      }
+    }
+    return out; 
+  }
+
 // Internal helper: unpack a fully-specified named R List into a cell_type struct
 cell_type build_cell_type_from_list(const List& params) {
-  cell_type ct;
-  ct.type_name             = as<std::string>(params["type_name"]);
-  ct.valence               = as<int>(        params["valence"]);
-  ct.tau_fast              = as<double>(     params["tau_fast"]);
-  ct.tau_slow              = as<double>(     params["tau_slow"]);
-  ct.tau_Vs                = as<double>(     params["tau_Vs"]);
-  ct.I_slow                = as<double>(     params["I_slow"]);
-  ct.U_Vs                  = as<double>(     params["U_Vs"]); 
-  ct.max_spike_rate        = as<double>(     params["max_spike_rate"]);
-  ct.transmission_velocity = as<double>(     params["transmission_velocity"]);
-  ct.spine_density         = as<double>(     params["spine_density"]);
-  ct.axon_target           = as<std::string>(params["axon_target"]);
-  ct.I_spike               = as<double>(     params["I_spike"]);
-  ct.spike_potential       = as<double>(     params["spike_potential"]);
-  ct.resting_potential     = as<double>(     params["resting_potential"]);
-  ct.threshold             = as<double>(     params["threshold"]);
-  ct.leak_conductance      = as<double>(     params["leak_conductance"]);
-  ct.axon_branch_count     = as<int>(        params["axon_branch_count"]);
-  ct.dendrite_branch_count = as<int>(        params["dendrite_branch_count"]);
-  ct.branch_independence   = as<double>(     params["branch_independence"]);
-  ct.branch_spread         = as<double>(     params["branch_spread"]);
-  ct.apical_target_layer   = as<std::string>(params["apical_target_layer"]);
-  if (ct.spine_density < 0.0 || ct.spine_density > 1.0)
-    Rcpp::stop("spine_density must be between 0 and 1");
-  if (ct.branch_independence < 0.0 || ct.branch_independence > 1.0)
-    Rcpp::stop("branch_independence must be between 0 and 1");
-  if (ct.branch_spread < 0.0 || ct.branch_spread > 1.0)
-    Rcpp::stop("branch_spread must be between 0 and 1");
-  return ct;
-}
+    cell_type ct;
+    ct.type_name             = as<std::string>(params["type_name"]);
+    ct.tau_fast              = as<double>(     params["tau_fast"]);
+    ct.tau_slow              = as<double>(     params["tau_slow"]);
+    ct.tau_Vs                = as<double>(     params["tau_Vs"]);
+    ct.I_slow                = as<double>(     params["I_slow"]);
+    ct.U_Vs                  = as<double>(     params["U_Vs"]); 
+    ct.max_spike_rate        = as<double>(     params["max_spike_rate"]);
+    ct.transmission_velocity = as<double>(     params["transmission_velocity"]);
+    ct.spine_density         = as<double>(     params["spine_density"]);
+    ct.axon_target           = as<std::string>(params["axon_target"]);
+    ct.I_spike               = as<double>(     params["I_spike"]);
+    ct.dHdv_bound            = as<double>(     params["dHdv_bound"]);
+    ct.spike_potential       = as<double>(     params["spike_potential"]);
+    ct.spike_width           = as<double>(     params["spike_width"]);
+    ct.resting_potential     = as<double>(     params["resting_potential"]);
+    ct.threshold             = as<double>(     params["threshold"]);
+    ct.leak_conductance      = as<double>(     params["leak_conductance"]);
+    ct.axon_branch_count     = as<int>(        params["axon_branch_count"]);
+    ct.dendrite_branch_count = as<int>(        params["dendrite_branch_count"]);
+    ct.branch_independence   = as<double>(     params["branch_independence"]);
+    ct.branch_spread         = as<double>(     params["branch_spread"]);
+    ct.apical_target_layer   = as<std::string>(params["apical_target_layer"]);
+    
+    // Synaptic conductance: if provided, use it; otherwise will be initialized as zero
+    if (params.containsElementNamed("synaptic_conductance")) {
+      SEXP sc_param           = params["synaptic_conductance"];
+      ct.synaptic_conductance = parse_pre(sc_param); 
+    }
+    
+    // Equilibrium potential: if provided, use it; otherwise will be initialized with defaults
+    if (params.containsElementNamed("equilibrium_potential")) {
+      SEXP sc_param            = params["equilibrium_potential"];
+      ct.equilibrium_potential = parse_pre(sc_param); 
+    }
+    
+    // Final checks and return
+    if (ct.spine_density < 0.0 || ct.spine_density > 1.0)
+      Rcpp::stop("spine_density must be between 0 and 1");
+    if (ct.branch_independence < 0.0 || ct.branch_independence > 1.0)
+      Rcpp::stop("branch_independence must be between 0 and 1");
+    if (ct.branch_spread < 0.0 || ct.branch_spread > 1.0)
+      Rcpp::stop("branch_spread must be between 0 and 1");
+    return ct;
+  }
 
 // Print known cell types 
 // [[Rcpp::export]]
@@ -688,27 +746,28 @@ void print_known_celltypes() {
   Rcpp::Rcout << "Known cell types:" << std::endl;
   for (const auto& pair : get_cell_types()) {
     const cell_type& ct = pair.second;
-    Rcpp::Rcout << "\nType: "                                   << ct.type_name << std::endl
-                << "  Valence: "                                << ct.valence << std::endl
-                << "  Temporal modulation bias (ms): "          << ct.tau_fast << std::endl
-                << "  Temporal modulation time constant (ms): " << ct.I_slow << std::endl
-                << "  U_Vs: "                                   << ct.U_Vs << std::endl
-                << "  Temporal modulation amplitude (ms): "     << ct.tau_slow << std::endl
-                << "  Spike recovery rate (spikes/ms): "        << ct.max_spike_rate << std::endl
-                << "  STD recovery time constant (spikes/ms): " << ct.tau_Vs << std::endl
-                << "  Transmission velocity: "                  << ct.transmission_velocity << std::endl
-                << "  Spine density: "                          << ct.spine_density << std::endl
-                << "  Axon target: "                            << ct.axon_target << std::endl
-                << "  Spike current (pA): "                     << ct.I_spike << std::endl
-                << "  Spike potential (mV): "                   << ct.spike_potential << std::endl
-                << "  Resting potential (mV): "                 << ct.resting_potential << std::endl
-                << "  Threshold (mV): "                         << ct.threshold << std::endl
-                << "  Leak conductance (nS): "                  << ct.leak_conductance << std::endl
-                << "  Axon branch count: "                      << ct.axon_branch_count << std::endl
-                << "  Dendrite branch count: "                  << ct.dendrite_branch_count << std::endl
-                << "  Branch independence: "                    << ct.branch_independence << std::endl
-                << "  Branch spread: "                          << ct.branch_spread << std::endl
-                << "  Apical target layer: "                    << ct.apical_target_layer << std::endl;
+    Rcpp::Rcout << "\nType: "                                            << ct.type_name << std::endl
+                << "  Time constant, fast current (ms): "                << ct.tau_fast << std::endl
+                << "  Time constant, slow current (ms): "                << ct.tau_slow << std::endl
+                << "  STD recovery time constant (spikes/ms): "          << ct.tau_Vs << std::endl
+                << "  Slow current influx (concentration/spike): "       << ct.I_slow << std::endl
+                << "  Vesicle utilization ratio (concentration/spike): " << ct.U_Vs << std::endl
+                << "  Spike recovery rate (spikes/ms): "                 << ct.max_spike_rate << std::endl
+                << "  Leak conductance (nS): "                           << ct.leak_conductance << std::endl
+                << "  Transmission velocity (micron/ms): "               << ct.transmission_velocity << std::endl
+                << "  Spine density: "                                   << ct.spine_density << std::endl
+                << "  Axon target: "                                     << ct.axon_target << std::endl
+                << "  Spike current (pA): "                              << ct.I_spike << std::endl
+                << "  dHdv bound (* I_spike): "                          << ct.dHdv_bound << std::endl
+                << "  Spike potential (mV): "                            << ct.spike_potential << std::endl
+                << "  Spike width (ms): "                                << ct.spike_width << std::endl
+                << "  Resting potential (mV): "                          << ct.resting_potential << std::endl
+                << "  Spike threshold (mV): "                            << ct.threshold << std::endl
+                << "  Axon branch count: "                               << ct.axon_branch_count << std::endl
+                << "  Dendrite branch count: "                           << ct.dendrite_branch_count << std::endl
+                << "  Branch independence: "                             << ct.branch_independence << std::endl
+                << "  Branch spread: "                                   << ct.branch_spread << std::endl
+                << "  Apical target layer: "                             << ct.apical_target_layer << std::endl;
   }
 }
 
@@ -722,7 +781,8 @@ List fetch_cell_type_params(const std::string& type_name) {
   const cell_type& ct = it->second;
   return List::create(
     Named("type_name")             = ct.type_name,
-    Named("valence")               = ct.valence,
+    Named("synaptic_conductance")  = ct.synaptic_conductance,
+    Named("equilibrium_potential") = ct.equilibrium_potential, 
     Named("tau_fast")              = ct.tau_fast,
     Named("tau_slow")              = ct.tau_slow,
     Named("tau_Vs")                = ct.tau_Vs,
@@ -730,10 +790,12 @@ List fetch_cell_type_params(const std::string& type_name) {
     Named("U_Vs")                  = ct.U_Vs, 
     Named("max_spike_rate")        = ct.max_spike_rate,
     Named("transmission_velocity") = ct.transmission_velocity,
-    Named("spine_density")         = ct.spine_density,
-    Named("axon_target")           = ct.axon_target,
+    Named("I_spike")               = ct.I_spike,
+    Named("dHdv_bound")            = ct.dHdv_bound,
+    Named("spike_potential")       = ct.spike_potential,
     Named("I_spike")               = ct.I_spike,
     Named("spike_potential")       = ct.spike_potential,
+    Named("spike_width")           = ct.spike_width, 
     Named("resting_potential")     = ct.resting_potential,
     Named("threshold")             = ct.threshold,
     Named("leak_conductance")      = ct.leak_conductance,
@@ -810,23 +872,25 @@ void motif::load_projection(
     int               max_col_down,
     int               max_pch_up,
     int               max_pch_down, 
-    double            proj_conductance
+    double            pre_neuron_fraction
   ) {
     projections.push_back(proj);
     max_col_shift_up.push_back(max_col_up);
     max_col_shift_down.push_back(max_col_down);
     max_pch_shift_up.push_back(max_pch_up);
     max_pch_shift_down.push_back(max_pch_down);
-    projection_conductance.push_back(proj_conductance);
+    projection_fraction.push_back(pre_neuron_fraction);
     n_projections++;
   }
 
 // Expand all cell type scalar parameters into per-neuron Eigen arrays
 void network::set_neuron_params() {
+    // Initialize
     per_nrn.v_bound               = ArrayXd(n_neurons);
     per_nrn.dHdv_bound            = ArrayXd(n_neurons);
     per_nrn.I_spike               = ArrayXd(n_neurons);
     per_nrn.spike_potential       = ArrayXd(n_neurons);
+    per_nrn.spike_width           = ArrayXd(n_neurons); 
     per_nrn.resting_potential     = ArrayXd(n_neurons);
     per_nrn.threshold             = ArrayXd(n_neurons);
     per_nrn.leak_conductance      = ArrayXd(n_neurons);
@@ -837,22 +901,36 @@ void network::set_neuron_params() {
     per_nrn.I_slow                = ArrayXd(n_neurons); 
     per_nrn.U_Vs                  = ArrayXd(n_neurons); 
     per_nrn.transmission_velocity = ArrayXd(n_neurons);
-    for (int i = 0; i < n_neurons; i++) {
+    per_nrn.equilibrium_potential = ArrayXXd(n_neurons, n_neurons); 
+    
+    // Create temporary equilibrium potential matrix
+    int n_types = static_cast<int>(neuron_types.size());
+    ArrayXXd temp_ep = ArrayXXd(n_types, n_neurons); 
+    for (int i = 0; i < n_neurons; ++i) {
+      for (int j = 0; j < n_types; ++j) {
+        temp_ep(j, i) = neuron_types[j].equilibrium_potential[per_nrn.neuron_type_num[i]];
+      }
+    }
+    
+    // Fill values per neuron
+    for (int i = 0; i < n_neurons; ++i) {
         const cell_type& ct              = neuron_types[per_nrn.neuron_type_num[i]];
-        per_nrn.v_bound(i)               = std::abs(ct.resting_potential) * 1.01;
-        per_nrn.dHdv_bound(i)            = std::abs(ct.I_spike)           * 1.01;
-        per_nrn.I_spike(i)               = ct.I_spike;
-        per_nrn.spike_potential(i)       = ct.spike_potential;
-        per_nrn.resting_potential(i)     = ct.resting_potential;
-        per_nrn.threshold(i)             = ct.threshold;
-        per_nrn.leak_conductance(i)      = ct.leak_conductance;
-        per_nrn.max_spike_rate(i)        = ct.max_spike_rate;
-        per_nrn.tau_fast(i)              = ct.tau_fast; 
-        per_nrn.tau_slow(i)              = ct.tau_slow; 
-        per_nrn.tau_Vs(i)                = ct.tau_Vs;
-        per_nrn.I_slow(i)                = ct.I_slow; 
-        per_nrn.U_Vs(i)                  = ct.U_Vs; 
-        per_nrn.transmission_velocity(i) = ct.transmission_velocity;
+        per_nrn.v_bound(i)                   = std::abs(ct.resting_potential) * 1.01;
+        per_nrn.dHdv_bound(i)                = ct.dHdv_bound * ct.I_spike;
+        per_nrn.I_spike(i)                   = ct.I_spike;
+        per_nrn.spike_potential(i)           = ct.spike_potential;
+        per_nrn.spike_width(i)               = ct.spike_width;
+        per_nrn.resting_potential(i)         = ct.resting_potential;
+        per_nrn.threshold(i)                 = ct.threshold;
+        per_nrn.leak_conductance(i)          = ct.leak_conductance;
+        per_nrn.max_spike_rate(i)            = ct.max_spike_rate;
+        per_nrn.tau_fast(i)                  = ct.tau_fast; 
+        per_nrn.tau_slow(i)                  = ct.tau_slow; 
+        per_nrn.tau_Vs(i)                    = ct.tau_Vs;
+        per_nrn.I_slow(i)                    = ct.I_slow; 
+        per_nrn.U_Vs(i)                      = ct.U_Vs; 
+        per_nrn.transmission_velocity(i)     = ct.transmission_velocity;
+        per_nrn.equilibrium_potential.row(i) = temp_ep.row(per_nrn.neuron_type_num[i]);
     }
   }
 
@@ -865,9 +943,7 @@ void network::set_network_structure(
     double          cls_diameter,
     double          seg_length, 
     double          synaptic_neighborhood,
-    IntegerMatrix   nrn_per_node,
-    List            local_conductance_R,
-    List            sub_local_conductance_R
+    IntegerMatrix   nrn_per_node
   ) {
     
     // Check and unpack n
@@ -933,32 +1009,50 @@ void network::set_network_structure(
       }
     }
     
-    // Convert local synaptic conductance values from R List to std::vector<MatrixXd>
-    if (local_conductance_R.size() != n_lyr) {
-      Rcpp::Rcout << "local_conductance_R size: " << local_conductance_R.size() << ", n_lyr: " << n_lyr << std::endl;
-      Rcpp::stop("Length of local_conductance_R must equal n_lyr");
-    }
-    for (int i = 0; i < local_conductance_R.size(); ++i) {
-      NumericMatrix con_mat_r = local_conductance_R[i];
-      local_conductance.push_back(to_eMat(con_mat_r));
-    }
-    
-    // Convert subcortical local synaptic conductance values
-    if (sub_local_conductance_R.size() != n_sub) {
-      Rcpp::Rcout << "sub_local_conductance_R size: " << sub_local_conductance_R.size() << ", n_sub: " << n_sub << std::endl;
-      Rcpp::stop("Length of sub_local_conductance_R must equal n_sub");
-    }
-    for (int i = 0; i < sub_local_conductance_R.size(); ++i) {
-      NumericMatrix con_mat_r = sub_local_conductance_R[i];
-      sub_local_conductance.push_back(to_eMat(con_mat_r));
-    }
-    
     // Load cell types 
     for (String nt : nrn_types) {
       std::string nts = nt;
       auto it = get_cell_types().find(nts);
       if (it == get_cell_types().end()) Rcpp::stop("Unknown neuron type: %s", nts);
       neuron_types.push_back((*it).second);
+      neuron_type_names.push_back(nts);
+    }
+    
+    // Prune each local cell type's synaptic_conductance and equilibrium_potential vectors 
+    /*
+     * They are currently indexed by position in the global type registry) down to only the types present in
+     * this network, reordered to match local indexing. This lets find_synapse() and any other per-network
+     * lookup use the local type index directly, with no need to re-derive a global index or duplicate the 
+     * global type-name list.
+     */
+    const Vstr& global_names = get_all_type_names();
+    int n_local = neuron_type_names.size();
+    for (int i = 0; i < n_local; ++i) {
+      const Vdbl fullsc = neuron_types[i].synaptic_conductance;  // copy before overwrite
+      const Vdbl fullep = neuron_types[i].equilibrium_potential;
+      Vdbl prunedsc(n_local, 0.0);
+      Vdbl prunedep(n_local, 0.0); 
+      for (int j = 0; j < n_local; ++j) {
+        int g = find_first(global_names, neuron_type_names[j]);
+        if (g >= 0 && g < static_cast<int>(fullsc.size())) {
+          prunedsc[j] = fullsc[g];
+        } else {
+          Rcpp::warning(
+            "Cell type '%s' has no defined synaptic conductance for '%s' inputs; defaulting to 0",
+            neuron_type_names[i].c_str(), neuron_type_names[j].c_str()
+          );
+        }
+        if (g >= 0 && g < static_cast<int>(fullep.size())) {
+          prunedep[j] = fullep[g]; 
+        } else {
+          Rcpp::warning(
+            "Cell type '%s' has no defined equilibrium potential for '%s' inputs; defaulting to 0",
+            neuron_type_names[i].c_str(), neuron_type_names[j].c_str()
+          );
+        }
+      }
+      neuron_types[i].synaptic_conductance  = prunedsc;
+      neuron_types[i].equilibrium_potential = prunedep;
     }
     
     // Check dimensions of nrn_per_node
@@ -975,6 +1069,9 @@ void network::set_network_structure(
       Rcpp::Rcout << "nrn_per_node ncol: " << nrn_per_node.ncol() << ", length of neuron_types: " << neuron_types.size() << std::endl;
       Rcpp::stop("Ncols of nrn_per_node must equal length of neuron_types");
     }
+    
+    // Are we making a single-neuron network? 
+    bool single_cell = nrn_per_node.nrow() == 1 && nrn_per_node.ncol() == 1 && nrn_per_node(0, 0) == 1 ? true : false;
     
     // Set/save other network parameters
     ntw.hsl_names             = {hem_names, sub_names, lyr_names};
@@ -1023,7 +1120,7 @@ void network::set_network_structure(
                 // Randomly select neuron numbers for each node
                 int row_idx = g.row_base + l; 
                 if (!reuse_nrn_per_node) { row_idx *= h + 1; }
-                int n = std::poisson_distribution<int>(ntw.nrn_per_node(row_idx, t))(cpp_rng);
+                int n = single_cell ? 1 : std::poisson_distribution<int>(ntw.nrn_per_node(row_idx, t))(cpp_rng);
                 // Keep track of the number of cells assigned so far
                 n_neurons += n;
                 // Record type identity for each cell
@@ -1338,7 +1435,7 @@ void network::make_arbor(
     
   }
 
-// Function to set transconductances and spatial coordinates for all local nodes 
+// Function to set synaptic conductances and spatial coordinates for all local nodes 
 void network::make_local_nodes() {
     
     if (edges.type.size() != 0) {
@@ -1350,8 +1447,8 @@ void network::make_local_nodes() {
     Vint local_edges_pre; 
     Vint local_edges_post;
     
-    // Initialize local transconductance array
-    ArrayXXd local_transconductances = ArrayXXd::Zero(n_neurons, n_neurons);
+    // Initialize local synaptic conductance array
+    ArrayXXd local_synaptic_conductances = ArrayXXd::Zero(n_neurons, n_neurons);
     
     // Build layer groups: cortical first, then subcortical (if any)
     struct                  LayerGroup { bool is_sub; int n_layers; int node_base; };
@@ -1359,20 +1456,14 @@ void network::make_local_nodes() {
     int                     n_nodes_cortical = ntw.n[0] * ntw.n[2] * ntw.n[3] * ntw.n[4];
     if (ntw.n[1] > 0) groups.push_back({true, ntw.n[1], n_nodes_cortical});
     
+    // Layer type group
     for (const auto& g : groups) {
-      
       // Patch (n_pch) index of the local node
       for (int p = 0; p < ntw.n[4]; ++p) {
-        
         // Layer index of the local node
         for (int l = 0; l < g.n_layers; ++l) {
-          
-          // Get recurrence factor array for this layer
-          ArrayXXd local_conductance_matrix = g.is_sub ? sub_local_conductance[l] : local_conductance[l];
-          
           // Column (n_cls) index of the local node
           for (int c = 0; c < ntw.n[3]; ++c) {
-            
             // Hemisphere (n_hem) index of the local node
             for (int h = 0; h < ntw.n[0]; ++h) {
               
@@ -1447,25 +1538,17 @@ void network::make_local_nodes() {
               // For all combinations of pre- and post-synaptic neurons in this node
               for (int idx_pre = node_range_start; idx_pre <= node_range_end; idx_pre++) {
                 
-                // Get neuron types and valences for pre-synaptic neurons
-                int    t_pre   = per_nrn.neuron_type_num[idx_pre];
-                double val_pre = neuron_types[t_pre].valence;
-                
-                // Set transconductance into post-synaptic cells
+                // Set synaptic conductances into post-synaptic cells
                 for (int idx_post = node_range_start; idx_post <= node_range_end; idx_post++) {
                   
-                  // Get neuron types for post-synaptic neurons
-                  int t_post = per_nrn.neuron_type_num[idx_post];
-                  
-                  // Search for synapse and compute its transconductance
-                  double this_transconductance = find_synapse(
-                    idx_pre, idx_post, false, val_pre, 
-                    local_conductance_matrix(t_post, t_pre)
+                  // Search for synapse and compute its conductance
+                  double synaptic_conductance = find_synapse(
+                    idx_pre, idx_post, false
                   );
                   
-                  if (this_transconductance > 0) {
-                    // Set transductance 
-                    local_transconductances(idx_post, idx_pre) = this_transconductance;
+                  if (synaptic_conductance > 0) {
+                    // Set conductance 
+                    local_synaptic_conductances(idx_post, idx_pre) = synaptic_conductance;
                     // Save edge coordinate
                     local_edges_pre.push_back(idx_pre);
                     local_edges_post.push_back(idx_post);
@@ -1476,17 +1559,13 @@ void network::make_local_nodes() {
               }
               
             }
-            
           }
-          
         }
-        
       }
-      
     }
    
-    // Save to transconductance matrix
-    edges.transconductance.push_back(local_transconductances);
+    // Save to synaptic_conductance matrix
+    edges.synaptic_conductance.push_back(local_synaptic_conductances);
     
     // Collect local edge coordinates in matrix
     int n_local_edges  = local_edges_pre.size();
@@ -1521,13 +1600,11 @@ void network::make_local_nodes() {
     
   }
 
-// Function to find synapses and return transconductance into post-synaptic cell 
+// Function to find synapses and return conductance into post-synaptic cell 
 double network::find_synapse(
-    int    idx_pre,
-    int    idx_post,
-    bool   via_apical,
-    double val_pre,
-    double transductance_bias
+    int  idx_pre,
+    int  idx_post,
+    bool via_apical
   ) {
    
     // Check if this pre-post pair already has a synapse
@@ -1560,9 +1637,13 @@ double network::find_synapse(
           
           // Extend the axon
           // ... add coordinates
-          arbors[idx_pre].coordinates[ax].push_back(arbors[idx_post].coordinates[dd][neighbor_idx[1]]);
+          arbors[idx_pre].coordinates[ax].push_back(
+              arbors[idx_post].coordinates[dd][neighbor_idx[1]]
+            );
           // ... add parent 
-          if (neighbor_idx[0] >= arbors[idx_pre].coordinates[ax].size()) {Rcpp::stop("Neighbor index out of bounds for axon coordinates");}
+          if (neighbor_idx[0] >= arbors[idx_pre].coordinates[ax].size()) { 
+            Rcpp::stop("Neighbor index out of bounds for axon coordinates"); 
+          }
           arbors[idx_pre].parents[ax].push_back(neighbor_idx[0]);
           // ... add node type 
           arbors[idx_pre].node_type[ax].push_back("axon_shaft");
@@ -1576,9 +1657,12 @@ double network::find_synapse(
           synapse_idx.arbor(idx_pre, idx_post) = ax;
           synapse_idx.node(idx_pre, idx_post)  = arbors[idx_pre].coordinates[ax].size() - 1;
          
-          // Find and return transductance 
-          double trans = unif(cpp_rng) * 2.0 * transductance_bias;
-          return trans;
+          // Find and return default synaptic conductance
+          return neuron_types[
+            per_nrn.neuron_type_num[idx_post] // conductance across membrane of post-synaptic cell
+          ].synaptic_conductance[
+            per_nrn.neuron_type_num[idx_pre]  // as determined by the neurotransmitter type of the pre-synaptic cell
+          ];
           
         }
         
@@ -1591,24 +1675,18 @@ double network::find_synapse(
 
 // Function to apply circuit motif
 void network::apply_circuit_motif(
-    const motif& cmot,
-    bool         verbose
+    const motif& cmot
   ) {
     
-    if (verbose) {
-      Rcpp::Rcout << "Applying motif: " << cmot.motif_name << std::endl;
-    }
-   
-    if (edges.type.size() < 1) {
-      Rcpp::stop("Must set local edges before applying any circuit motifs.");
-    }
+    // Check for local edges
+    if (edges.type.size() < 1) { Rcpp::stop("Must set local edges before applying any circuit motifs."); }
     
     // Initialize vectors to track motif edge coordinates
     Vint motif_edges_pre; 
     Vint motif_edges_post;
     
-    // Initialize motif transconductance matrix
-    ArrayXXd motif_transconductances = ArrayXXd::Zero(n_neurons, n_neurons);
+    // Initialize motif synaptic conductance array
+    ArrayXXd motif_synaptic_conductances = ArrayXXd::Zero(n_neurons, n_neurons);
     
     // Unpack frequently used network dimensions
     int n_hem = ntw.n[0];
@@ -1644,50 +1722,28 @@ void network::apply_circuit_motif(
       Projection proj = cmot.projections[pj];
       if (proj.hem_shift == n_hem) { Rcpp::stop("Can't apply contralateral projection if only one hemisphere"); }
       
-      // Grab pre- and post-synaptic cell types for this projection
-      std::string pre_type_name  = proj.pre_type;
-      std::string post_type_name = proj.post_type;
-      
       // Get indices for neuron_types in this network
       int t_pre  = find_first_by(
           static_cast<int>(neuron_types.size()),
           [&](int i){ return neuron_types[i].type_name; }, 
-          pre_type_name
+          proj.pre_type
         );
       int t_post = find_first_by(
           static_cast<int>(neuron_types.size()),
           [&](int i){ return neuron_types[i].type_name; }, 
-          post_type_name
+          proj.post_type
         );
-      if (t_pre < 0 || t_post < 0) {
-        if (verbose) {
-          Rcpp::Rcout << "Projection " << pj << " in motif " << cmot.motif_name
-                      << " has pre- or post-synaptic type that does not exist in this network." << std::endl
-                      << "  Pre-synaptic type: " << pre_type_name << ", post-synaptic type: " << post_type_name << std::endl
-                      << "  ...  skipping this projection." << std::endl;
-        }
-        continue;
-      }
+      if (t_pre < 0 || t_post < 0) { continue; }
       
       // Check dendrite type 
       if (proj.via_apical) {
         if (neuron_types[t_post].apical_target_layer == "none") { Rcpp::stop("Projection requests via apical, but target type has no apical dendrite"); }
       }
       
-      // Grab pre-synaptic valence and axon characteristics
-      int val_pre           = neuron_types[t_pre].valence;
-      int axon_branch_count = neuron_types[t_pre].axon_branch_count;
-      
       // Resolve pre and post layers (search cortical then subcortical name lists)
       auto [g_pre,  layer_pre]  = resolve_layer(proj.pre_layer);
       auto [g_post, layer_post] = resolve_layer(proj.post_layer);
-      if (layer_pre < 0 || layer_post < 0) {
-        if (verbose) {
-          Rcpp::Rcout << "Projection " << pj << " in motif " << cmot.motif_name
-                      << " has layer not in network; skipping projection." << std::endl;
-        }
-        continue;
-      }
+      if (layer_pre < 0 || layer_post < 0) { continue; }
       
       // Build layer masks using the correct coords.node column for each group:
       //   col 3 = cortical layer, col 1 = subcortical layer
@@ -1728,18 +1784,9 @@ void network::apply_circuit_motif(
           // Apply projection to each column 
           for (int c = 0; c < n_cls; c++) {
             
-            // Print progress
-            if (verbose) {
-              Rcpp::Rcout 
-                << "Applying projection: " << pj + 1 << " / " << n_projections 
-                << ", patch: "             << p  + 1  << " / " << n_pch
-                << ", hem: "               << h  + 1  << " / " << n_hem
-                << ", column: "            << c  + 1  << " / " << n_cls
-              << std::endl;
-            }
-            
             // Find indexes of pre-synaptic cells (layer + patch + hemisphere + column)
-            Vint pre_indices;
+            // Sample based on pre_neuron_fraction parameter
+            Vint eligible_pre_indices;
             int pre_node_idx = g_pre.node_base
               + p          * (g_pre.n_layers * n_cls * n_hem)
               + layer_pre  * (n_cls * n_hem)
@@ -1749,14 +1796,24 @@ void network::apply_circuit_motif(
             int pre_node_range_end   = node_range_ends[pre_node_idx];
             for (int i = pre_node_range_start; i <= pre_node_range_end; ++i) {
               if (pre__type_layer_mask[i]) { 
-                pre_indices.push_back(i); 
-                arbors[i].motifs[m_idx] = 1;
+                eligible_pre_indices.push_back(i);
               }
             }
-            if (pre_indices.empty()) { continue; }
+            if (eligible_pre_indices.empty()) { continue; }
             
-            // Get coordinates of home (pre-synaptic) node
-            Vector3d home_node_coordinates = coords.node_spatial.row(pre_node_idx);
+            // Sample subset based on pre_neuron_fraction
+            double pre_fraction = cmot.projection_fraction[pj];
+            // Clip to valid range: [1/n_eligible, 1.0], then round
+            int n_eligible = eligible_pre_indices.size();
+            int n_to_select = std::max(1, std::min((int)std::round(n_eligible * pre_fraction), n_eligible));
+            
+            // Randomly select subset
+            std::shuffle(eligible_pre_indices.begin(), eligible_pre_indices.end(), cpp_rng);
+            Vint pre_indices;
+            for (int i = 0; i < n_to_select; ++i) {
+              pre_indices.push_back(eligible_pre_indices[i]);
+              arbors[eligible_pre_indices[i]].motifs[m_idx] = 1;
+            }
             
             // Compute target column and patch ranges
             VectorXi col_range_shifted = col_range.array() + c;
@@ -1868,7 +1925,7 @@ void network::apply_circuit_motif(
               }
               
               make_arbor(
-                axon_branch_count, 
+                neuron_types[t_pre].axon_branch_count, 
                 cell_idx, 
                 true,                                        // is axon
                 false,                                       // is not apical dendrite
@@ -1883,16 +1940,12 @@ void network::apply_circuit_motif(
             for (int idx_pre : pre_indices) {
               for (int idx_post : post_indices) {
                 
-                double this_transconductance = find_synapse(
-                  idx_pre, 
-                  idx_post, 
-                  proj.via_apical, 
-                  val_pre, 
-                  cmot.projection_conductance[pj]
+                double synaptic_conductance = find_synapse(
+                  idx_pre, idx_post, proj.via_apical
                 );
                 
-                if (this_transconductance > 0) {
-                  motif_transconductances(idx_post, idx_pre) = val_pre * this_transconductance;
+                if (synaptic_conductance > 0) {
+                  motif_synaptic_conductances(idx_post, idx_pre) = synaptic_conductance;
                   motif_edges_pre.push_back(idx_pre);
                   motif_edges_post.push_back(idx_post);
                 }
@@ -1901,15 +1954,12 @@ void network::apply_circuit_motif(
             }
             
           } // end column loop
-          
         } // end hemisphere loop
-        
       } // end patch loop
-      
     } // end projection loop
     
-    // Save to transconductance matrix vector 
-    edges.transconductance.push_back(motif_transconductances);
+    // Save to synaptic conductance matrix vector 
+    edges.synaptic_conductance.push_back(motif_synaptic_conductances);
     
     // Collect local edge coordinates in matrix
     int n_motif_edges = motif_edges_pre.size();
@@ -1930,16 +1980,16 @@ List network::fetch_network_components(
     bool include_arbors
   ) const {
    
-    // Convert transconductances into list of NumericMatrix
-    int n_transconductance_matrices = edges.transconductance.size();
-    List transconductance_matrices(n_transconductance_matrices);
-    if (n_transconductance_matrices > 0) {
-      for (int tci = 0; tci < n_transconductance_matrices; tci++) {
-        ArrayXXd tc = edges.transconductance[tci];
+    // Convert synaptic conductances into list of NumericMatrix
+    int n_synaptic_conductance_matrices = edges.synaptic_conductance.size();
+    List synaptic_conductance_matrices(n_synaptic_conductance_matrices);
+    if (n_synaptic_conductance_matrices > 0) {
+      for (int tci = 0; tci < n_synaptic_conductance_matrices; tci++) {
+        ArrayXXd tc = edges.synaptic_conductance[tci];
         NumericMatrix tc_r = to_NumMat(tc);
-        transconductance_matrices[tci] = tc_r;
+        synaptic_conductance_matrices[tci] = tc_r;
       } 
-      transconductance_matrices.names() = edges.motif_name; 
+      synaptic_conductance_matrices.names() = edges.motif_name; 
     }
     
     // Convert edges.type into list of NumericMatrix
@@ -2070,7 +2120,7 @@ List network::fetch_network_components(
       _["hem_names"]                = hem_names_out,
       _["sub_names"]                = sub_names_out,
       _["layer_names"]              = lyr_names_out,
-      _["transconductances"]        = transconductance_matrices,
+      _["synaptic_conductances"]    = synaptic_conductance_matrices,
       _["node_coordinates_spatial"] = node_coordinates_spatial_R,
       _["coordinates_spatial"]      = coordinates_spatial_R,
       _["coordinates_node"]         = coordinates_node_R,
@@ -2089,8 +2139,11 @@ List network::fetch_network_components(
   }
 
 // Method to fetch SGT simulation results 
-List network::fetch_sim_results() const {
-    return List::create(
+List network::fetch_sim_results(bool v_only) const {
+    return v_only ? List::create(
+      _["v_traces"]               = traces.v,
+      _["spike_counts"]           = spike_counts
+    ) : List::create(
       _["slow_current_traces"]    = traces.slow_current,
       _["Ca_traces"]              = traces.Ca, 
       _["tau_slow_effect_traces"] = traces.tau_slow_effect, 
@@ -2102,12 +2155,12 @@ List network::fetch_sim_results() const {
   }
 
 // Function to compute pairwise lags based on axon path lengths and membrane velocity
-MatrixXi network::find_pairwise_lags_by_axon(
+ArrayXXi network::find_pairwise_lags_by_axon(
     double dt // time step length in ms
   ) {
     
     // Initialize matrix to hold pairwise lags, with default value of 0 
-    MatrixXi pairwise_lags = MatrixXi::Constant(n_neurons, n_neurons, 0);
+    ArrayXXi pairwise_lags = ArrayXXi::Constant(n_neurons, n_neurons, 0);
     
     // Precompute reciprocals
     const ArrayXd inv_vel = 1.0 / per_nrn.transmission_velocity;
@@ -2172,14 +2225,16 @@ void network::SGT(
     // Find number of time steps to simulate
     const int n_steps = stimulus_current.cols();
     
-    // Collapse the transconductances into a single array
-    //   ... rows as post-synaptic, cols as pre-synaptic
-    ArrayXXd transconductances_sum = ArrayXXd::Zero(n_neurons, n_neurons);
-    for (const auto& m : edges.transconductance) { transconductances_sum += m; }
+    // Collapse the synaptic conductances into a single array
+    // ... rows as post-synaptic, cols as pre-synaptic
+    ArrayXXd synaptic_conductance = ArrayXXd::Zero(n_neurons, n_neurons);
+    for (const auto& m : edges.synaptic_conductance) { synaptic_conductance += m; }
     
-    // Find pairwise distances between all neurons and convert into timestep lag matrix (rows as pre-synaptic, cols as post-synaptic)
-    MatrixXi pair_lags = find_pairwise_lags_by_axon(dt);
-    
+    // Find pairwise distances between all neurons and convert into timestep lag matrix 
+    // ... rows as pre-synaptic, cols as post-synaptic
+    ArrayXXi pair_lags = find_pairwise_lags_by_axon(dt);
+    // pair_lags.col(j) = steps back needed for signal from i
+   
     // Resize matrix to hold simulated spike traces (membrane potential plus spike)
     traces.v.resize(n_neurons, n_steps);
     traces.v.setZero();
@@ -2198,16 +2253,20 @@ void network::SGT(
     traces.slow_current.setOnes(); 
     
     // Initialize array to hold simulated sub-threshold membrane potential traces (without spike)
-    ArrayXXd v_sub = ArrayXXd::Zero(n_neurons, n_steps);
+    ArrayXXd v_sub    = ArrayXXd::Zero(n_neurons, n_steps);
     v_sub.col(0).setConstant(initial_potential);
+    // ... initialize matrix to keep track of spikes each at time step
+    ArrayXXd spikes   = ArrayXXd::Zero(n_neurons, n_steps);
+    // ... initialize matrix to account for spike temporal width
+    ArrayXXd spike_on = ArrayXXd::Zero(n_neurons, n_steps);
     
     // Resize spike_counts vector
     spike_counts.resize(n_neurons);
     spike_counts.setZero();
     // ... and make a local copy for tracking recent spikes (proxy for spikes/ms)
     ArrayXd spike_counts_recent = ArrayXd::Zero(n_neurons);
-    // ... initialize vector to keep track of spikes each time step
-    ArrayXd spikes              = ArrayXd::Zero(n_neurons);
+    // ... make vector to track time since last spike 
+    ArrayXi last_spike          = ArrayXi::Zero(n_neurons); 
     
     // Divide spike_potential (minus threshold) by spike current to get transimpedance value necessary for that spike potential
     ArrayXd transimpedance      = (per_nrn.spike_potential - per_nrn.threshold) / per_nrn.I_spike;
@@ -2216,8 +2275,8 @@ void network::SGT(
     ArrayXd max_spike_rate_dt   = per_nrn.max_spike_rate * dt;
     
     // Set threshold for membrane response to slow currents 
-    double theta_low            = 0.1;
-    double theta_high           = 0.9; 
+    double  theta_low           = 0.1;
+    double  theta_high          = 0.9; 
     ArrayXd theta_low_n         = ArrayXd::Constant(n_neurons, std::pow(theta_low, 4.0));
     ArrayXd theta_high_n        = ArrayXd::Constant(n_neurons, std::pow(theta_high, 4.0));
     
@@ -2235,26 +2294,86 @@ void network::SGT(
     Vs.setOnes(); 
     Ca.setZero(); 
     
+    // Set spike widths in simulation steps 
+    ArrayXi spike_width(n_neurons); 
+    for (int i = 0; i < n_neurons; ++i) {
+      spike_width(i) = static_cast<int>(std::round(per_nrn.spike_width(i) / dt)) + 1; 
+    }
+    
+    // Safety net: track each drive component that exceeds the growth-transform stability
+    // bound. The normalized-spike-cost denominator (max_spike_cost) changes sign once |dHdv|
+    // reaches dHdv_bound, which inverts the update. Any single component
+    // (synaptic, stimulus, or leak current) crossing the bound is a warning sign.
+    long   syn_exceed_count = 0,   stim_exceed_count = 0,   leak_exceed_count = 0;
+    double syn_exceed_max   = 0.0, stim_exceed_max   = 0.0, leak_exceed_max   = 0.0;
+    int    syn_exceed_first = -1,  stim_exceed_first = -1,  leak_exceed_first = -1;
+
+    // Update a component's exceedance trackers for the current time step.
+    // Eigen::Ref binds to both ArrayXd and contiguous column expressions (e.g.
+    // stimulus_current.col(t)) without copying, and the loop avoids any temporary,
+    // so this stays allocation-free ahead of a sparse rewrite.
+    auto check_bound = [&](const Eigen::Ref<const ArrayXd>& current, int t,
+                           long& count, double& max_ratio, int& first) {
+      const int n = current.size();
+      for (int i = 0; i < n; ++i) {
+        const double ratio = std::abs(current[i]) / per_nrn.dHdv_bound[i];
+        if (ratio >= 1.0) {
+          ++count;
+          if (first < 0) first = t;
+          if (ratio > max_ratio) max_ratio = ratio;
+        }
+      }
+    };
+
     // Simulate each time step after the initial
     for (int t = 1; t < n_steps; t++) {
       
       // Compute each cell's membrane potential state (rows) as seen by each other cell (columns)
-      ArrayXXd v_sub_lagged    = lagged_traces(t, pair_lags, v_sub);
+      // ... v_lagged(i,j) = how j sees i
+      ArrayXXd v_lagged = lagged_traces(t, pair_lags, spike_on);
+      
+      /* 
+       * Making v_lagged for dHdv: 
+       * 
+       * synaptic_conductance * v_lagged >>>
+       *      (rows are post-synaptic neuron, columns are pre-synaptic neuron) >>>
+       *        synaptic_conductance row i * v_lagged col j = input into neuron i from all other neurons.
+       * ... so, need v_lagged to be a matrix, with each column j giving the membrane potentials of all neurons as seen by neuron j at this time step.
+       * ... then the relevant output is the diagonal of the output matrix. 
+       *      so, compute only (synaptic_conductance * v_lagged.transpose()).rowwise().sum()
+       * ... How do I make the v_lagged matrix? 
+       * ... want: v_lagged(i,j) = voltage of i as seen by j 
+       * ... Need to know, for each neuron i, how many time steps it takes the soma potential of neuron j to reach neuron i (for all j). 
+       * ... Time for i to reach j, lag(i, j) = distance(i, j)/conduction_velocity(i), rounded to nearest time step.
+       * ... v_lagged(n).col(j)(i) = neuron i's membrane potential at time step n - lag(i, j)
+       * ... v_lagged(n).col(j)(i) = v(i, n - lag(i, j))
+       */
      
-      // Add leak current to stimulus current to get total membrane current 
-      ArrayXd membrane_current = stimulus_current.col(t - 1) + per_nrn.leak_conductance * (per_nrn.resting_potential - v_sub.col(t - 1));
+      // Compute synaptic and leak currents
+      ArrayXXd drive_potential  = -(per_nrn.equilibrium_potential.colwise() - v_sub.col(t - 1));
+      ArrayXd  synaptic_current = (drive_potential * synaptic_conductance * v_lagged.transpose()).rowwise().sum();
+      ArrayXd  leak_current     = per_nrn.leak_conductance * (v_sub.col(t - 1) - per_nrn.resting_potential);
+      
+      /*
+       * Have: 
+       * ... synaptic_conductance(i, j) = conductance from neuron j to neuron i
+       * ... v_lagged(i, j)             = neuron i's membrane potential as seen by neuron j at this time step
+       * ... v_lagged.transpose()(i, j) = neuron j's membrane potential as seen by neuron i at this time step
+       * ... so, row-wise sum gives power dissipation from input into i
+       */
       
       // Compute rate of change for total metabolic power dissipation in the network, w.r.t. each neuron
-      // ... units of dHdv are power/voltage, e.g., pico-Watts/mV = nA
-      // ... key idea? if a change dv in voltage in any one cell causes a spike, then H increases as well
-      ArrayXd dHdv = network_power_dissipation_gradient(
-        v_sub_lagged,
-        v_sub.col(t - 1), 
-        membrane_current, 
-        transconductances_sum, 
-        per_nrn.I_spike, 
-        per_nrn.threshold
-      );
+      // ... Units of dHdv are power/voltage: femto-Watts/mV = pA.
+      ArrayXd dHdv = 
+        synaptic_current -       // synaptic current (outward-positive); an excitatory (inward, negative) current lowers dHdv and depolarizes
+        stimulus_current.col(t - 1)  +                        // injected stimulus current (positive = depolarizing); subtracted so a depolarizing injection lowers dHdv
+        leak_current +           // leak current (outward-positive): g * (v - resting_potential)
+        v_barrier(v_sub.col(t - 1), per_nrn.threshold, per_nrn.I_spike);         // spike: large outward (repolarizing) current at threshold, driving the reset
+      
+      // Safety net: flag any drive component that reaches the stability bound (|.| >= dHdv_bound)
+      check_bound(synaptic_current,           t, syn_exceed_count,  syn_exceed_max,  syn_exceed_first);
+      check_bound(stimulus_current.col(t - 1), t, stim_exceed_count, stim_exceed_max, stim_exceed_first);
+      check_bound(leak_current,               t, leak_exceed_count, leak_exceed_max, leak_exceed_first);
       
       // For each neuron in network, at this time step, 
       // ... compute power to initiate a spike:
@@ -2283,7 +2402,7 @@ void network::SGT(
        * T               = temporal modulation term, units of 1/ms
        * 
        * Vs              = synaptic vesicle concentration, models STD. Unitless, ratio [0,1].
-       * tau_slow_effect = membrane response to slow currents, e.g., Ca2+ (calcium), for modeling bursting. Unitless. 
+       * tau_slow_effect = membrane response to slow currents, e.g., Ca2+ (calcium), for modeling bursting. Unitless, ratio [0,1].
        * tau_fast        = membrane response to fast currents, e.g., Na+ (sodium). Units of ms.
        * 
        * Ca              = Intracellular calcium concentrations (or, whatever molecule controls the slow current). Unitless, ratio [0,1]. 
@@ -2294,8 +2413,12 @@ void network::SGT(
        *  n is even.
        */
       
-      // Apply T to dvdt if not immediately after a spike
-      dvdt                          = (spikes == 1.0).select(dvdt, dvdt * T * dt);
+      // Apply T to dvdt 
+      dvdt = (spikes.col(t-1) == 1.0).select(
+        dvdt,                          // ... reset if immediately after a spike
+        (last_spike > 0).select(
+            ArrayXd::Zero(n_neurons),  // ... hold if spike is on-going 
+            dvdt * T * dt));
       
       // Find new subthreshold membrane potential by adding dvdt
       v_sub.col(t)                  = v_sub.col(t - 1) + dvdt;
@@ -2303,10 +2426,13 @@ void network::SGT(
       // Find spike barrier values
       ArrayXd barrier_values        = v_barrier(v_sub.col(t), per_nrn.threshold, per_nrn.I_spike);
       // ... update spike counts
-      spikes                        = (barrier_values != 0.0).cast<double>();
-      spike_counts                 += spikes;
-      spike_counts_recent          += spikes; 
+      spikes.col(t)                 = (barrier_values != 0.0).cast<double>();
+      spike_counts                 += spikes.col(t);
+      spike_counts_recent          += spikes.col(t); 
       spike_counts_recent           = (spike_counts_recent - max_spike_rate_dt).max(0.0);
+      last_spike                   += spikes.col(t).cast<int>() * spike_width;
+      last_spike                    = (last_spike - 1).max(0); 
+      spike_on.col(t)               = (last_spike > 0).cast<double>();
       // ... update Vs and Ca
       Vs                           += dVsdt(Vs, spike_counts_recent, per_nrn.U_Vs, per_nrn.tau_Vs)     * dt; 
       Ca                           += dCadt(Ca, spike_counts_recent, per_nrn.I_slow, per_nrn.tau_slow) * dt;
@@ -2334,6 +2460,29 @@ void network::SGT(
       traces.slow_current.col(t)    = slow_current;
       
     }
+    
+    // Safety net: warn once per component if it exceeded the stability bound during the run.
+    auto warn_bound = [](const char* label, const char* remedy,
+                         long count, int first, double max_ratio) {
+      if (count > 0) {
+        Rcpp::warning(
+          std::string(label) + " reached or exceeded the growth-transform stability bound "
+          "(|drive| >= dHdv_bound) in " + std::to_string(count) +
+          " neuron-time-step(s), first at step " + std::to_string(first) +
+          ", peaking at " + std::to_string(max_ratio) +
+          "x the bound. Beyond this bound the growth-transform update inverts and can "
+          "silence the affected cells. " + remedy);
+      }
+    };
+    warn_bound("Synaptic current",
+               "Consider lowering synaptic_conductance or raising dHdv_bound for the affected cell type.",
+               syn_exceed_count,  syn_exceed_first,  syn_exceed_max);
+    warn_bound("Stimulus current",
+               "Consider lowering the injected stimulus current or raising dHdv_bound for the affected cell type.",
+               stim_exceed_count, stim_exceed_first, stim_exceed_max);
+    warn_bound("Leak current",
+               "Consider lowering leak_conductance or raising dHdv_bound for the affected cell type.",
+               leak_exceed_count, leak_exceed_first, leak_exceed_max);
     
   }
 

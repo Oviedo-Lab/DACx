@@ -6,7 +6,8 @@
 \usage{
 modify.cell.type(
   type_name,
-  valence = NULL,
+  synaptic_conductance = NULL,
+  equilibrium_potential = NULL,
   tau_fast = NULL,
   tau_slow = NULL,
   tau_Vs = NULL,
@@ -17,7 +18,9 @@ modify.cell.type(
   spine_density = NULL,
   axon_target = NULL,
   I_spike = NULL,
+  dHdv_bound = NULL,
   spike_potential = NULL,
+  spike_width = NULL,
   resting_potential = NULL,
   threshold = NULL,
   leak_conductance = NULL,
@@ -31,11 +34,13 @@ modify.cell.type(
 \arguments{
 \item{type_name}{Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.}
 
-\item{valence}{Valence of each neuron type, +1 for excitatory, -1 for inhibitory.}
+\item{synaptic_conductance}{Conductance (nS) of this cell type's synapses, treating this cell type as post-synaptic and indexing by the type of each possible pre-synaptic cell. Can be a single number (applied uniformly to every pre-synaptic type), a numeric vector ordered as in \code{print.known.celltypes()}, or a named list keyed by pre-synaptic type name, e.g. \code{list(pyramidal = 0.15, PV = 0.08)}.}
 
-\item{tau_fast}{Time constant (ms) of the fast sodium (Na+) current (positive current, time to flow in).}
+\item{equilibrium_potential}{Induced potential (mV) at which no current naturally flows across this cell type's membrane, given the neurotransmitter released by each possible pre-synaptic cell type (e.g., 0 mV for an excitatory pre-synaptic cell, -70 mV for an inhibitory pre-synaptic cell). Accepts the same formats as \code{synaptic_conductance}.}
 
-\item{tau_slow}{Time constant (ms) of the slow calcium (Ca2+) current (negative current, time to pump out).}
+\item{tau_fast}{Time constant (ms) of the fast sodium (Na+) current (Na+ influx is inward, i.e. negative under the outward-positive convention; time to flow in).}
+
+\item{tau_slow}{Time constant (ms) of the slow calcium (Ca2+) current (Ca2+ influx is inward, i.e. negative under the outward-positive convention; time to pump out).}
 
 \item{tau_Vs}{Time constant (ms) for restoring presynaptic vesicles, i.e., recovery from short-term depression (STD).}
 
@@ -51,15 +56,19 @@ modify.cell.type(
 
 \item{axon_target}{Character string giving target of axon projections, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft".}
 
-\item{I_spike}{Spike current, in pA; absolute value plus a little bit used as \code{dHdv_bound}.}
+\item{I_spike}{Spike current, in pA.}
+
+\item{dHdv_bound}{Scale factor giving the bound on derivative of metabolic energy wrt potential, such that \code{dHdv_bound * I_spike > abs(dHdv)}, for each neuron in the network, based on its type.}
 
 \item{spike_potential}{Peak potential during a spike, in mV.}
+
+\item{spike_width}{Time spike activates synapse, in ms.}
 
 \item{resting_potential}{Resting potential, in mV; absolute value plus a little bit used as \code{v_bound}.}
 
 \item{threshold}{Spike threshold, in mV.}
 
-\item{leak_conductance}{Conductance controlling the leak current, \code{I_leak = leak_conductance * (resting_potential - v)}, in nS.}
+\item{leak_conductance}{Conductance controlling the leak current, \code{I_leak = leak_conductance * (v - resting_potential)} (outward-positive), in nS.}
 
 \item{axon_branch_count}{Expected number of axon branches.}
 

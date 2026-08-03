@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">DACx</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -25,7 +25,10 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Tutorials</h6></li>
     <li><a class="dropdown-item" href="../articles/tutorial_network_topology.html">Network topology from circuit motifs</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_math.html">Mathematics of GT models</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_membrane_temporal_dynamics.html">Single-cell temporal dynamics</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial_SGT.html">Spatial growth-transform models</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_celltypes.html">Cell types</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Legal</h6></li>
     <li><a class="dropdown-item" href="../articles/license.html">Dependency licenses</a></li>
@@ -61,19 +64,26 @@
     <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">set.network.structure</span><span class="op">(</span></span>
 <span>  <span class="va">network</span>,</span>
 <span>  neuron_types <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"principal"</span><span class="op">)</span>,</span>
+<span>  hemisphere_names <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  subcortical_layer_names <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  layer_names <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"layer"</span><span class="op">)</span>,</span>
+<span>  n_hemispheres <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  n_subcortical_layers <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>  n_layers <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  n_columns <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  patch_depth <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  n_patches <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  layer_height <span class="op">=</span> <span class="fl">180</span>,</span>
 <span>  column_diameter <span class="op">=</span> <span class="fl">120</span>,</span>
 <span>  segment_length <span class="op">=</span> <span class="fl">20</span>,</span>
+<span>  hem_separation_factor <span class="op">=</span> <span class="fl">40</span>,</span>
+<span>  sub_separation_factor <span class="op">=</span> <span class="fl">20</span>,</span>
 <span>  layer_separation_factor <span class="op">=</span> <span class="fl">2.5</span>,</span>
 <span>  column_separation_factor <span class="op">=</span> <span class="fl">2.5</span>,</span>
 <span>  patch_separation_factor <span class="op">=</span> <span class="fl">2.5</span>,</span>
-<span>  neurons_per_node <span class="op">=</span> <span class="fl">10</span>,</span>
-<span>  local_synaptic_conductance <span class="op">=</span> <span class="fl">1e-10</span>,</span>
-<span>  synaptic_neighborhood <span class="op">=</span> <span class="fl">10</span></span>
+<span>  local_synaptic_conductance <span class="op">=</span> <span class="fl">0.1</span>,</span>
+<span>  subcortical_local_conductance <span class="op">=</span> <span class="fl">0.1</span>,</span>
+<span>  synaptic_neighborhood <span class="op">=</span> <span class="fl">10</span>,</span>
+<span>  neurons_per_node <span class="op">=</span> <span class="fl">10</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -89,32 +99,56 @@
 <dd><p>Character vector giving types of neurons in the network. Known types can be accessed using <code><a href="print-known-celltypes.html">print.known.celltypes()</a></code>. Default is "principal", which will assign the most common neuron type for each layer, as defined in <code><a href="principal.neurons.html">principal.neurons()</a></code>.</p></dd>
 
 
+<dt id="arg-hemisphere-names">hemisphere_names<a class="anchor" aria-label="anchor" href="#arg-hemisphere-names"></a></dt>
+<dd><p>Character vector of length n_hemispheres giving names for the hemispheres (default: auto-generated as "left" or c("left","right")).</p></dd>
+
+
+<dt id="arg-subcortical-layer-names">subcortical_layer_names<a class="anchor" aria-label="anchor" href="#arg-subcortical-layer-names"></a></dt>
+<dd><p>Character vector of length n_subcortical_layers giving names for the subcortical layers (default: auto-generated as "subL1", "subL2", ...). Must be distinct from all cortical layer names.</p></dd>
+
+
 <dt id="arg-layer-names">layer_names<a class="anchor" aria-label="anchor" href="#arg-layer-names"></a></dt>
-<dd><p>Character vector giving names of layers in the network, ordered deepest to most superficial, e.g. c("L6", "L5", "L4", "L3", "L2", "L1").</p></dd>
+<dd><p>Character vector giving names of cortical layers in the network, ordered deepest to most superficial, e.g. c("L6", "L5", "L4", "L3", "L2", "L1").</p></dd>
+
+
+<dt id="arg-n-hemispheres">n_hemispheres<a class="anchor" aria-label="anchor" href="#arg-n-hemispheres"></a></dt>
+<dd><p>Integer giving number of hemispheres; must be 1 or 2 (default: 1).</p></dd>
+
+
+<dt id="arg-n-subcortical-layers">n_subcortical_layers<a class="anchor" aria-label="anchor" href="#arg-n-subcortical-layers"></a></dt>
+<dd><p>Integer giving number of subcortical layers (e.g., thalamic relay nuclei); can be 0 (default: 0).</p></dd>
 
 
 <dt id="arg-n-layers">n_layers<a class="anchor" aria-label="anchor" href="#arg-n-layers"></a></dt>
-<dd><p>Integer giving number of layers in the network.</p></dd>
+<dd><p>Integer giving number of cortical layers in the network.</p></dd>
 
 
 <dt id="arg-n-columns">n_columns<a class="anchor" aria-label="anchor" href="#arg-n-columns"></a></dt>
 <dd><p>Integer giving number of columns in the network.</p></dd>
 
 
-<dt id="arg-patch-depth">patch_depth<a class="anchor" aria-label="anchor" href="#arg-patch-depth"></a></dt>
+<dt id="arg-n-patches">n_patches<a class="anchor" aria-label="anchor" href="#arg-n-patches"></a></dt>
 <dd><p>Integer giving the number of "patches" (n_layers x n_columns sheets) in the network.</p></dd>
 
 
 <dt id="arg-layer-height">layer_height<a class="anchor" aria-label="anchor" href="#arg-layer-height"></a></dt>
-<dd><p>Numeric giving height of each layer (in units specified at network creation, default unit is microns, default value is 180.0).</p></dd>
+<dd><p>Numeric giving height of each layer (default value is 180.0, which assumes an implicit unit of micron).</p></dd>
 
 
 <dt id="arg-column-diameter">column_diameter<a class="anchor" aria-label="anchor" href="#arg-column-diameter"></a></dt>
-<dd><p>Numeric giving diameter of each column (in units specified at network creation, default unit is microns, default value is 120.0).</p></dd>
+<dd><p>Numeric giving diameter of each column (default value is 120.0, which assumes an implicit unit of micron).</p></dd>
 
 
 <dt id="arg-segment-length">segment_length<a class="anchor" aria-label="anchor" href="#arg-segment-length"></a></dt>
-<dd><p>Numeric giving expected length of each segment in the axonal and dendritic processes of each neuron (in units specified at network creation, default unit is microns, default value is 20.0).</p></dd>
+<dd><p>Numeric giving expected length of each segment in the axonal and dendritic processes of each neuron (default value is 20.0, which assumes an implicit unit of micron).</p></dd>
+
+
+<dt id="arg-hem-separation-factor">hem_separation_factor<a class="anchor" aria-label="anchor" href="#arg-hem-separation-factor"></a></dt>
+<dd><p>Numeric giving distance between hemispheres as a fraction of column diameter (default: 5.0).</p></dd>
+
+
+<dt id="arg-sub-separation-factor">sub_separation_factor<a class="anchor" aria-label="anchor" href="#arg-sub-separation-factor"></a></dt>
+<dd><p>Numeric giving distance from the cortical sheet to the first subcortical layer as a fraction of layer height (default: 5.0).</p></dd>
 
 
 <dt id="arg-layer-separation-factor">layer_separation_factor<a class="anchor" aria-label="anchor" href="#arg-layer-separation-factor"></a></dt>
@@ -129,24 +163,20 @@
 <dd><p>Numeric giving mean distance between network patches as a fraction of column diameter (default: 2.5).</p></dd>
 
 
-<dt id="arg-neurons-per-node">neurons_per_node<a class="anchor" aria-label="anchor" href="#arg-neurons-per-node"></a></dt>
-<dd><p>Matrix giving number of neurons of each type per node in each layer; dimensions must match n_layers (rows) and length of neuron_types (columns).</p></dd>
-
-
 <dt id="arg-local-synaptic-conductance">local_synaptic_conductance<a class="anchor" aria-label="anchor" href="#arg-local-synaptic-conductance"></a></dt>
-<dd><p>List (one entry per layer) of matrices giving synaptic conductance in millisiemens for local connections by cell-type; each matrix must have dimensions matching length of neuron_types (rows and columns).</p></dd>
+<dd><p>List (one entry per cortical layer) of matrices giving synaptic conductance in nS for local connections by cell-type; each matrix must have dimensions matching length of neuron_types (rows and columns).</p></dd>
+
+
+<dt id="arg-subcortical-local-conductance">subcortical_local_conductance<a class="anchor" aria-label="anchor" href="#arg-subcortical-local-conductance"></a></dt>
+<dd><p>List (one entry per subcortical layer) of matrices giving synaptic conductance for local connections in each subcortical layer. Required if n_subcortical_layers &gt; 0; can be a single matrix or scalar (broadcast to all layers).</p></dd>
 
 
 <dt id="arg-synaptic-neighborhood">synaptic_neighborhood<a class="anchor" aria-label="anchor" href="#arg-synaptic-neighborhood"></a></dt>
 <dd><p>Numeric giving the radius (in microns) within which an axon node will trigger a synapse when near a dendrite node (default: 10.0).</p></dd>
 
 
-<dt id="arg-neuron-type-valences">neuron_type_valences<a class="anchor" aria-label="anchor" href="#arg-neuron-type-valences"></a></dt>
-<dd><p>Numeric vector giving valences of each neuron type, e.g. c(1, -1) for excitatory and inhibitory neurons.</p></dd>
-
-
-<dt id="arg-neuron-type-temporal-modulation">neuron_type_temporal_modulation<a class="anchor" aria-label="anchor" href="#arg-neuron-type-temporal-modulation"></a></dt>
-<dd><p>Numeric matrix giving temporal modulation time components (for modulation time in the unit_time of the network) for each neuron type: bias, step size, and count cutoff (rows as neuron types, columns as components). Will example a single value or a vector of length three.</p></dd>
+<dt id="arg-neurons-per-node">neurons_per_node<a class="anchor" aria-label="anchor" href="#arg-neurons-per-node"></a></dt>
+<dd><p>Matrix giving mean number of neurons of each type per node in each layer, with cortical layers first and then subcortical layers; dimensions must match n_layers + n_subcortical_layers (rows) and length of neuron_types (columns), or 2 * (n_layers + n_subcortical_layers) if specifying different cell type counts for a second hemisphere. If there are two hemispheres but only n_layers + n_subcortical_layers rows, then the counts are reused for the second hemisphere.</p></dd>
 
 </dl></div>
     <div class="section level2">

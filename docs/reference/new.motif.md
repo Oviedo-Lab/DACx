@@ -9,7 +9,7 @@ columns.
 ## Usage
 
 ``` r
-new.motif(motif_name = "not_provided")
+new.motif(motif_name = "not_provided", hemi = "both")
 ```
 
 ## Arguments
@@ -17,6 +17,11 @@ new.motif(motif_name = "not_provided")
 - motif_name:
 
   Character string giving name of the motif (default: "not_provided").
+
+- hemi:
+
+  Hemisphere to which the motif applies: use 0 or "left" for left, 1 or
+  "right" for right, and -1, "all", or "both" for left and right.
 
 ## Value
 

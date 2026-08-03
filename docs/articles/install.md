@@ -9,8 +9,8 @@
 
 ``` bash
 rm -f src/*.o src/*.so
-rm -rf neurons.Rcheck
-rm -f neurons_*.tar.gz
+rm -rf DACx.Rcheck
+rm -f DACx_*.tar.gz
 ./build_install.sh
 ```
 
@@ -19,6 +19,7 @@ rm -f neurons_*.tar.gz
 In R, run:
 
 ``` r
+
 devtools::document()
 pkgdown::build_site()
 pkgdown::build_article("<article name>")

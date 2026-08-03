@@ -6,7 +6,8 @@
 \usage{
 add.cell.type(
   type_name,
-  valence,
+  synaptic_conductance,
+  equilibrium_potential,
   tau_fast = 1,
   tau_slow = 60,
   tau_Vs = 100,
@@ -17,7 +18,9 @@ add.cell.type(
   spine_density = 0,
   axon_target = "dendrite_shaft",
   I_spike = 1000,
+  dHdv_bound = 1.05,
   spike_potential = 35,
+  spike_width = 1,
   resting_potential = -70,
   threshold = -55,
   leak_conductance = 10,
@@ -31,11 +34,13 @@ add.cell.type(
 \arguments{
 \item{type_name}{Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.}
 
-\item{valence}{Valence of each neuron type, +1 for excitatory, -1 for inhibitory.}
+\item{synaptic_conductance}{Conductance (nS) of this cell type's synapses, treating this cell type as post-synaptic and indexing by the type of each possible pre-synaptic cell. Can be a single number (applied uniformly to every pre-synaptic type), a numeric vector ordered as in \code{print.known.celltypes()}, or a named list keyed by pre-synaptic type name, e.g. \code{list(pyramidal = 0.15, PV = 0.08)}.}
 
-\item{tau_fast}{Time constant (ms) of the fast sodium (Na+) current (positive current, time to flow in). Default is 1.0.}
+\item{equilibrium_potential}{Induced potential (mV) at which no current naturally flows across this cell type's membrane, given the neurotransmitter released by each possible pre-synaptic cell type (e.g., 0 mV for an excitatory pre-synaptic cell, -70 mV for an inhibitory pre-synaptic cell). Accepts the same formats as \code{synaptic_conductance}.}
 
-\item{tau_slow}{Time constant (ms) of the slow calcium (Ca2+) current (negative current, time to pump out). Default is 60.0.}
+\item{tau_fast}{Time constant (ms) of the fast sodium (Na+) current (Na+ influx is inward, i.e. negative under the outward-positive convention; time to flow in). Default is 1.0.}
+
+\item{tau_slow}{Time constant (ms) of the slow calcium (Ca2+) current (Ca2+ influx is inward, i.e. negative under the outward-positive convention; time to pump out). Default is 60.0.}
 
 \item{tau_Vs}{Time constant (ms) for restoring presynaptic vesicles, i.e., recovery from short-term depression (STD). Default is 100.0.}
 
@@ -51,15 +56,19 @@ add.cell.type(
 
 \item{axon_target}{Character string giving target of axon projections, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft". Default is "dendrite_shaft".}
 
-\item{I_spike}{Spike current, in pA; absolute value plus a little bit used as \code{dHdv_bound}. Default value is 1e3 (i.e., 1 nA).}
+\item{I_spike}{Spike current, in pA. Default value is 1e3 (i.e., 1 nA).}
+
+\item{dHdv_bound}{Bound on derivative of metabolic energy wrt potential, such that \code{dHdv_bound > abs(dHdv)}, in pA, for each neuron in the network, based on its type. Default value is 1.05e3.}
 
 \item{spike_potential}{Peak potential during a spike, in mV. Default value is 35.0.}
+
+\item{spike_width}{Time spike activates synapse, in ms. Default value is 1.0.}
 
 \item{resting_potential}{Resting potential, in mV; absolute value plus a little bit used as \code{v_bound}. Default value is -70.0.}
 
 \item{threshold}{Spike threshold, in mV. Default value is -55.0.}
 
-\item{leak_conductance}{Conductance controlling the leak current, \code{I_leak = leak_conductance * (resting_potential - v)}, in nS. Default value is 10.0.}
+\item{leak_conductance}{Conductance controlling the leak current, \code{I_leak = leak_conductance * (v - resting_potential)} (outward-positive), in nS. Default value is 10.0.}
 
 \item{axon_branch_count}{Expected number of axon branches. Default is 10.}
 
@@ -75,5 +84,5 @@ add.cell.type(
 Nothing.
 }
 \description{
-This function adds a user-defined cell type to the current session. It's just a wrapper for the Rcpp-exported \code{add_cell_type} function. Technically, \code{cell_type} is a struct defined in the Rcpp backend of the DACx package. They are essentially labeled lists whose fields are described by the parameters below. Each session stores cell types in the Rcpp backend in an \code{unordered_map} with string labels. All parameters come with biologically realistic (and mathematically workable) default values, except for \code{type_name} and \code{valence}.
+This function adds a user-defined cell type to the current session. It's just a wrapper for the Rcpp-exported \code{add_cell_type} function. Technically, \code{cell_type} is a struct defined in the Rcpp backend of the DACx package. They are essentially labeled lists whose fields are described by the parameters below. Each session stores cell types in the Rcpp backend in an \code{unordered_map} with string labels. All parameters come with biologically realistic (and mathematically workable) default values, except for \code{type_name}, \code{synaptic_conductance}, and \code{equilibrium_potential}.
 }

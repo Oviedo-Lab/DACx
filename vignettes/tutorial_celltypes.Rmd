@@ -1,0 +1,96 @@
+---
+title: "Customizing cell types"
+author: "Michael Barkasi"
+date: "August 3, 2026 (v1.0)"
+---
+
+```{r Rmdsetup, echo=FALSE}
+# Set max width of markdown code outputs
+options(width = 10000)
+knitr::opts_chunk$set(class.output = "scroll-output", cache = TRUE)
+```
+
+<h2>Under construction!</h2>
+
+This tutorial is under construction, but the scratch work below is reasonably up-to-date as-of August 3, 2026.
+
+```{r Rsetup}
+# Clear the R workspace to start fresh
+rm(list = ls())
+
+# Set seed for reproducibility
+set.seed(12345) 
+
+# Load DACx package
+library(DACx, quietly = TRUE) 
+```
+
+<h2>Cell types</h2>
+
+The three cell types (spiny stellates, PV, and SST) of the node are pre-defined in the neurons package. To see all cell types known by the package in the current session, we use the <span class = "function">print.known.celltypes</span> function: 
+
+```{r print_known_celltypes}
+print.known.celltypes()
+```
+
+As can be seen from the output, cell types are defined by a number of parameters.
+
+<h3>Cell type parameters</h3>
+
+The parameters defining cell types in DACx are mostly biophysically interpretable and can be set with, or tested against, experimental data. 
+
+<h4>Transmitter type</h4>
+
+- *Valence:* $1$ for excitatory cells, $-1$ for inhibitory cells. Code variable: <span class = "code_variable">valence</span>.
+
+<h4>Membrane kinetics</h4> 
+
+- *Fast current time constant:* Time constant (ms) of the fast sodium (Na+) current (Na+ influx is inward, i.e. negative under the outward-positive convention; time to flow in). Code variable: <span class = "code_variable">tau_fast</span>.
+- *Slow current time constant:* Time constant (ms) of the slow calcium (Ca2+) current (Ca2+ influx is inward, i.e. negative under the outward-positive convention; time to pump out). Code variable: <span class = "code_variable">tau_slow</span>.
+- *STD recovery time constant:* Time constant (ms) for restoring presynaptic vesicles, i.e., recovery from short-term depression (STD). Code variable: <span class = "code_variable">tau_Vs</span>. 
+- *Slow current influx:* Slow-current molecule (e.g., Ca2+) influx as concentration per spike (concentration/spike). Code variable: <span class = "code_variable">I_slow</span>. 
+- *Vesicle utilization ratio:* Utilization ratio (concentration/spike) of vesicles per spike. Code variable: <span class = "code_variable">U_Vs</span>. 
+- *Spike recovery rate:* Constant (spikes/ms) controlling estimation of spike rate and its max value. Code variable: <span class = "code_variable">max_spike_rate</span>. 
+- *Leak conductance:* Conductance (nS) controlling the leak current: <span class = "code_variable">I_leak = leak_conductance * (v - resting_potential)</span> (outward-positive). Code variable: <span class = "code_variable">leak_conductance</span>. 
+
+<h4>Intercell transmission</h4>
+
+- *Transmission velocity:* The speed of the action potential between neurons (microns/ms). Code variable: <span class = "code_variable">transmission_velocity</span>.
+- *Spine density:* The proportion (a value between $0$ and $1$) of dendrite nodes expected to be spines. Code variable: <span class = "code_variable">spine_density</span>.
+- *Axon target:* The kind of nodes onto which the cell's axons can synapse. Possible values include "spine", "dendrite_shaft", "soma", and "axon_shaft". Code variable <span class = "code_variable">axon_target</span>. 
+
+<h4>Membrane potential and spiking</h4>
+
+- *Spike current:* The peak current of the action potential (pA). Code variable: <span class = "code_variable">I_spike</span>. 
+- *Spike potential:* The value of an action potential (mV). Code variable: <span class = "code_variable">spike_potential</span>. 
+- *Resting potential:* The potential difference in electrical charge between the inside and outside of the cell at rest (mV). Code variable: <span class = "code_variable">resting_potential</span>.
+- *Threshold:* The potential difference in electrical charge between the inside and outside of the cell at which an action potential is triggered (mV). Code variable: <span class = "code_variable">threshold</span>.
+
+<h4>Neurite structure</h4>
+
+- *Axon branch count:* An integer value giving the expected number axon branches. Code variable: <span class = "code_variable">axon_branch_count</span>.
+- *Dendrite branch count:* Same as axon branch count, but for dendrites. Code variable: <span class = "code_variable">dendrite_branch_count</span>.
+- *Branch independence:* The expected proportion (a value between $0$ and $1$) of branches which connect directly to the soma, with $1$ meaning all branches connect directly to the soma and zero meaning that all branches connect to the soma from a single segment. Code variable: <span class = "code_variable">branch_independence</span>.
+- *Branch spread:* Value between $0$ and $1$ controlling the tendency of arbor branches to repel away from the soma with $1$ meaning a straight line away from the soma and $0$ meaning no bias with respect to soma position. Code variable: <span class = "code_variable">branch_spread</span>.
+
+<h4>Apical dendrite parameters</h4>
+
+- *Apical target layer:* Character string giving the name of the layer to which apical dendrite is expected to grow, if any; if none, "none". Intended for modeling the circuit topology of pyramidal neurons. Code variable: <span class = "code_variable">apical_target_layer</span>.
+
+<h3>Synaptic conductance</h3>
+
+There is one important cell-type property not controlled directly through the <span class = "code_variable">cell_type</span> structure: synaptic conductance. Synaptic conductance is the ease with which current flows into a synapse, and thus represents synaptic "strength". Of course, the strength of any one synapse is determined by a history of activity -- or, from a modeling point of view, training. However, these values need to be initialized in some way and we can expect certain combinations of cell type, layer, and projection to be biased in certain directions for synaptic strength. These initialization biases are controlled through arguments in the <span class = "function">set.network.structure</span> function and the <span class = "code_variable">load.projection.into.motif</span> function. The former controls synaptic conductance biases within nodes (local connections) and the latter controls synaptic conductance biases between nodes (meso-scale connections). In both cases, the value is specified in millisiemens (mS) and is set to $0.1$nS by default, which is equivalent to a $5$ pico amp synaptic current at a $50$mV potential.
+
+<h3>Modifying cell types</h3>
+
+Cell types themselves are technically a C++ <span class = "code_variable">struc</span>. Defined cell types are stored in an unordered map in C++ that's accessible via three R wrapper functions. The function <span class = "function">add.cell.type</span> can be used to add a new cell type to the map. The function <span class = "function">modify.cell.type</span> can be used to modify an existing cell type. The function <span class = "function">fetch.cell.type.params</span> will return the parameters of the named cell type as an R list. 
+
+<h3>Principal neurons</h3>
+
+The DACx package includes a special cell type, "principal", which can be called as well. This call doesn't refer to any predefined cell type, but instead triggers a layer-dependent lookup of known principal cell types. The term "principal" simply means the primary cell type in a region. We can see known principal cell types by calling the <span class = "code_variable">principal.neurons</span> function: 
+
+```{r print_principal_neurons}
+principal.neurons(print_nicely = TRUE)
+```
+
+As can be seen, spiny stellates are the principal cell for layer 4. We have used them for this demonstration because, unlike pyramidal cells, they do not extend apical dendrites out of their home layer. 

@@ -41,10 +41,11 @@
     <li><a class="dropdown-item" href="../articles/install.html">Installation instructions</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Tutorials</h6></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_network_topology.html">Network topology from circuit motifs</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial_math.html">Mathematics of GT models</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial_membrane_temporal_dynamics.html">Single-cell temporal dynamics</a></li>
-    <li><a class="dropdown-item" href="../articles/tutorial_network_topology.html">Network topology from circuit motifs</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial_SGT.html">Spatial growth-transform models</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_celltypes.html">Cell types</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Legal</h6></li>
     <li><a class="dropdown-item" href="../articles/license.html">Dependency licenses</a></li>
@@ -295,53 +296,24 @@ determiend by the cell type parameter <span class="code_variable">leak_conductan
 thresholding: <span class="math inline">I_\mathrm{spike}=0</span> if
 <span class="math inline">v &lt; v_\mathrm{threshold}</span> and
 otherwise is equal to the value of the simulation variable <span class="code_variable">I_spike</span> for the cell type.</p>
-<h2>
-Membrane potential reset
-</h2>
-<p>Notice that unlike a leaky integrate-and-fire neuron, the definition
-of <span class="math inline">\partial v/\partial t</span> itself
-produces the reset after a spike. When <span class="math inline">v</span> is very near the threshold <span class="math inline">v_\mathrm{threshold}</span>, then (by the definition
-given above) we have that: <span class="math display">\partial
-I_\mathrm{influx} = \left.\frac{\partial\mathcal{H}}{\partial v}
-\right|_{v_\mathrm{threshold}}</span> and hence <span class="math inline">f\approx -1</span>, because, in general, <span class="math inline">(x-y)/(y-x)=-1</span>. Thus, when <span class="math inline">v\approx v_\mathrm{threshold}</span>, <span class="math display">\frac{\partial v}{\partial t}\approx
--v_\mathrm{rest} - v_\mathrm{threshold}</span> Hence: <span class="math display">v_\mathrm{threshold} + \frac{\partial v}{\partial t
-}\approx -v_\mathrm{rest}</span> And so: <span class="math display">\frac{\partial v}{\partial t }\approx
--v_\mathrm{rest} -v_\mathrm{threshold}</span> However, recall that the
-actual math for the model uses <span class="math inline">v_\mathrm{bound}=|v_\mathrm{rest}| + \epsilon</span>
-for some small <span class="math inline">\epsilon</span>, so that <span class="math inline">v_\mathrm{threshold} + \partial v/\partial t \approx
--v_\mathrm{bound} \approx v_\mathrm{rest}</span>. Thus, the model
-produces a reset to a value near the rest potential after a spike,
-without any explicit reset mechanism.</p>
-<h2>
-Spatial lag
-</h2>
-<p>What about <span class="math inline">I_\mathrm{synaptic\;transmission}</span>, the input
-current induced by synaptic transmission across all synapses? We assume
-that the induced post-synaptic current is equal to the inducing
-pre-synaptic potential, modulated by the synaptic conduction. However,
-the complicating factor is that, given spatial distance between cells
-and synaptic transmission time, the relevant pre-synaptic potential
-<span class="math inline">v</span> at time <span class="math inline">t</span> from pre-synaptic neuron <span class="math inline">N</span> may not be <span class="math inline">v(t)</span>, but rather <span class="math inline">v(t^\prime)</span> for some <span class="math inline">t^\prime &lt; t</span>.</p>
-<p>Let <span class="math inline">\vec{v} = \langle v_1, v_2, \ldots,
-v_n\rangle</span> be the vector of membrane potentials for all <span class="math inline">n</span> neurons in the network at time <span class="math inline">t</span>. Further, let <span class="math inline">V</span> be a <span class="math inline">n\times
-n</span> time-dependent matrix which captures how each neuron “sees” the
-others. Specifically, <span class="math inline">V_{ij}(t)</span> is the
-membrane potential of neuron <span class="math inline">N_i</span> that
-reaches neuron <span class="math inline">N_j</span> at time <span class="math inline">t</span>. Then, assuming <span class="math inline">Q</span> is an <span class="math inline">n\times
-n</span> matrix of synaptic connections such that <span class="math inline">Q_{ij}</span> is the conductance from neuron <span class="math inline">j</span> to neuron <span class="math inline">i</span>, we have that: <span class="math display">I_\mathrm{synaptic\;transmission}(N_i) =
-\sum_{j=1}^n Q_{ij}V_{ji}(t)</span></p>
+<p>The input current induced by synaptic transmission across all
+synapses, <span class="math inline">I_\mathrm{synaptic\;transmission}</span>, is handled
+specially to account for signal transmission lag, as described in <a href="tutorial_SGT.html">the tutorial on spatial GT models</a>. However,
+the basic idea is straightforward: the synaptic current is the synaptic
+conductance times the presynaptic membrane potential <span class="math inline">v</span>.</p>
 <h2>
 Spiking without spikes?
 </h2>
-<p>As noted above, GT models are only ever modelling
-<em>subthreshold</em> dynamics. That is, <span class="math inline">v</span> represents only the membrane potential
-below the spike threshold. This arrangement leads to an awkward
-interpretation of the equation just given for <span class="math inline">I_\mathrm{synaptic\;transmission}</span>.
-Specifically, this equation implies that it’s the subthreshold membrane
-potential of the presynaptic neuron which is transduced across the
-synapse to the postsynaptic neuron. Biologically, signal transduction at
-synapses happens primarily through spikes, of course. So, two questions
-naturally arise:</p>
+<p>GT models are only ever modelling <em>subthreshold</em> dynamics.
+That is, <span class="math inline">v</span> represents only the membrane
+potential below the spike threshold. This arrangement leads to an
+awkward interpretation of <span class="math inline">I_\mathrm{synaptic\;transmission}</span>.
+Specifically, computing <span class="math inline">I_\mathrm{synaptic\;transmission}</span> as synaptic
+conductance times <span class="math inline">v</span> implies that it’s
+the subthreshold membrane potential of the presynaptic neuron which is
+transduced across the synapse to the postsynaptic neuron. Biologically,
+signal transduction at synapses happens primarily through spikes, of
+course. So, two questions naturally arise:</p>
 <ol style="list-style-type: decimal">
 <li>If it’s the subthreshold membrane potential <span class="math inline">v</span> which drives synaptic transmission in a GT
 model, how do the spikes themselves have any causal role in signal
@@ -350,9 +322,9 @@ transmission?</li>
 neural network model in this strange way?</li>
 </ol>
 <p>The answer to the first question is that, in GT models, spikes of
-pre-synaptic neurons causally affect the membrane potential of
+presynaptic neurons causally affect the membrane potential of
 postsynaptic neurons indirectly, via their effect on the subthreshold
-membrane potential of the pre-synaptic neuron. This is, of course, the
+membrane potential of the presynaptic neuron. This is, of course, the
 inverse of the causal flow in the real biology. In real neurons, changes
 in subthreshold membrane potential cause spikes, which cause synaptic
 transmission. In GT models, the energy cost of a future spike causes
@@ -366,7 +338,7 @@ factor <span class="math inline">f</span>.</p>
 order and modelling the energy cost of a spike instead of a spike itself
 is that it makes it easier to optimize the synaptic “weights”, i.e., the
 matrix <span class="math inline">Q</span> of synaptic conductances, so
-that the network model reproduces a desired response <span class="math inline">v</span> for a given stimulus input current <span class="math inline">I_\mathrm{stimulus\;input}</span>. Traditionally
+that the network model reproduces a desired response in <span class="math inline">v</span> for a given stimulus input current <span class="math inline">I_\mathrm{stimulus\;input}</span>. Traditionally,
 spiking neural networks are trained by optimizing synaptic weights to
 minimize the difference between some time-dependent desired spike rate
 and the model spike rate. However, if <span class="math inline">R(w,t,n)</span> is the spike rate implied by a
@@ -379,31 +351,21 @@ can’t straightforwardly be trained using gradient descent. In contrast,
 <span class="math inline">v</span> with a well defined derivative <span class="math inline">\partial\mathcal{H}/\partial v</span>, and <span class="math inline">v</span> itself, being only the subthreshold
 membrane potential, is also smooth.</p>
 <h2>
-Temporal modulation
+Membrane potential reset
 </h2>
-<p>The final step in GT models (including SGT models) is to divide the
-rate of change for membrane potential <span class="math inline">\partial
-v/\partial t</span> by a temporal modulation term <span class="math inline">T</span>, such that: <span class="math display">v(t+1) =  v(t) + \frac{\left.\frac{\partial
-v}{\partial t}\right|_{t+1}}{T}</span> This term <span class="math inline">T</span> is given by the following exponential decay
-model: <span class="math display">T = b +
-A\exp\left(-\frac{x}{\tau}\right)</span> where <span class="math inline">b</span> is the temporal modulation bias, <span class="math inline">A</span> is the temporal modulation amplitude, and
-<span class="math inline">\tau</span> is the temporal modulation time
-constant. The traditional input <span class="math inline">x</span> is
-filled by <span class="math inline">B</span>, a “burst” step counter.
-The step counter <span class="math inline">B</span> is merely a
-numerical device in the simulation to carry <span class="math inline">T</span> repeatedly across the exponential decay via
-the input <span class="math inline">x</span>. When <span class="math inline">T&lt;b</span>, <span class="math inline">B</span>
-resets to zero (and thus <span class="math inline">T</span> jumps again
-to a high number), resetting the exponential decay.</p>
-<p>When the amplitude <span class="math inline">A</span> is zero, the
-exponential decay has no effect and all that’s relevant is the bias
-<span class="math inline">b</span>. When <span class="math inline">A&gt;0</span>, the effect is to increase <span class="math inline">T</span> at the start of the step counter, thereby
-shrinking the effect of <span class="math inline">\partial v/\partial
-t</span>. This shrinkage follows the exponential decay of <span class="math inline">T</span>, so that there is little chance in <span class="math inline">v</span> (i.e., small <span class="math inline">\partial v/\partial t</span>) at the start of the
-step counter, but the possibility for large changes in <span class="math inline">v</span> at the end of the step counter. Thus, when
-at the end of the step counter, neurons are prone to many spikes as
-their membrane potential rapidly changes, creating a bursting
-effect.</p>
+<p>Notice that unlike a leaky integrate-and-fire neuron, <span class="math inline">\partial v/\partial t</span> itself produces the
+reset after a spike. When <span class="math inline">v</span> is very
+near the threshold <span class="math inline">v_\mathrm{threshold}</span>, then (by the definition
+given above) we have that: <span class="math display">\partial
+I_\mathrm{influx} = \left.\frac{\partial\mathcal{H}}{\partial v}
+\right|_{v_\mathrm{threshold}}</span> and hence <span class="math inline">f\approx -1</span>, because, in general, <span class="math inline">(x-y)/(y-x)=-1</span>. Thus, when <span class="math inline">v\approx v_\mathrm{threshold}</span>: <span class="math display">v + \frac{\partial v}{\partial t }\approx
+-v_\mathrm{rest}</span> At first glance, this seems off by a sign:
+shouldn’t $v/t $ return us to <span class="math inline">v_\mathrm{rest}</span> when near <span class="math inline">v_\mathrm{threshold}</span>? Yes, but the issue is
+easy enough to fix: simply add a negation to our definition of <span class="math inline">f</span>. In the actual DACx code, the relevant
+multiple for <span class="math inline">f</span> is not <span class="math inline">v_\mathrm{rest}</span>, but <span class="math inline">|v_\mathrm{rest}| + \epsilon</span> for some small
+<span class="math inline">\epsilon</span>, but the result is the same:
+the model produces a reset to a value near the rest potential after a
+spike, without any explicit reset mechanism.</p>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

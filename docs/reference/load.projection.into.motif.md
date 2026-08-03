@@ -10,11 +10,15 @@ load.projection.into.motif(
   motif,
   presynaptic_layer,
   postsynaptic_layer,
-  projection_conductance = 1e-10,
+  projection_conductance = 0.1,
   presynaptic_type = "principal",
   postsynaptic_type = "principal",
   max_col_shift_up = 0,
-  max_col_shift_down = 0
+  max_col_shift_down = 0,
+  max_pch_shift_up = 0,
+  max_pch_shift_down = 0,
+  hem_shift = 0L,
+  via_apical = FALSE
 )
 ```
 
@@ -36,18 +40,18 @@ load.projection.into.motif(
 
 - projection_conductance:
 
-  Numeric giving overall strength of the projection, as synaptic
-  conductance in units of millisiemens (default: 1e-10).
+  Numeric giving overall strength of the projection, as expected
+  synaptic conductance (nS, default: 0.1).
 
 - presynaptic_type:
 
-  Character string giving type of presynaptic neuron, e.g. "excitatory",
-  "inhibitory", etc. (default: "principal").
+  Character string giving type of presynaptic neuron (default:
+  "principal").
 
 - postsynaptic_type:
 
-  Character string giving type of postsynaptic neuron, e.g.
-  "excitatory", "inhibitory", etc. (default: "principal").
+  Character string giving type of postsynaptic neuron (default:
+  "principal").
 
 - max_col_shift_up:
 
@@ -58,6 +62,12 @@ load.projection.into.motif(
 
   Maximum number of columns downwards (decreasing columnar indexes) that
   the projection can reach (default: 0, should be positive integer).
+
+- hem_shift:
+
+  Hemisphere shift for the projection: 0 = same hemisphere (default), 1
+  = contralateral hemisphere. Ignored when the network has only one
+  hemisphere.
 
 ## Value
 

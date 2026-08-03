@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">DACx</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -25,7 +25,10 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Tutorials</h6></li>
     <li><a class="dropdown-item" href="../articles/tutorial_network_topology.html">Network topology from circuit motifs</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_math.html">Mathematics of GT models</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_membrane_temporal_dynamics.html">Single-cell temporal dynamics</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial_SGT.html">Spatial growth-transform models</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_celltypes.html">Cell types</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Legal</h6></li>
     <li><a class="dropdown-item" href="../articles/license.html">Dependency licenses</a></li>
@@ -71,9 +74,9 @@
 <span> reconstruct_arbors <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span> edge_color <span class="op">=</span> <span class="st">"pre_type"</span>, </span>
 <span> soma_color <span class="op">=</span> <span class="st">"layer"</span>, </span>
-<span> soma_size_factor <span class="op">=</span> <span class="fl">3.0</span>, </span>
-<span> return_plot <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span> return_cell_arbor_idx <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span> soma_size_factor <span class="op">=</span> <span class="fl">0.5</span>, </span>
+<span> return_plot <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span> return_cell_arbor_idx <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -130,7 +133,7 @@
 
 
 <dt id="arg-soma-size-factor">soma_size_factor<a class="anchor" aria-label="anchor" href="#arg-soma-size-factor"></a></dt>
-<dd><p>Numeric value controlling how cell size in the plot scales to the number of cells.</p></dd>
+<dd><p>Numeric value controlling how cell size in the plot scales to the number of cells (default: 0.5).</p></dd>
 
 
 <dt id="arg-return-plot">return_plot<a class="anchor" aria-label="anchor" href="#arg-return-plot"></a></dt>

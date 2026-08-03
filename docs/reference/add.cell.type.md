@@ -2,16 +2,12 @@
 
 This function adds a user-defined cell type to the current session. It's
 just a wrapper for the Rcpp-exported `add_cell_type` function.
-Technically, `cell_type` is a `struc` defined in the Rcpp backend of the
-neurons package. They are essentially labeled lists with the following
-entries: `type_name`, `valence`, `temporal_modulation_bias`,
-`temporal_modulation_timeconstant`, `temporal_modulation_amplitude`,
-`transmission_velocity`, `v_bound`, `dHdv_bound`, `I_spike`,
-`coupling_scaling_factor`, `spike_potential`, `resting_potential`, and
-`threshold`. Each session stores cell types in the Rcpp backend in an
-`unordered_map` with `string` labels. All parameters come with
-biologically realistic (and mathematically workable) default values,
-except for `type_name` and `valence`.
+Technically, `cell_type` is a struct defined in the Rcpp backend of the
+DACx package. They are essentially labeled lists whose fields are
+described by the parameters below. Each session stores cell types in the
+Rcpp backend in an `unordered_map` with string labels. All parameters
+come with biologically realistic (and mathematically workable) default
+values, except for `type_name` and `valence`.
 
 ## Usage
 
@@ -19,20 +15,22 @@ except for `type_name` and `valence`.
 add.cell.type(
   type_name,
   valence,
-  temporal_modulation_bias = 0.001,
-  temporal_modulation_timeconstant = 1,
-  temporal_modulation_amplitude = 0.005,
+  tau_fast = 1,
+  tau_slow = 60,
+  tau_Vs = 100,
+  I_slow = 0.01,
+  U_Vs = 0.05,
+  max_spike_rate = 0.1,
   transmission_velocity = 30000,
   spine_density = 0,
   axon_target = "dendrite_shaft",
-  v_bound = 85,
-  dHdv_bound = 1.05e-06,
-  I_spike = 1e-06,
+  I_spike = 1000,
   spike_potential = 35,
   resting_potential = -70,
   threshold = -55,
-  axon_branch_count = 10,
-  dendrite_branch_count = 10,
+  leak_conductance = 10,
+  axon_branch_count = 10L,
+  dendrite_branch_count = 10L,
   branch_independence = 0.5,
   branch_spread = 0.5,
   apical_target_layer = "none"
@@ -48,66 +46,77 @@ add.cell.type(
 
 - valence:
 
-  Valence of each neuron type, +1 for excitatory, -1 for inhibitory
+  Valence of each neuron type, +1 for excitatory, -1 for inhibitory.
 
-- temporal_modulation_bias:
+- tau_fast:
 
-  Temporal modulation time (in ms) bias for each neuron type. Default
-  value is 1e-3.
+  Time constant (ms) of the fast sodium (Na+) current (positive current,
+  time to flow in). Default is 1.0.
 
-- temporal_modulation_timeconstant:
+- tau_slow:
 
-  Temporal modulation time (in ms) step for each neuron type. Default
-  value is 1e0.
+  Time constant (ms) of the slow calcium (Ca2+) current (negative
+  current, time to pump out). Default is 60.0.
 
-- temporal_modulation_amplitude:
+- tau_Vs:
 
-  Temporal modulation time (in ms) cutoff for each neuron type. Default
-  value is 5e-3.
+  Time constant (ms) for restoring presynaptic vesicles, i.e., recovery
+  from short-term depression (STD). Default is 100.0.
+
+- I_slow:
+
+  Slow-current molecule (e.g., Ca2+) influx as concentration per spike
+  (concentration/spike). Default is 0.01.
+
+- U_Vs:
+
+  Utilization ratio (concentration/spike) of vesicles per spike. Default
+  is 0.05.
+
+- max_spike_rate:
+
+  Constant (spikes/ms) controlling estimation of spike rate and its
+  maximum value. Default is 0.1.
 
 - transmission_velocity:
 
-  Transmission velocity (in microns/ms) for each neuron type. Default
-  value is 30e3.
+  Transmission velocity (in microns/ms) along axon, for each neuron
+  type. Default value is 30e3.
 
 - spine_density:
 
-  Scale between 0 and 1; 0 = no spines, 1 = every node along dendrite is
-  a spine. Default is 0.0.
+  Scale controlling percentage of dendrite nodes with spines: zero means
+  none, one means all. Default is 0.0.
 
 - axon_target:
 
-  Character string giving target of axon projections for each neuron
-  type, one of: "spine", "dendrite_shaft", "soma", or "axon_shaft".
-  Default is "dendrite_shaft".
-
-- v_bound:
-
-  Potential bound, such that -v_bound \<= v_traces \<= v_bound, in
-  unit_potential (mV), for each neuron in the network, based on its
-  type. Default value is 85.0.
-
-- dHdv_bound:
-
-  Bound on derivative of metabolic energy wrt potential, such that
-  dHdv_bound \> abs(dHdv), in mA, for each neuron in the network, based
-  on its type. Default value is 1.05e-6.
+  Character string giving target of axon projections, one of: "spine",
+  "dendrite_shaft", "soma", or "axon_shaft". Default is
+  "dendrite_shaft".
 
 - I_spike:
 
-  Spike current, in mA. Default value is 1e-6 (i.e., 1 nA).
+  Spike current, in pA; absolute value plus a little bit used as
+  `dHdv_bound`. Default value is 1e3 (i.e., 1 nA).
 
 - spike_potential:
 
-  Magnitude of each spike, in mV. Default value is 35.0.
+  Peak potential during a spike, in mV. Default value is 35.0.
 
 - resting_potential:
 
-  Resting potential, in mV. Default value is -70.0.
+  Resting potential, in mV; absolute value plus a little bit used as
+  `v_bound`. Default value is -70.0.
 
 - threshold:
 
   Spike threshold, in mV. Default value is -55.0.
+
+- leak_conductance:
+
+  Conductance controlling the leak current,
+  `I_leak = leak_conductance * (resting_potential - v)`, in nS. Default
+  value is 10.0.
 
 - axon_branch_count:
 
@@ -129,7 +138,7 @@ add.cell.type(
 
 - apical_target_layer:
 
-  Character string giving target layer for apical dendrites. Default:
+  Character string giving target layer for apical dendrites. Default is
   "none".
 
 ## Value

@@ -20,6 +20,13 @@ plot.network.traces(network, return_plot)
   Logical indicating whether to return the ggplot object (TRUE) or print
   it (FALSE) (default: FALSE).
 
+- input_matrix:
+
+  Matrix of stimulus currents, with rows representing neurons and
+  columns representing sample times. Presumably the one used to generate
+  the traces. Options. If provided, will be added to the bottom of the
+  plot.
+
 ## Value
 
 A ggplot object showing spike traces for all neurons in the network over

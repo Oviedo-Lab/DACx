@@ -1,10 +1,14 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://Oviedo-Lab.org/DACx/404.html</loc></url>
+<url><loc>https://Oviedo-Lab.org/DACx/DOCUMENTATION_UPDATES_NEEDED.html</loc></url>
 <url><loc>https://Oviedo-Lab.org/DACx/LICENSE-text.html</loc></url>
 <url><loc>https://Oviedo-Lab.org/DACx/articles/index.html</loc></url>
 <url><loc>https://Oviedo-Lab.org/DACx/articles/install.html</loc></url>
 <url><loc>https://Oviedo-Lab.org/DACx/articles/license.html</loc></url>
 <url><loc>https://Oviedo-Lab.org/DACx/articles/tutorial_SGT.html</loc></url>
+<url><loc>https://Oviedo-Lab.org/DACx/articles/tutorial_celltypes.html</loc></url>
+<url><loc>https://Oviedo-Lab.org/DACx/articles/tutorial_math.html</loc></url>
+<url><loc>https://Oviedo-Lab.org/DACx/articles/tutorial_membrane_temporal_dynamics.html</loc></url>
 <url><loc>https://Oviedo-Lab.org/DACx/articles/tutorial_network_topology.html</loc></url>
 <url><loc>https://Oviedo-Lab.org/DACx/authors.html</loc></url>
 <url><loc>https://Oviedo-Lab.org/DACx/index.html</loc></url>

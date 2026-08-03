@@ -1,7 +1,7 @@
 ---
 title: "Installation instructions"
 author: "Michael Barkasi"
-date: "July 13, 2026 (v1.0)"
+date: "August 3, 2026 (v1.0)"
 ---
 
 1. Clone and `cd` into this git repo

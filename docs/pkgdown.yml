@@ -1,12 +1,15 @@
-pandoc: 3.6.3
+pandoc: 3.8.3
 pkgdown: 2.2.0
 pkgdown_sha: ~
 articles:
   install: install.html
   license: license.html
+  tutorial_celltypes: tutorial_celltypes.html
+  tutorial_math: tutorial_math.html
+  tutorial_membrane_temporal_dynamics: tutorial_membrane_temporal_dynamics.html
   tutorial_network_topology: tutorial_network_topology.html
   tutorial_SGT: tutorial_SGT.html
-last_built: 2026-04-19T17:14Z
+last_built: 2026-08-03T13:49Z
 urls:
   reference: https://Oviedo-Lab.org/DACx/reference
   article: https://Oviedo-Lab.org/DACx/articles

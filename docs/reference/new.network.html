@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">DACx</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.1</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -25,7 +25,10 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Tutorials</h6></li>
     <li><a class="dropdown-item" href="../articles/tutorial_network_topology.html">Network topology from circuit motifs</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_math.html">Mathematics of GT models</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_membrane_temporal_dynamics.html">Single-cell temporal dynamics</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial_SGT.html">Spatial growth-transform models</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_celltypes.html">Cell types</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Legal</h6></li>
     <li><a class="dropdown-item" href="../articles/license.html">Dependency licenses</a></li>
@@ -58,94 +61,9 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">new.network</span><span class="op">(</span></span>
-<span>  network_name <span class="op">=</span> <span class="st">"not_provided"</span>,</span>
-<span>  recording_name <span class="op">=</span> <span class="st">"not_provided"</span>,</span>
-<span>  type <span class="op">=</span> <span class="st">"Growth_Transform"</span>,</span>
-<span>  genotype <span class="op">=</span> <span class="st">"WT"</span>,</span>
-<span>  sex <span class="op">=</span> <span class="st">"not_provided"</span>,</span>
-<span>  hemi <span class="op">=</span> <span class="st">"not_provided"</span>,</span>
-<span>  region <span class="op">=</span> <span class="st">"not_provided"</span>,</span>
-<span>  age <span class="op">=</span> <span class="st">"not_provided"</span>,</span>
-<span>  unit_time <span class="op">=</span> <span class="st">"ms"</span>,</span>
-<span>  unit_sample_rate <span class="op">=</span> <span class="st">"Hz"</span>,</span>
-<span>  unit_potential <span class="op">=</span> <span class="st">"mV"</span>,</span>
-<span>  unit_current <span class="op">=</span> <span class="st">"mA"</span>,</span>
-<span>  unit_conductance <span class="op">=</span> <span class="st">"mS"</span>,</span>
-<span>  unit_distance <span class="op">=</span> <span class="st">"micron"</span>,</span>
-<span>  t_per_bin <span class="op">=</span> <span class="fl">1</span>,</span>
-<span>  sample_rate <span class="op">=</span> <span class="fl">10000</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">new.network</span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
     </div>
 
-    <div class="section level2">
-    <h2 id="arguments">Arguments<a class="anchor" aria-label="anchor" href="#arguments"></a></h2>
-
-
-<dl><dt id="arg-network-name">network_name<a class="anchor" aria-label="anchor" href="#arg-network-name"></a></dt>
-<dd><p>Character string giving name of the network (default: "not_provided").</p></dd>
-
-
-<dt id="arg-recording-name">recording_name<a class="anchor" aria-label="anchor" href="#arg-recording-name"></a></dt>
-<dd><p>Character string giving name of the recording on which this network is based (default: "not_provided").</p></dd>
-
-
-<dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>
-<dd><p>Character string giving type of network; "Growth_Transform" is the only option available (default: "Growth_Transform").</p></dd>
-
-
-<dt id="arg-genotype">genotype<a class="anchor" aria-label="anchor" href="#arg-genotype"></a></dt>
-<dd><p>Character string giving genotype of the animal from which the modelled network comes, e.g. "WT", "KO", "MECP2", "transgenic", etc. (default: "not_provided").</p></dd>
-
-
-<dt id="arg-sex">sex<a class="anchor" aria-label="anchor" href="#arg-sex"></a></dt>
-<dd><p>Character string giving sex of the animal from which the modelled network comes (default: "not_provided").</p></dd>
-
-
-<dt id="arg-hemi">hemi<a class="anchor" aria-label="anchor" href="#arg-hemi"></a></dt>
-<dd><p>Character string giving hemisphere of the animal from which the modelled network comes, e.g. "left", "right" (default: "not_provided").</p></dd>
-
-
-<dt id="arg-region">region<a class="anchor" aria-label="anchor" href="#arg-region"></a></dt>
-<dd><p>Character string giving brain region of the animal from which the modelled network comes, e.g. "V1", "M1", "CA1", "PFC", etc. (default: "not_provided").</p></dd>
-
-
-<dt id="arg-age">age<a class="anchor" aria-label="anchor" href="#arg-age"></a></dt>
-<dd><p>Character string giving age of the animal from which the modelled network comes, e.g. "P0", "P7", "P14", "adult", etc. (default: "not_provided").</p></dd>
-
-
-<dt id="arg-unit-time">unit_time<a class="anchor" aria-label="anchor" href="#arg-unit-time"></a></dt>
-<dd><p>Character string giving unit of time for spike raster or other recording data on which the model is based or being compared, e.g. "ms", "s", etc. (default: "ms").</p></dd>
-
-
-<dt id="arg-unit-sample-rate">unit_sample_rate<a class="anchor" aria-label="anchor" href="#arg-unit-sample-rate"></a></dt>
-<dd><p>Character string giving unit of sample rate for recording data on which the model is based or being compared, e.g. "Hz", "kHz", etc. (default: "Hz").</p></dd>
-
-
-<dt id="arg-unit-potential">unit_potential<a class="anchor" aria-label="anchor" href="#arg-unit-potential"></a></dt>
-<dd><p>Character string giving unit of cell-membrane potential for recording data on which the model is based or being compared, e.g. "mV", "uV", etc. (default: "mV").</p></dd>
-
-
-<dt id="arg-unit-current">unit_current<a class="anchor" aria-label="anchor" href="#arg-unit-current"></a></dt>
-<dd><p>Character string giving unit of cell current for recording data on which the model is based or being compared, e.g. "mA", "uA", etc. (default: "mA").</p></dd>
-
-
-<dt id="arg-unit-conductance">unit_conductance<a class="anchor" aria-label="anchor" href="#arg-unit-conductance"></a></dt>
-<dd><p>Character string giving unit of axon and dendrite conductance for recording data on which the model is based or being compared, e.g. "mS", "uS", etc. (default: "mS").</p></dd>
-
-
-<dt id="arg-unit-distance">unit_distance<a class="anchor" aria-label="anchor" href="#arg-unit-distance"></a></dt>
-<dd><p>Character string giving unit of distance axon and dendrite measurements on which the model is based or being compared, e.g. "micron", "mm", etc. (default: "micron").</p></dd>
-
-
-<dt id="arg-t-per-bin">t_per_bin<a class="anchor" aria-label="anchor" href="#arg-t-per-bin"></a></dt>
-<dd><p>Time (in above units) per bin, e.g., 1 ms per bin (default: 10.0).</p></dd>
-
-
-<dt id="arg-sample-rate">sample_rate<a class="anchor" aria-label="anchor" href="#arg-sample-rate"></a></dt>
-<dd><p>Sample rate (in above units), e.g., 1e4 Hz (default: 1e4).</p></dd>
-
-</dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A new network object.</p>
