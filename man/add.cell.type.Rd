@@ -6,8 +6,9 @@
 \usage{
 add.cell.type(
   type_name,
-  synaptic_conductance,
-  equilibrium_potential,
+  synaptic_conductance = 0,
+  equilibrium_potential = 0,
+  tau_syn = 2,
   tau_fast = 1,
   tau_slow = 60,
   tau_Vs = 100,
@@ -22,6 +23,7 @@ add.cell.type(
   spike_potential = 35,
   spike_width = 1,
   resting_potential = -70,
+  v_bound = 1.15,
   threshold = -55,
   leak_conductance = 10,
   axon_branch_count = 10L,
@@ -37,6 +39,8 @@ add.cell.type(
 \item{synaptic_conductance}{Conductance (nS) of this cell type's synapses, treating this cell type as post-synaptic and indexing by the type of each possible pre-synaptic cell. Can be a single number (applied uniformly to every pre-synaptic type), a numeric vector ordered as in \code{print.known.celltypes()}, or a named list keyed by pre-synaptic type name, e.g. \code{list(pyramidal = 0.15, PV = 0.08)}.}
 
 \item{equilibrium_potential}{Induced potential (mV) at which no current naturally flows across this cell type's membrane, given the neurotransmitter released by each possible pre-synaptic cell type (e.g., 0 mV for an excitatory pre-synaptic cell, -70 mV for an inhibitory pre-synaptic cell). Accepts the same formats as \code{synaptic_conductance}.}
+
+\item{tau_syn}{Decay time constant (ms) of the post-synaptic current evoked by the neurotransmitter of each possible pre-synaptic cell type (e.g., faster for AMPA, slower for GABA_A). A larger value makes the current outlast the pre-synaptic spike; 0 recovers an instantaneous (boxcar) current. Accepts the same formats as \code{synaptic_conductance}. Default is 2.0.}
 
 \item{tau_fast}{Time constant (ms) of the fast sodium (Na+) current (Na+ influx is inward, i.e. negative under the outward-positive convention; time to flow in). Default is 1.0.}
 
@@ -65,6 +69,8 @@ add.cell.type(
 \item{spike_width}{Time spike activates synapse, in ms. Default value is 1.0.}
 
 \item{resting_potential}{Resting potential, in mV; absolute value plus a little bit used as \code{v_bound}. Default value is -70.0.}
+
+\item{v_bound}{Multiplier on the absolute value of \code{resting_potential} giving the membrane potential barrier (mirrors \code{dHdv_bound}). Increase to allow hyperpolarization below rest. Default is 1.15.}
 
 \item{threshold}{Spike threshold, in mV. Default value is -55.0.}
 

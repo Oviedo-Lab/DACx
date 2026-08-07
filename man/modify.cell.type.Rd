@@ -5,9 +5,11 @@
 \title{Modify existing cell type}
 \usage{
 modify.cell.type(
-  type_name,
+  old_type_name,
+  new_type_name = NULL,
   synaptic_conductance = NULL,
   equilibrium_potential = NULL,
+  tau_syn = NULL,
   tau_fast = NULL,
   tau_slow = NULL,
   tau_Vs = NULL,
@@ -22,6 +24,7 @@ modify.cell.type(
   spike_potential = NULL,
   spike_width = NULL,
   resting_potential = NULL,
+  v_bound = NULL,
   threshold = NULL,
   leak_conductance = NULL,
   axon_branch_count = NULL,
@@ -32,11 +35,13 @@ modify.cell.type(
 )
 }
 \arguments{
-\item{type_name}{Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.}
+\item{old_type_name}{Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.}
 
 \item{synaptic_conductance}{Conductance (nS) of this cell type's synapses, treating this cell type as post-synaptic and indexing by the type of each possible pre-synaptic cell. Can be a single number (applied uniformly to every pre-synaptic type), a numeric vector ordered as in \code{print.known.celltypes()}, or a named list keyed by pre-synaptic type name, e.g. \code{list(pyramidal = 0.15, PV = 0.08)}.}
 
 \item{equilibrium_potential}{Induced potential (mV) at which no current naturally flows across this cell type's membrane, given the neurotransmitter released by each possible pre-synaptic cell type (e.g., 0 mV for an excitatory pre-synaptic cell, -70 mV for an inhibitory pre-synaptic cell). Accepts the same formats as \code{synaptic_conductance}.}
+
+\item{tau_syn}{Decay time constant (ms) of the post-synaptic current evoked by the neurotransmitter of each possible pre-synaptic cell type (e.g., faster for AMPA, slower for GABA_A). A larger value makes the current outlast the pre-synaptic spike; 0 recovers an instantaneous (boxcar) current. Accepts the same formats as \code{synaptic_conductance}.}
 
 \item{tau_fast}{Time constant (ms) of the fast sodium (Na+) current (Na+ influx is inward, i.e. negative under the outward-positive convention; time to flow in).}
 
@@ -65,6 +70,8 @@ modify.cell.type(
 \item{spike_width}{Time spike activates synapse, in ms.}
 
 \item{resting_potential}{Resting potential, in mV; absolute value plus a little bit used as \code{v_bound}.}
+
+\item{v_bound}{Multiplier on the absolute value of \code{resting_potential} giving the membrane potential barrier (mirrors \code{dHdv_bound}). Increase to allow hyperpolarization below rest.}
 
 \item{threshold}{Spike threshold, in mV.}
 

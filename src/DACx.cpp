@@ -80,7 +80,9 @@ struct cell_type {
     Vdbl        equilibrium_potential;   // induced potential at which no current naturally flows across membrane (mV), given the neurotransmitters of each possible pre-synaptic cell type
     // Membrane characteristics
     double      resting_potential;       // resting potential (mV); absolute value plus a little bit used as v_bound
+    double      v_bound;                 // multiplier on abs(resting_potential) giving the membrane potential barrier (mirrors dHdv_bound)
     Vdbl        synaptic_conductance;    // conductance of cell's synapses to neurotransmitters of each possible pre-synaptic cell type
+    Vdbl        tau_syn;                 // decay time constant (ms) of the post-synaptic current, given the neurotransmitter of each possible pre-synaptic cell type
     // Neurite structure
     int         axon_branch_count;       // expected number of axon branches
     int         dendrite_branch_count;   // expected number of dendrite branches
@@ -170,6 +172,7 @@ struct per_nrn_params {
     ArrayXd  U_Vs; 
     ArrayXd  transmission_velocity;  // vector giving the transmission delay (ms) for each neuron
     ArrayXXd equilibrium_potential;  // array giving the equilibrium potential (mV) for each post-synaptic cell (rows), given each pre-synaptic cell's type (columns)
+    ArrayXXd tau_syn;                // array giving the PSC decay time constant (ms) for each post-synaptic cell (rows), given each pre-synaptic cell's type (columns)
   };
 
 // Network edges (connections), per motif
@@ -191,16 +194,6 @@ struct syn_idx {
     MatrixXi arbor;         // n_neuron x n_neuron matrix of synapse indexes
     MatrixXi node;          // n_neuron x n_neuron matrix of synapse indexes
   };
-
-// Traces from SGT simulation 
-struct sim_traces {
-    ArrayXXd  slow_current; 
-    ArrayXXd  Ca; 
-    ArrayXXd  tau_slow_effect; 
-    ArrayXXd  Vs; 
-    ArrayXXd  T;
-    ArrayXXd  v; // n_neurons × time-steps array of membrane potentials (mV)
-  }; 
 
 // Cortical projection motif
 class motif {
@@ -272,7 +265,7 @@ class network {
     
     // Data fields 
     double     sim_dt;
-    sim_traces traces;                               // traces from SGT simulation
+    ArrayXXd   v_traces;                             // traces from SGT simulation
     ArrayXd    spike_counts;                         // Vector of length n_neurons giving spike counts during a SGT simulation
     
     // Functions *********************************
@@ -331,7 +324,7 @@ class network {
     
     // Fetch
     List     fetch_network_components(bool include_arbors = false) const;
-    List     fetch_sim_results(bool v_only) const; 
+    List     fetch_sim_results() const; 
     
   };
 
@@ -488,8 +481,16 @@ ArrayXd dVsdt(
 // parse user-supplied named synaptic_conductance lists. Order must stay
 // consistent with the hardcoded conductance_matrix below and with any code
 // that relies on positional indexing into this list.
-const Vstr& get_all_type_names() {
-  static const Vstr all_type_names = {
+//
+// Unlike the original design, this list is *not* fixed: new cell types
+// (added via add_cell_type()/modify_cell_type(), i.e. R's add.cell.type()/
+// modify.cell.type()) are appended to it as they are encountered, via
+// register_type_name() below. This allows user-defined cell types to be
+// referenced by name (e.g. in synaptic_conductance, equilibrium_potential,
+// or tau_syn lists), including forward references to cell types that will
+// be created later in the same session.
+Vstr& get_all_type_names() {
+  static Vstr all_type_names = {
     // Excitatory
     "pyramidal", "callosal_pyramidal", "pyramidal_L6", "spiny_stellate", "thalmacortical",
     // Inhibitory
@@ -497,6 +498,10 @@ const Vstr& get_all_type_names() {
   };
   return all_type_names;
 }
+
+// register_type_name() is defined just below get_cell_types(), since it
+// needs to extend the per-type vectors of every already-registered cell
+// type (see below).
 
 static std::unordered_map<std::string, cell_type> make_default_cell_types() {
   std::unordered_map<std::string, cell_type> ct_map;
@@ -516,6 +521,10 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
   Vdbl equilibrium_potential(n_all_types, 0.0);                              // Default to excitatory, 0 mV
   for (int i = 5; i < n_all_types; ++i) { equilibrium_potential[i] = - 70; } // Set pre-synaptic inhibitory cells to -70mV
 
+  // Set synaptic (PSC) decay time constants per pre-synaptic type
+  Vdbl tau_syn(n_all_types, 2.0);                             // Default excitatory (AMPA-like), 2 ms
+  for (int i = 5; i < n_all_types; ++i) { tau_syn[i] = 6.0; } // Set pre-synaptic inhibitory cells (GABA_A-like) to 6 ms
+
   // Default shared values
   double tau_fast                 = 1.0;   // ms
   double tau_slow                 = 60.0;  // ms
@@ -533,6 +542,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
   double spike_width              = 1.0;   // ms
   double threshold                = -55.0; // mV
   double resting_potential        = -70.0; // mV
+  double v_bound                  = 1.15;  // multiplier on abs(resting_potential)
   int    axon_branch_count        = 10;
   int    dendrite_branch_count    = 10;
   double branch_independence      = 0.5;
@@ -545,7 +555,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     tau_fast, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate, leak_conductance,
     transmission_velocity, 0.5, "spine",
     I_spike, dHdv_bound, spike_potential, spike_width, threshold, equilibrium_potential,
-    resting_potential, conductance_matrix[0],
+    resting_potential, v_bound, conductance_matrix[0], tau_syn,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
     "L1" // Harris2013a, for cells in L2, L3, and L5
@@ -555,7 +565,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     tau_fast, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate, leak_conductance,
     transmission_velocity, 0.5, "spine",
     I_spike, dHdv_bound, spike_potential, spike_width, threshold, equilibrium_potential,
-    resting_potential, conductance_matrix[1], 
+    resting_potential, v_bound, conductance_matrix[1], tau_syn, 
     axon_branch_count * 2, dendrite_branch_count,
     branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
     "L1" // Harris2013a, for cells in L2, L3, and L5
@@ -565,7 +575,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     tau_fast, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate, leak_conductance,
     transmission_velocity, 0.5, "spine",
     I_spike, dHdv_bound, spike_potential, spike_width, threshold, equilibrium_potential,
-    resting_potential, conductance_matrix[2], 
+    resting_potential, v_bound, conductance_matrix[2], tau_syn, 
     axon_branch_count, dendrite_branch_count,
     branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
     "L4" // Harris2013a
@@ -575,7 +585,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     tau_fast, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate, leak_conductance,
     transmission_velocity, 0.5, "spine",
     I_spike, dHdv_bound, spike_potential, spike_width, threshold, equilibrium_potential,
-    resting_potential, conductance_matrix[3],
+    resting_potential, v_bound, conductance_matrix[3], tau_syn,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.5, branch_spread * 1.5, // Increased branching
     apical_target_layer
@@ -585,7 +595,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     tau_fast, tau_slow, tau_Vs * 1.5, I_slow, U_Vs * 1.5, max_spike_rate, leak_conductance,
     transmission_velocity, 0.5, "spine",
     I_spike, dHdv_bound, spike_potential, spike_width, threshold, equilibrium_potential,
-    resting_potential, conductance_matrix[4],
+    resting_potential, v_bound, conductance_matrix[4], tau_syn,
     static_cast<int>(std::round(axon_branch_count * 0.5)), dendrite_branch_count,
     0.1, 0.9,
     apical_target_layer
@@ -596,7 +606,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     tau_fast, tau_slow * 2.0, tau_Vs, I_slow * 3.5, U_Vs, max_spike_rate, leak_conductance,
     transmission_velocity * 0.5, spine_density, axon_target, 
     I_spike, dHdv_bound, spike_potential, spike_width, threshold, equilibrium_potential,
-    resting_potential, conductance_matrix[5],
+    resting_potential, v_bound, conductance_matrix[5], tau_syn,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.5, branch_spread * 1.5, // Increased branching
     apical_target_layer
@@ -606,7 +616,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     tau_fast * 0.5, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate * 3.0, leak_conductance * 2.0,
     transmission_velocity, spine_density, "soma",
     I_spike, dHdv_bound, spike_potential, 0.3, threshold, equilibrium_potential,
-    resting_potential, conductance_matrix[6],
+    resting_potential, v_bound, conductance_matrix[6], tau_syn,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.25, branch_spread * 1.25, // Increased branching
     apical_target_layer
@@ -616,7 +626,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     tau_fast * 0.5, tau_slow, tau_Vs, I_slow, U_Vs, max_spike_rate * 3.0, leak_conductance * 2.0,
     transmission_velocity, spine_density, "soma",
     I_spike, dHdv_bound, spike_potential, 0.3, threshold, equilibrium_potential,
-    resting_potential, conductance_matrix[7],
+    resting_potential, v_bound, conductance_matrix[7], tau_syn,
     axon_branch_count * 2, dendrite_branch_count,
     branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
     apical_target_layer
@@ -626,7 +636,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     tau_fast, tau_slow, tau_Vs, I_slow * 3.5, U_Vs, max_spike_rate, leak_conductance,
     transmission_velocity, spine_density, axon_target,
     I_spike, dHdv_bound, spike_potential, spike_width, threshold, equilibrium_potential,
-    resting_potential, conductance_matrix[8],
+    resting_potential, v_bound, conductance_matrix[8], tau_syn,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.5, branch_spread * 1.5, // Increased branching
     apical_target_layer
@@ -636,7 +646,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     tau_fast, tau_slow, tau_Vs, I_slow * 3.5, U_Vs, max_spike_rate, leak_conductance,
     transmission_velocity, spine_density, axon_target,
     I_spike, dHdv_bound, spike_potential, spike_width, threshold, equilibrium_potential,
-    resting_potential, conductance_matrix[9],
+    resting_potential, v_bound, conductance_matrix[9], tau_syn,
     axon_branch_count, dendrite_branch_count,
     branch_independence * 1.25, branch_spread * 1.25, // Increased branching
     apical_target_layer
@@ -651,8 +661,28 @@ std::unordered_map<std::string, cell_type>& get_cell_types() {
   return cell_types;
 }
 
+// Register a (possibly new) cell type name in the canonical registry.
+// If the name is not yet known, it is appended to get_all_type_names(),
+// and every already-registered cell type's synaptic_conductance,
+// equilibrium_potential, and tau_syn vectors are extended by one slot
+// (defaulting to 0.0) so that positional indexing into those vectors
+// stays consistent with the (now longer) name list. A no-op if the name
+// is already registered.
+void register_type_name(const std::string& name) {
+  Vstr& all_type_names = get_all_type_names();
+  if (std::find(all_type_names.begin(), all_type_names.end(), name) != all_type_names.end()) {
+    return;
+  }
+  all_type_names.push_back(name);
+  for (auto& pair : get_cell_types()) {
+    pair.second.synaptic_conductance.push_back(0.0);
+    pair.second.equilibrium_potential.push_back(0.0);
+    pair.second.tau_syn.push_back(0.0);
+  }
+}
+
 Vdbl parse_pre(SEXP X) {
-    int n_all_types = get_cell_types().size();
+    int n_all_types = get_all_type_names().size();
     Vdbl out(n_all_types, 0.0);
     // Handle single numeric value: replicate across all known cell types
     if (Rf_isNumeric(X) && Rf_length(X) == 1) {
@@ -665,9 +695,6 @@ Vdbl parse_pre(SEXP X) {
     }
     // Handle named list for specific post-pre pairs: 
     else if (Rf_isNewList(X)) {
-      // Get list of all known cell type names
-      const Vstr& all_type_names = get_all_type_names();
-      
       // Get names from list
       List sc_list = as<List>(X);
       CharacterVector sc_names = sc_list.names();
@@ -677,16 +704,19 @@ Vdbl parse_pre(SEXP X) {
         std::string key = as<std::string>(sc_names[i]);
         double value = as<double>(sc_list[i]);
         
-        // Find matching pre-type index
-        auto it = std::find(all_type_names.begin(), all_type_names.end(), key);
-        if (it != all_type_names.end()) {
-          int idx = std::distance(all_type_names.begin(), it);
-          if (idx < static_cast<int>(out.size())) {
-            out[idx] = value;
-          }
-        } else {
-          Rcpp::warning("Unknown pre-synaptic cell type in specification: %s", key.c_str());
+        // Register the name if not yet known (supports forward references
+        // to cell types that will be created later in the same session),
+        // then grow `out` to match if the registry grew.
+        register_type_name(key);
+        Vstr& all_type_names = get_all_type_names();
+        if (static_cast<int>(all_type_names.size()) > static_cast<int>(out.size())) {
+          out.resize(all_type_names.size(), 0.0);
         }
+        
+        // Find matching pre-type index (guaranteed to exist after registration)
+        auto it  = std::find(all_type_names.begin(), all_type_names.end(), key);
+        int  idx = std::distance(all_type_names.begin(), it);
+        out[idx] = value;
       }
     }
     return out; 
@@ -696,6 +726,11 @@ Vdbl parse_pre(SEXP X) {
 cell_type build_cell_type_from_list(const List& params) {
     cell_type ct;
     ct.type_name             = as<std::string>(params["type_name"]);
+    // Register this type's name up front so that self-referencing entries
+    // in its own synaptic_conductance / equilibrium_potential / tau_syn
+    // lists (e.g. a type listing its conductance onto itself) resolve
+    // correctly below.
+    register_type_name(ct.type_name);
     ct.tau_fast              = as<double>(     params["tau_fast"]);
     ct.tau_slow              = as<double>(     params["tau_slow"]);
     ct.tau_Vs                = as<double>(     params["tau_Vs"]);
@@ -710,6 +745,7 @@ cell_type build_cell_type_from_list(const List& params) {
     ct.spike_potential       = as<double>(     params["spike_potential"]);
     ct.spike_width           = as<double>(     params["spike_width"]);
     ct.resting_potential     = as<double>(     params["resting_potential"]);
+    ct.v_bound               = as<double>(     params["v_bound"]);
     ct.threshold             = as<double>(     params["threshold"]);
     ct.leak_conductance      = as<double>(     params["leak_conductance"]);
     ct.axon_branch_count     = as<int>(        params["axon_branch_count"]);
@@ -722,6 +758,12 @@ cell_type build_cell_type_from_list(const List& params) {
     if (params.containsElementNamed("synaptic_conductance")) {
       SEXP sc_param           = params["synaptic_conductance"];
       ct.synaptic_conductance = parse_pre(sc_param); 
+    }
+    
+    // Synaptic (PSC) decay time constant: if provided, use it; otherwise left empty and defaults apply
+    if (params.containsElementNamed("tau_syn")) {
+      SEXP ts_param = params["tau_syn"];
+      ct.tau_syn    = parse_pre(ts_param); 
     }
     
     // Equilibrium potential: if provided, use it; otherwise will be initialized with defaults
@@ -762,6 +804,7 @@ void print_known_celltypes() {
                 << "  Spike potential (mV): "                            << ct.spike_potential << std::endl
                 << "  Spike width (ms): "                                << ct.spike_width << std::endl
                 << "  Resting potential (mV): "                          << ct.resting_potential << std::endl
+                << "  v_bound (* |resting_potential|): "                 << ct.v_bound << std::endl
                 << "  Spike threshold (mV): "                            << ct.threshold << std::endl
                 << "  Axon branch count: "                               << ct.axon_branch_count << std::endl
                 << "  Dendrite branch count: "                           << ct.dendrite_branch_count << std::endl
@@ -774,38 +817,41 @@ void print_known_celltypes() {
 // Fetch cell type parameters 
 // [[Rcpp::export]]
 List fetch_cell_type_params(const std::string& type_name) {
-  auto it = get_cell_types().find(type_name);
-  if (it == get_cell_types().end()) {
-    Rcpp::stop("Cell type not found in known cell types");
+    auto it = get_cell_types().find(type_name);
+    if (it == get_cell_types().end()) {
+      Rcpp::stop("Cell type not found in known cell types");
+    }
+    const cell_type& ct = it->second;
+    List return_list = List::create(
+      Named("type_name")             = ct.type_name,
+      Named("tau_fast")              = ct.tau_fast,
+      Named("tau_slow")              = ct.tau_slow,
+      Named("tau_Vs")                = ct.tau_Vs,
+      Named("I_slow")                = ct.I_slow,
+      Named("U_Vs")                  = ct.U_Vs, 
+      Named("max_spike_rate")        = ct.max_spike_rate,
+      Named("leak_conductance")      = ct.leak_conductance,
+      Named("transmission_velocity") = ct.transmission_velocity,
+      Named("spine_density")         = ct.spine_density,
+      Named("axon_target")           = ct.axon_target,
+      Named("I_spike")               = ct.I_spike,
+      Named("dHdv_bound")            = ct.dHdv_bound,
+      Named("spike_potential")       = ct.spike_potential,
+      Named("spike_width")           = ct.spike_width, 
+      Named("threshold")             = ct.threshold,
+      Named("equilibrium_potential") = ct.equilibrium_potential, 
+      Named("resting_potential")     = ct.resting_potential,
+      Named("synaptic_conductance")  = ct.synaptic_conductance,
+      Named("axon_branch_count")     = ct.axon_branch_count
+    );
+    return_list["dendrite_branch_count"] = ct.dendrite_branch_count;
+    return_list["branch_independence"]   = ct.branch_independence;
+    return_list["branch_spread"]         = ct.branch_spread;
+    return_list["apical_target_layer"]   = ct.apical_target_layer;
+    return_list["v_bound"]               = ct.v_bound;
+    return_list["tau_syn"]               = ct.tau_syn;
+    return return_list;
   }
-  const cell_type& ct = it->second;
-  return List::create(
-    Named("type_name")             = ct.type_name,
-    Named("synaptic_conductance")  = ct.synaptic_conductance,
-    Named("equilibrium_potential") = ct.equilibrium_potential, 
-    Named("tau_fast")              = ct.tau_fast,
-    Named("tau_slow")              = ct.tau_slow,
-    Named("tau_Vs")                = ct.tau_Vs,
-    Named("I_slow")                = ct.I_slow,
-    Named("U_Vs")                  = ct.U_Vs, 
-    Named("max_spike_rate")        = ct.max_spike_rate,
-    Named("transmission_velocity") = ct.transmission_velocity,
-    Named("I_spike")               = ct.I_spike,
-    Named("dHdv_bound")            = ct.dHdv_bound,
-    Named("spike_potential")       = ct.spike_potential,
-    Named("I_spike")               = ct.I_spike,
-    Named("spike_potential")       = ct.spike_potential,
-    Named("spike_width")           = ct.spike_width, 
-    Named("resting_potential")     = ct.resting_potential,
-    Named("threshold")             = ct.threshold,
-    Named("leak_conductance")      = ct.leak_conductance,
-    Named("axon_branch_count")     = ct.axon_branch_count,
-    Named("dendrite_branch_count") = ct.dendrite_branch_count,
-    Named("branch_independence")   = ct.branch_independence,
-    Named("branch_spread")         = ct.branch_spread,
-    Named("apical_target_layer")   = ct.apical_target_layer
-  );
-}
 
 // Add a new cell type; params must be a fully-specified named List
 // [[Rcpp::export]]
@@ -902,20 +948,23 @@ void network::set_neuron_params() {
     per_nrn.U_Vs                  = ArrayXd(n_neurons); 
     per_nrn.transmission_velocity = ArrayXd(n_neurons);
     per_nrn.equilibrium_potential = ArrayXXd(n_neurons, n_neurons); 
+    per_nrn.tau_syn               = ArrayXXd(n_neurons, n_neurons); 
     
-    // Create temporary equilibrium potential matrix
+    // Create temporary equilibrium potential and PSC decay time constant matrices
     int n_types = static_cast<int>(neuron_types.size());
     ArrayXXd temp_ep = ArrayXXd(n_types, n_neurons); 
+    ArrayXXd temp_ts = ArrayXXd(n_types, n_neurons); 
     for (int i = 0; i < n_neurons; ++i) {
       for (int j = 0; j < n_types; ++j) {
         temp_ep(j, i) = neuron_types[j].equilibrium_potential[per_nrn.neuron_type_num[i]];
+        temp_ts(j, i) = neuron_types[j].tau_syn[per_nrn.neuron_type_num[i]];
       }
     }
     
     // Fill values per neuron
     for (int i = 0; i < n_neurons; ++i) {
-        const cell_type& ct              = neuron_types[per_nrn.neuron_type_num[i]];
-        per_nrn.v_bound(i)                   = std::abs(ct.resting_potential) * 1.01;
+        const cell_type& ct                  = neuron_types[per_nrn.neuron_type_num[i]];
+        per_nrn.v_bound(i)                   = std::abs(ct.resting_potential) * ct.v_bound;
         per_nrn.dHdv_bound(i)                = ct.dHdv_bound * ct.I_spike;
         per_nrn.I_spike(i)                   = ct.I_spike;
         per_nrn.spike_potential(i)           = ct.spike_potential;
@@ -931,6 +980,7 @@ void network::set_neuron_params() {
         per_nrn.U_Vs(i)                      = ct.U_Vs; 
         per_nrn.transmission_velocity(i)     = ct.transmission_velocity;
         per_nrn.equilibrium_potential.row(i) = temp_ep.row(per_nrn.neuron_type_num[i]);
+        per_nrn.tau_syn.row(i)               = temp_ts.row(per_nrn.neuron_type_num[i]);
     }
   }
 
@@ -2139,17 +2189,9 @@ List network::fetch_network_components(
   }
 
 // Method to fetch SGT simulation results 
-List network::fetch_sim_results(bool v_only) const {
-    return v_only ? List::create(
-      _["v_traces"]               = traces.v,
-      _["spike_counts"]           = spike_counts
-    ) : List::create(
-      _["slow_current_traces"]    = traces.slow_current,
-      _["Ca_traces"]              = traces.Ca, 
-      _["tau_slow_effect_traces"] = traces.tau_slow_effect, 
-      _["Vs_traces"]              = traces.Vs, 
-      _["T_traces"]               = traces.T, 
-      _["v_traces"]               = traces.v,
+List network::fetch_sim_results() const {
+    return  List::create(
+      _["v_traces"]               = v_traces,
       _["spike_counts"]           = spike_counts
     );
   }
@@ -2236,27 +2278,15 @@ void network::SGT(
     // pair_lags.col(j) = steps back needed for signal from i
    
     // Resize matrix to hold simulated spike traces (membrane potential plus spike)
-    traces.v.resize(n_neurons, n_steps);
-    traces.v.setZero();
-    traces.v.col(0).setConstant(initial_potential);
-    
-    // Resize matrices to hold temporal modulation terms 
-    traces.T.resize(n_neurons, n_steps);
-    traces.T.setOnes(); 
-    traces.Vs.resize(n_neurons, n_steps);
-    traces.Vs.setOnes(); 
-    traces.tau_slow_effect.resize(n_neurons, n_steps);
-    traces.tau_slow_effect.setOnes(); 
-    traces.Ca.resize(n_neurons, n_steps);
-    traces.Ca.setZero(); 
-    traces.slow_current.resize(n_neurons, n_steps); 
-    traces.slow_current.setOnes(); 
+    v_traces.resize(n_neurons, n_steps);
+    v_traces.setZero();
+    v_traces.col(0).setConstant(initial_potential);
     
     // Initialize array to hold simulated sub-threshold membrane potential traces (without spike)
     ArrayXXd v_sub    = ArrayXXd::Zero(n_neurons, n_steps);
     v_sub.col(0).setConstant(initial_potential);
     // ... initialize matrix to keep track of spikes each at time step
-    ArrayXXd spikes   = ArrayXXd::Zero(n_neurons, n_steps);
+    ArrayXd spikes    = (v_sub.col(0) >= per_nrn.threshold).cast<double>();
     // ... initialize matrix to account for spike temporal width
     ArrayXXd spike_on = ArrayXXd::Zero(n_neurons, n_steps);
     
@@ -2268,8 +2298,8 @@ void network::SGT(
     // ... make vector to track time since last spike 
     ArrayXi last_spike          = ArrayXi::Zero(n_neurons); 
     
-    // Divide spike_potential (minus threshold) by spike current to get transimpedance value necessary for that spike potential
-    ArrayXd transimpedance      = (per_nrn.spike_potential - per_nrn.threshold) / per_nrn.I_spike;
+    // Compute spike height
+    ArrayXd spike_height        = per_nrn.spike_potential - per_nrn.threshold;
     
     // Convert max_spike_rate to simulation time steps 
     ArrayXd max_spike_rate_dt   = per_nrn.max_spike_rate * dt;
@@ -2300,31 +2330,12 @@ void network::SGT(
       spike_width(i) = static_cast<int>(std::round(per_nrn.spike_width(i) / dt)) + 1; 
     }
     
-    // Safety net: track each drive component that exceeds the growth-transform stability
-    // bound. The normalized-spike-cost denominator (max_spike_cost) changes sign once |dHdv|
-    // reaches dHdv_bound, which inverts the update. Any single component
-    // (synaptic, stimulus, or leak current) crossing the bound is a warning sign.
-    long   syn_exceed_count = 0,   stim_exceed_count = 0,   leak_exceed_count = 0;
-    double syn_exceed_max   = 0.0, stim_exceed_max   = 0.0, leak_exceed_max   = 0.0;
-    int    syn_exceed_first = -1,  stim_exceed_first = -1,  leak_exceed_first = -1;
-
-    // Update a component's exceedance trackers for the current time step.
-    // Eigen::Ref binds to both ArrayXd and contiguous column expressions (e.g.
-    // stimulus_current.col(t)) without copying, and the loop avoids any temporary,
-    // so this stays allocation-free ahead of a sparse rewrite.
-    auto check_bound = [&](const Eigen::Ref<const ArrayXd>& current, int t,
-                           long& count, double& max_ratio, int& first) {
-      const int n = current.size();
-      for (int i = 0; i < n; ++i) {
-        const double ratio = std::abs(current[i]) / per_nrn.dHdv_bound[i];
-        if (ratio >= 1.0) {
-          ++count;
-          if (first < 0) first = t;
-          if (ratio > max_ratio) max_ratio = ratio;
-        }
-      }
-    };
-
+    // Initialize synaptic (PSC) gating matrix and its per-step decay factor
+    // ... S(i, j) = fraction of open post-synaptic receptors on neuron i due to pre-synaptic neuron j
+    // ... tau_syn -> 0 gives a per-step decay of 0, recovering an instantaneous (boxcar) PSC
+    ArrayXXd S         = ArrayXXd::Zero(n_neurons, n_neurons); 
+    ArrayXXd syn_decay = (-dt / per_nrn.tau_syn).exp(); 
+    
     // Simulate each time step after the initial
     for (int t = 1; t < n_steps; t++) {
       
@@ -2349,9 +2360,14 @@ void network::SGT(
        * ... v_lagged(n).col(j)(i) = v(i, n - lag(i, j))
        */
      
+      // Advance synaptic (PSC) gates: a pre-synaptic spike arrival opens receptors (up to 1), which then decay with tau_syn
+      // ... arrival(i, j) = pre-synaptic neuron j's (lagged) spike as seen by post-synaptic neuron i
+      ArrayXXd arrival          = v_lagged.transpose();
+      S                         = (syn_decay * S).max(arrival);
+      
       // Compute synaptic and leak currents
       ArrayXXd drive_potential  = -(per_nrn.equilibrium_potential.colwise() - v_sub.col(t - 1));
-      ArrayXd  synaptic_current = (drive_potential * synaptic_conductance * v_lagged.transpose()).rowwise().sum();
+      ArrayXd  synaptic_current = (drive_potential * synaptic_conductance * S).rowwise().sum();
       ArrayXd  leak_current     = per_nrn.leak_conductance * (v_sub.col(t - 1) - per_nrn.resting_potential);
       
       /*
@@ -2365,15 +2381,11 @@ void network::SGT(
       // Compute rate of change for total metabolic power dissipation in the network, w.r.t. each neuron
       // ... Units of dHdv are power/voltage: femto-Watts/mV = pA.
       ArrayXd dHdv = 
-        synaptic_current -       // synaptic current (outward-positive); an excitatory (inward, negative) current lowers dHdv and depolarizes
-        stimulus_current.col(t - 1)  +                        // injected stimulus current (positive = depolarizing); subtracted so a depolarizing injection lowers dHdv
-        leak_current +           // leak current (outward-positive): g * (v - resting_potential)
-        v_barrier(v_sub.col(t - 1), per_nrn.threshold, per_nrn.I_spike);         // spike: large outward (repolarizing) current at threshold, driving the reset
-      
-      // Safety net: flag any drive component that reaches the stability bound (|.| >= dHdv_bound)
-      check_bound(synaptic_current,           t, syn_exceed_count,  syn_exceed_max,  syn_exceed_first);
-      check_bound(stimulus_current.col(t - 1), t, stim_exceed_count, stim_exceed_max, stim_exceed_first);
-      check_bound(leak_current,               t, leak_exceed_count, leak_exceed_max, leak_exceed_first);
+        (synaptic_current            -     // synaptic current (outward-positive); an excitatory (inward, negative) current lowers dHdv and depolarizes
+        stimulus_current.col(t - 1)  +     // injected stimulus current (positive = depolarizing); subtracted so a depolarizing injection lowers dHdv
+        leak_current                 +     // leak current (outward-positive): g * (v - resting_potential)
+        spikes * per_nrn.I_spike)          // spike: large outward (repolarizing) current at threshold, driving the reset
+          .min(per_nrn.dHdv_bound - std::numeric_limits<double>::epsilon());
       
       // For each neuron in network, at this time step, 
       // ... compute power to initiate a spike:
@@ -2414,28 +2426,27 @@ void network::SGT(
        */
       
       // Apply T to dvdt 
-      dvdt = (spikes.col(t-1) == 1.0).select(
-        dvdt,                          // ... reset if immediately after a spike
+      dvdt = (spikes == 1.0).select(
+        per_nrn.resting_potential - v_sub.col(t - 1), // ... reset if immediately after a spike. dvdt should reset v_sub, but if dt is too small, there can be problems.
         (last_spike > 0).select(
-            ArrayXd::Zero(n_neurons),  // ... hold if spike is on-going 
+            ArrayXd::Zero(n_neurons),                 // ... hold at rest if spike is on-going 
             dvdt * T * dt));
       
       // Find new subthreshold membrane potential by adding dvdt
-      v_sub.col(t)                  = v_sub.col(t - 1) + dvdt;
+      v_sub.col(t)         = ((v_sub.col(t - 1) + dvdt).max(-per_nrn.v_bound)).min(per_nrn.threshold);
       
-      // Find spike barrier values
-      ArrayXd barrier_values        = v_barrier(v_sub.col(t), per_nrn.threshold, per_nrn.I_spike);
+      // Find spikes
+      spikes               = (v_sub.col(t) >= per_nrn.threshold).cast<double>();
       // ... update spike counts
-      spikes.col(t)                 = (barrier_values != 0.0).cast<double>();
-      spike_counts                 += spikes.col(t);
-      spike_counts_recent          += spikes.col(t); 
-      spike_counts_recent           = (spike_counts_recent - max_spike_rate_dt).max(0.0);
-      last_spike                   += spikes.col(t).cast<int>() * spike_width;
-      last_spike                    = (last_spike - 1).max(0); 
-      spike_on.col(t)               = (last_spike > 0).cast<double>();
+      spike_counts        += spikes;
+      spike_counts_recent += spikes; 
+      spike_counts_recent  = (spike_counts_recent - max_spike_rate_dt).max(0.0);
+      last_spike          += spikes.cast<int>() * spike_width;
+      last_spike           = (last_spike - 1).max(0); 
+      spike_on.col(t)      = (last_spike > 0).cast<double>();
       // ... update Vs and Ca
-      Vs                           += dVsdt(Vs, spike_counts_recent, per_nrn.U_Vs, per_nrn.tau_Vs)     * dt; 
-      Ca                           += dCadt(Ca, spike_counts_recent, per_nrn.I_slow, per_nrn.tau_slow) * dt;
+      Vs                  += dVsdt(Vs, spike_counts_recent, per_nrn.U_Vs, per_nrn.tau_Vs)     * dt; 
+      Ca                  += dCadt(Ca, spike_counts_recent, per_nrn.I_slow, per_nrn.tau_slow) * dt;
       // ... and slow-current trigger 
       for (int i = 0; i < n_neurons; ++i) {
         if (slow_current(i)) {
@@ -2450,39 +2461,9 @@ void network::SGT(
       }
       
       // Add spike to raw membrane potential and save to spike traces 
-      traces.v.col(t)               = v_sub.col(t) + transimpedance * barrier_values;
-      
-      // Save temporal modulation terms 
-      traces.T.col(t)               = T;
-      traces.Vs.col(t)              = Vs;
-      traces.tau_slow_effect.col(t) = tau_slow_effect;
-      traces.Ca.col(t)              = Ca;
-      traces.slow_current.col(t)    = slow_current;
+      v_traces.col(t) = v_sub.col(t) + spike_height * spikes;
       
     }
-    
-    // Safety net: warn once per component if it exceeded the stability bound during the run.
-    auto warn_bound = [](const char* label, const char* remedy,
-                         long count, int first, double max_ratio) {
-      if (count > 0) {
-        Rcpp::warning(
-          std::string(label) + " reached or exceeded the growth-transform stability bound "
-          "(|drive| >= dHdv_bound) in " + std::to_string(count) +
-          " neuron-time-step(s), first at step " + std::to_string(first) +
-          ", peaking at " + std::to_string(max_ratio) +
-          "x the bound. Beyond this bound the growth-transform update inverts and can "
-          "silence the affected cells. " + remedy);
-      }
-    };
-    warn_bound("Synaptic current",
-               "Consider lowering synaptic_conductance or raising dHdv_bound for the affected cell type.",
-               syn_exceed_count,  syn_exceed_first,  syn_exceed_max);
-    warn_bound("Stimulus current",
-               "Consider lowering the injected stimulus current or raising dHdv_bound for the affected cell type.",
-               stim_exceed_count, stim_exceed_first, stim_exceed_max);
-    warn_bound("Leak current",
-               "Consider lowering leak_conductance or raising dHdv_bound for the affected cell type.",
-               leak_exceed_count, leak_exceed_first, leak_exceed_max);
     
   }
 

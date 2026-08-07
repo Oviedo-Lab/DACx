@@ -94,6 +94,7 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 #' @param type_name Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.
 #' @param synaptic_conductance Conductance (nS) of this cell type's synapses, treating this cell type as post-synaptic and indexing by the type of each possible pre-synaptic cell. Can be a single number (applied uniformly to every pre-synaptic type), a numeric vector ordered as in \code{print.known.celltypes()}, or a named list keyed by pre-synaptic type name, e.g. \code{list(pyramidal = 0.15, PV = 0.08)}.
 #' @param equilibrium_potential Induced potential (mV) at which no current naturally flows across this cell type's membrane, given the neurotransmitter released by each possible pre-synaptic cell type (e.g., 0 mV for an excitatory pre-synaptic cell, -70 mV for an inhibitory pre-synaptic cell). Accepts the same formats as \code{synaptic_conductance}.
+#' @param tau_syn Decay time constant (ms) of the post-synaptic current evoked by the neurotransmitter of each possible pre-synaptic cell type (e.g., faster for AMPA, slower for GABA_A). A larger value makes the current outlast the pre-synaptic spike; 0 recovers an instantaneous (boxcar) current. Accepts the same formats as \code{synaptic_conductance}. Default is 2.0.
 #' @param tau_fast Time constant (ms) of the fast sodium (Na+) current (Na+ influx is inward, i.e. negative under the outward-positive convention; time to flow in). Default is 1.0.
 #' @param tau_slow Time constant (ms) of the slow calcium (Ca2+) current (Ca2+ influx is inward, i.e. negative under the outward-positive convention; time to pump out). Default is 60.0.
 #' @param tau_Vs Time constant (ms) for restoring presynaptic vesicles, i.e., recovery from short-term depression (STD). Default is 100.0.
@@ -108,6 +109,7 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 #' @param spike_potential Peak potential during a spike, in mV. Default value is 35.0.
 #' @param spike_width Time spike activates synapse, in ms. Default value is 1.0. 
 #' @param resting_potential Resting potential, in mV; absolute value plus a little bit used as \code{v_bound}. Default value is -70.0.
+#' @param v_bound Multiplier on the absolute value of \code{resting_potential} giving the membrane potential barrier (mirrors \code{dHdv_bound}). Increase to allow hyperpolarization below rest. Default is 1.15.
 #' @param threshold Spike threshold, in mV. Default value is -55.0.
 #' @param leak_conductance Conductance controlling the leak current, \code{I_leak = leak_conductance * (v - resting_potential)} (outward-positive), in nS. Default value is 10.0.
 #' @param axon_branch_count Expected number of axon branches. Default is 10. 
@@ -119,8 +121,9 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 #' @export
 add.cell.type <- function(
     type_name,
-    synaptic_conductance,
-    equilibrium_potential,
+    synaptic_conductance  = 0.0,
+    equilibrium_potential = 0.0,
+    tau_syn               = 2.0,
     tau_fast              = 1.0,
     tau_slow              = 60.0,
     tau_Vs                = 100.0,
@@ -135,6 +138,7 @@ add.cell.type <- function(
     spike_potential       = 35.0,
     spike_width           = 1.0, 
     resting_potential     = -70.0,
+    v_bound               = 1.15,
     threshold             = -55.0,
     leak_conductance      = 10.0,
     axon_branch_count     = 10L,
@@ -147,6 +151,7 @@ add.cell.type <- function(
       type_name              = type_name,
       synaptic_conductance   = synaptic_conductance,
       equilibrium_potential  = equilibrium_potential,
+      tau_syn                = tau_syn,
       tau_fast               = tau_fast, 
       tau_slow               = tau_slow, 
       tau_Vs                 = tau_Vs, 
@@ -161,6 +166,7 @@ add.cell.type <- function(
       spike_potential        = spike_potential,
       spike_width            = spike_width, 
       resting_potential      = resting_potential,
+      v_bound                = v_bound,
       threshold              = threshold,
       leak_conductance       = leak_conductance,
       axon_branch_count      = as.integer(axon_branch_count),
@@ -175,9 +181,10 @@ add.cell.type <- function(
 #' 
 #' This function modifies parameters of an existing cell type in the current session. Parameters can be updated selectively. If a parameter is not specified (or is specified as \code{NULL}), the existing value will be kept.
 #' 
-#' @param type_name Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.
+#' @param old_type_name Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.
 #' @param synaptic_conductance Conductance (nS) of this cell type's synapses, treating this cell type as post-synaptic and indexing by the type of each possible pre-synaptic cell. Can be a single number (applied uniformly to every pre-synaptic type), a numeric vector ordered as in \code{print.known.celltypes()}, or a named list keyed by pre-synaptic type name, e.g. \code{list(pyramidal = 0.15, PV = 0.08)}.
 #' @param equilibrium_potential Induced potential (mV) at which no current naturally flows across this cell type's membrane, given the neurotransmitter released by each possible pre-synaptic cell type (e.g., 0 mV for an excitatory pre-synaptic cell, -70 mV for an inhibitory pre-synaptic cell). Accepts the same formats as \code{synaptic_conductance}.
+#' @param tau_syn Decay time constant (ms) of the post-synaptic current evoked by the neurotransmitter of each possible pre-synaptic cell type (e.g., faster for AMPA, slower for GABA_A). A larger value makes the current outlast the pre-synaptic spike; 0 recovers an instantaneous (boxcar) current. Accepts the same formats as \code{synaptic_conductance}.
 #' @param tau_fast Time constant (ms) of the fast sodium (Na+) current (Na+ influx is inward, i.e. negative under the outward-positive convention; time to flow in).
 #' @param tau_slow Time constant (ms) of the slow calcium (Ca2+) current (Ca2+ influx is inward, i.e. negative under the outward-positive convention; time to pump out).
 #' @param tau_Vs Time constant (ms) for restoring presynaptic vesicles, i.e., recovery from short-term depression (STD).
@@ -192,6 +199,7 @@ add.cell.type <- function(
 #' @param spike_potential Peak potential during a spike, in mV.
 #' @param spike_width Time spike activates synapse, in ms. 
 #' @param resting_potential Resting potential, in mV; absolute value plus a little bit used as \code{v_bound}.
+#' @param v_bound Multiplier on the absolute value of \code{resting_potential} giving the membrane potential barrier (mirrors \code{dHdv_bound}). Increase to allow hyperpolarization below rest.
 #' @param threshold Spike threshold, in mV.
 #' @param leak_conductance Conductance controlling the leak current, \code{I_leak = leak_conductance * (v - resting_potential)} (outward-positive), in nS.
 #' @param axon_branch_count Expected number of axon branches.
@@ -202,9 +210,11 @@ add.cell.type <- function(
 #' @return Nothing.
 #' @export
 modify.cell.type <- function(
-    type_name,
+    old_type_name,
+    new_type_name           = NULL,
     synaptic_conductance    = NULL,
     equilibrium_potential   = NULL,
+    tau_syn                 = NULL,
     tau_fast                = NULL,
     tau_slow                = NULL,
     tau_Vs                  = NULL,
@@ -219,6 +229,7 @@ modify.cell.type <- function(
     spike_potential         = NULL,
     spike_width             = NULL,
     resting_potential       = NULL,
+    v_bound                 = NULL,
     threshold               = NULL,
     leak_conductance        = NULL,
     axon_branch_count       = NULL,
@@ -227,7 +238,8 @@ modify.cell.type <- function(
     branch_spread           = NULL,
     apical_target_layer     = NULL
   ) {
-    ep <- fetch.cell.type.params(type_name)  # existing params
+    ep <- fetch.cell.type.params(old_type_name)  # existing params
+    if (is.null(tau_syn))                tau_syn               <- ep$tau_syn
     if (is.null(tau_fast))               tau_fast              <- ep$tau_fast
     if (is.null(tau_slow))               tau_slow              <- ep$tau_slow
     if (is.null(tau_Vs))                 tau_Vs                <- ep$tau_Vs
@@ -242,6 +254,7 @@ modify.cell.type <- function(
     if (is.null(spike_potential))        spike_potential       <- ep$spike_potential
     if (is.null(spike_width))            spike_width           <- ep$spike_width
     if (is.null(resting_potential))      resting_potential     <- ep$resting_potential
+    if (is.null(v_bound))                v_bound               <- ep$v_bound
     if (is.null(threshold))              threshold             <- ep$threshold
     if (is.null(leak_conductance))       leak_conductance      <- ep$leak_conductance
     if (is.null(axon_branch_count))      axon_branch_count     <- ep$axon_branch_count
@@ -251,32 +264,66 @@ modify.cell.type <- function(
     if (is.null(apical_target_layer))    apical_target_layer   <- ep$apical_target_layer
     if (is.null(synaptic_conductance))   synaptic_conductance  <- ep$synaptic_conductance
     if (is.null(equilibrium_potential))  equilibrium_potential <- ep$equilibrium_potential
-    modify_cell_type(type_name, list(
-      type_name              = type_name,
-      synaptic_conductance   = synaptic_conductance,
-      equilibrium_potential  = equilibrium_potential,
-      tau_fast               = tau_fast, 
-      tau_slow               = tau_slow, 
-      tau_Vs                 = tau_Vs, 
-      I_slow                 = I_slow, 
-      U_Vs                   = U_Vs, 
-      max_spike_rate         = max_spike_rate,
-      transmission_velocity  = transmission_velocity,
-      spine_density          = spine_density,
-      axon_target            = axon_target,
-      I_spike                = I_spike,
-      dHdv_bound             = dHdv_bound,
-      spike_potential        = spike_potential,
-      spike_width            = spike_width, 
-      resting_potential      = resting_potential,
-      threshold              = threshold,
-      leak_conductance       = leak_conductance,
-      axon_branch_count      = as.integer(axon_branch_count),
-      dendrite_branch_count  = as.integer(dendrite_branch_count),
-      branch_independence    = branch_independence,
-      branch_spread          = branch_spread,
-      apical_target_layer    = apical_target_layer
-    ))
+    if (is.null(new_type_name)) {
+      modify_cell_type(old_type_name, list(
+        type_name              = old_type_name,
+        synaptic_conductance   = synaptic_conductance,
+        equilibrium_potential  = equilibrium_potential,
+        tau_syn                = tau_syn,
+        tau_fast               = tau_fast, 
+        tau_slow               = tau_slow, 
+        tau_Vs                 = tau_Vs, 
+        I_slow                 = I_slow, 
+        U_Vs                   = U_Vs, 
+        max_spike_rate         = max_spike_rate,
+        transmission_velocity  = transmission_velocity,
+        spine_density          = spine_density,
+        axon_target            = axon_target,
+        I_spike                = I_spike,
+        dHdv_bound             = dHdv_bound,
+        spike_potential        = spike_potential,
+        spike_width            = spike_width, 
+        resting_potential      = resting_potential,
+        v_bound                = v_bound,
+        threshold              = threshold,
+        leak_conductance       = leak_conductance,
+        axon_branch_count      = as.integer(axon_branch_count),
+        dendrite_branch_count  = as.integer(dendrite_branch_count),
+        branch_independence    = branch_independence,
+        branch_spread          = branch_spread,
+        apical_target_layer    = apical_target_layer
+      ))
+    } else {
+      add_cell_type(list(
+        type_name              = new_type_name,
+        synaptic_conductance   = synaptic_conductance,
+        equilibrium_potential  = equilibrium_potential,
+        tau_syn                = tau_syn,
+        tau_fast               = tau_fast, 
+        tau_slow               = tau_slow, 
+        tau_Vs                 = tau_Vs, 
+        I_slow                 = I_slow, 
+        U_Vs                   = U_Vs, 
+        max_spike_rate         = max_spike_rate,
+        transmission_velocity  = transmission_velocity,
+        spine_density          = spine_density,
+        axon_target            = axon_target,
+        I_spike                = I_spike,
+        dHdv_bound             = dHdv_bound,
+        spike_potential        = spike_potential,
+        spike_width            = spike_width, 
+        resting_potential      = resting_potential,
+        v_bound                = v_bound,
+        threshold              = threshold,
+        leak_conductance       = leak_conductance,
+        axon_branch_count      = as.integer(axon_branch_count),
+        dendrite_branch_count  = as.integer(dendrite_branch_count),
+        branch_independence    = branch_independence,
+        branch_spread          = branch_spread,
+        apical_target_layer    = apical_target_layer
+      ))
+    }
+    
   }
 
 # Functions for network ################################################################################################
@@ -650,6 +697,55 @@ apply.circuit.motif <- function(
     return(network)
   }
 
+# Internal helper: map a character vector of labels to a named color vector.
+# Used by plot.network and plot.network.traces to share a consistent palette.
+.network_label_colors <- function(labels) {
+    known_label_colors <- list(
+      "cell"               = "gray50",
+      "thalamus"           = "gray20", 
+      "layer"              = "gray50",
+      "L1"                 = "gray50",
+      "L2"                 = "lightskyblue3",
+      "L2/3"               = "lightskyblue2",
+      "L23"                = "lightskyblue2",
+      "L3"                 = "lightskyblue1",
+      "L4"                 = "slateblue1",
+      "L5"                 = "skyblue1",
+      "L6"                 = "royalblue1",
+      "principal"          = "green3",
+      "thalmacortical"     = "lightgreen", 
+      "PN"                 = "green3", 
+      "excitatory"         = "green3",
+      "pyramidal"          = "green4",
+      "callosal_pyramidal" = "darkolivegreen2",
+      "pyramidal_L6"       = "green4",
+      "spiny_stellate"     = "green2",
+      "interneuron"        = "red",
+      "inhibitory"         = "red", 
+      "neurogliaform_cell" = "red", 
+      "PV"                 = "violetred2",
+      "callosal_PV"        = "palevioletred3",
+      "SOM"                = "red3",
+      "SST"                = "tomato",
+      "VIP"                = "darkred",
+      "axon"               = "green3",
+      "dendrite"           = "darkred"
+    )
+    unknown_label_colors <- c("aquamarine1", "gray95", "gray55", "gray75", "cyan", "cornflowerblue", "coral", "burlywood", "darkolivegreen")
+    label_colors        <- rep("white", length(labels))
+    names(label_colors) <- labels
+    for (cl in seq_along(labels)) {
+      label    <- labels[cl]
+      hit_mask <- label == names(known_label_colors)
+      if (any(hit_mask)) {
+        label_colors[cl] <- known_label_colors[[which(hit_mask)[1]]]
+      } else {
+        label_colors[cl] <- sample(unknown_label_colors, 1)
+      }
+    }
+    label_colors
+  }
+
 #' Plot network as directed graph
 #' 
 #' This function plots a network object as a directed graph using ggplot2. Nodes represent neurons, and directed edges represent connections between them. The plot can be customized by selecting which motif to display and how to color the edges.
@@ -939,50 +1035,7 @@ plot.network <- function(
       c(unique(as.character(edges[,edge_color])), 
         unique(as.character(soma[,soma_color])))
       )
-    known_label_colors <- list(
-      "cell"               = "gray50",
-      "thalamus"           = "gray20", 
-      "layer"              = "gray50",
-      "L1"                 = "gray50",
-      "L2"                 = "lightskyblue3",
-      "L2/3"               = "lightskyblue2",
-      "L23"                = "lightskyblue2",
-      "L3"                 = "lightskyblue1",
-      "L4"                 = "slateblue1",
-      "L5"                 = "skyblue1",
-      "L6"                 = "royalblue1",
-      "principal"          = "green3",
-      "thalmacortical"     = "lightgreen", 
-      "PN"                 = "green3", 
-      "excitatory"         = "green3",
-      "pyramidal"          = "green4",
-      "callosal_pyramidal" = "darkolivegreen2",
-      "pyramidal_L6"       = "green4",
-      "spiny_stellate"     = "green2",
-      "interneuron"        = "red",
-      "inhibitory"         = "red", 
-      "neurogliaform_cell" = "red", 
-      "PV"                 = "violetred2",
-      "callosal_PV"        = "palevioletred3",
-      "SOM"                = "red3",
-      "SST"                = "tomato",
-      "VIP"                = "darkred",
-      "axon"               = "green3",
-      "dendrite"           = "darkred"
-    )
-    unknown_label_colors <- c("aquamarine1", "gray95", "gray55", "gray75", "cyan", "cornflowerblue", "coral", "burlywood", "darkolivegreen")
-    label_colors        <- rep("white", length(colored_labels))
-    names(label_colors) <- colored_labels
-    for (cl in seq_along(colored_labels)) {
-      label    <- colored_labels[cl]
-      hit_mask <- label == names(known_label_colors)
-      if (any(hit_mask)) {
-        hit_idx          <- which(hit_mask)[1]
-        label_colors[cl] <- known_label_colors[[hit_idx]]
-      } else {
-        label_colors[cl] <- sample(unknown_label_colors, 1)
-      }
-    }
+    label_colors <- .network_label_colors(colored_labels)
     
     # Add color for synapses
     syn_color <- "orange"
@@ -1162,131 +1215,271 @@ plot.network <- function(
 #' 
 #' @name plot.network.traces
 #' @rdname plot-network-traces
-#' @usage plot.network.traces(network, return_plot)
+#' @usage plot.network.traces(network, return_plot = FALSE, input_matrix = NULL, window_size = 0.01)
 #' @param network Network object with SGT simulation traces to plot.
 #' @param return_plot Logical indicating whether to return the ggplot object (TRUE) or print it (FALSE) (default: FALSE).
 #' @param input_matrix Matrix of stimulus currents, with rows representing neurons and columns representing sample times. Presumably the one used to generate the traces. Options. If provided, will be added to the bottom of the plot. 
+#' @param window_size Proportion of time steps to use as a moving window for computing spike rate (default: 0.01). 
 #' @return A ggplot object showing spike traces for all neurons in the network over time.
 #' @export
 plot.network.traces <- function(
     network,
-    return_plot  = FALSE, 
-    input_matrix = NULL
+    return_plot  = FALSE,
+    input_matrix = NULL,
+    window_size  = 0.01,
+    plot_rates   = TRUE
   ) {
     
-    # Get the traces to print
-    v_traces <- network$fetch_sim_results(TRUE)$v_traces
+    # Get simulation results and network components
+    v_traces    <- network$fetch_sim_results()$v_traces
+    ntw         <- network$fetch_network_components(FALSE)
+    n_neurons   <- nrow(v_traces)
+    n_time      <- ncol(v_traces)
+    print_input <- !is.null(input_matrix)
     
-    # Get network components
-    ntw <- network$fetch_network_components(FALSE) # Retrieve arbors?
-    
-    # Print input? 
-    print_input <- TRUE
-    if (is.null(input_matrix)) {
-      print_input  <- FALSE 
-    } else {
-      if (sum(dim(input_matrix) == dim(v_traces)) != 2) stop("input matrix and v_traces differ in dimensions")
+    if (print_input) {
+      if (!all(dim(input_matrix) == dim(v_traces))) {
+        stop("input matrix and v_traces differ in dimensions")
+      }
     }
     
-    # Downsample, preserving spike columns
-    time_seq <- seq(1, by = ntw$sim_dt, length.out = ncol(v_traces))
-    if (length(v_traces) > 1e6) {
+    # Make time vector
+    time_seq <- seq(1, by = ntw$sim_dt, length.out = n_time)
+    
+    # Detect spikes before downsampling
+    jump_threshold <- 20  # mV
+    spike_matrix   <- matrix(FALSE, nrow = n_neurons, ncol = n_time)
+    if (n_time > 1) {
+      col_diffs          <- v_traces[, -1, drop = FALSE] - v_traces[, -n_time, drop = FALSE]
+      spike_matrix[, -1] <- col_diffs > jump_threshold
+    }
+    
+    # Calculate moving window size
+    total_duration  <- max(time_seq) - min(time_seq)
+    window_duration <- window_size * total_duration
+    window_samples  <- max(1L, round(window_duration / ntw$sim_dt))
+    if (window_samples %% 2 == 0) {window_samples <- window_samples + 1L}
+    half_window     <- floor(window_samples / 2)
+    
+    # Get cell type information
+    neuron_type <- ntw$neuron_type_name
+    cell_types  <- unique(neuron_type)
+    
+    # Calculate population-average firing rate for each type
+    spike_rate <- matrix(
+      NA_real_,
+      nrow     = length(cell_types),
+      ncol     = n_time,
+      dimnames = list(cell_types, NULL)
+    )
+    
+    for (k in seq_along(cell_types)) {
+     
+      # Sum spikes across neurons of this type
+      idx <- which(neuron_type == cell_types[k])
+      population_spikes <- colSums(spike_matrix[idx, , drop = FALSE])
+      n_type_neurons <- length(idx)
       
+      # Calculate centered moving sum using cumulative sums
+      cs         <- c(0, cumsum(population_spikes))
+      moving_sum <- rep(NA_real_, n_time)
+      centers    <- (half_window + 1):(n_time - half_window)
+      
+      if (length(centers) > 0) {
+        left_edges          <- centers - half_window
+        right_edges         <- centers + half_window
+        moving_sum[centers] <- cs[right_edges + 1] - cs[left_edges]
+      }
+      
+      # Convert spikes/window to Hz/neuron
+      spike_rate[k, ] <- moving_sum / (window_samples * ntw$sim_dt / 1000) / n_type_neurons
+    }
+    
+    # Downsample for plotting
+    keep_cols <- seq_len(n_time)
+    if (length(v_traces) > 1e6) {
       target_cols <- floor(1e6 / nrow(v_traces))
       
-      # Detect spike columns: any neuron shows a large upward jump at this time step.
-      # Spikes are single-step events, so they appear as large positive diffs.
-      col_diffs      <- v_traces[, -1, drop = FALSE] - v_traces[, -ncol(v_traces), drop = FALSE]
-      jump_threshold <- 20  # mV
-      spike_cols     <- which(apply(col_diffs, 2, max) > jump_threshold) + 1L
+      # Columns containing at least one spike
+      spike_cols <- which(apply(spike_matrix, 2, any))
+      n_spike    <- length(spike_cols)
       
-      # Budget: how many non-spike columns can we keep?
-      n_spike  <- length(spike_cols)
-      n_fill   <- max(target_cols - n_spike, 0L)
-      
-      non_spike_cols <- setdiff(seq_len(ncol(v_traces)), spike_cols)
-      fill_cols <- if (n_fill >= length(non_spike_cols)) {
+      # Non-spike columns 
+      n_fill         <- max(target_cols - n_spike, 1000)
+      non_spike_cols <- setdiff(seq_len(n_time), spike_cols)
+      fill_cols      <- if (n_fill >= length(non_spike_cols)) {
         non_spike_cols
       } else {
         non_spike_cols[round(seq(1, length(non_spike_cols), length.out = n_fill))]
       }
       
-      keep_cols    <- sort(unique(c(fill_cols, spike_cols)))
-      v_traces     <- v_traces[, keep_cols, drop = FALSE]
-      time_seq     <- time_seq[keep_cols]
-      if (print_input) input_matrix <- input_matrix[, keep_cols, drop = FALSE]
+      # Set columns to keep
+      keep_cols <- sort(unique(c(1, fill_cols, spike_cols, n_time)))
+      
+      # Downsample
+      v_traces   <- v_traces[, keep_cols, drop = FALSE]
+      time_seq   <- time_seq[keep_cols]
+      spike_rate <- spike_rate[, keep_cols, drop = FALSE]
+      if (print_input) {
+        input_matrix <- input_matrix[, keep_cols, drop = FALSE]
+      }
     }
     
-    # Print input? 
+    # Input matrix if none supplied
     if (!print_input) {
-      input_matrix <- as.data.frame(matrix(NA, nrow = nrow(v_traces), ncol = ncol(v_traces)))
-    } else {
-      if (sum(dim(input_matrix) == dim(v_traces)) != 2) stop("input matrix and v_traces differ in dimensions")
-    }
+      input_matrix <- matrix(NA_real_, nrow = nrow(v_traces), ncol = ncol(v_traces))
+    } 
     
-    # Initialize R data frame for ggplot
-    v_traces_long     <- data.frame()
-    for (i in 1:nrow(v_traces)) {
-      neuron_trace <- data.frame(
-        time      = time_seq,
-        potential = v_traces[i,],
-        id        = i,
-        type      = ntw$neuron_type_name[i],
-        input     = input_matrix[i,]
-      )
-      v_traces_long <- rbind(v_traces_long, neuron_trace)
-    }
+    # Long-format trace data
+    v_traces_long <- data.frame(
+      time      = rep(time_seq, times = n_neurons),
+      potential = as.vector(t(v_traces)),
+      id        = rep(seq_len(n_neurons), each = length(time_seq)),
+      type      = rep(neuron_type, each = length(time_seq)),
+      input     = as.vector(t(input_matrix))
+    )
     v_traces_long$id <- as.character(v_traces_long$id)
+    label_colors     <- .network_label_colors(cell_types)
     
-    # Make plot
-    title_size  <- 14 
-    axis_size   <- 12 
-    legend_size <- 10
-    plt <- ggplot2::ggplot(v_traces_long, ggplot2::aes(x = time, y = potential, group = id, color = id)) +
-      ggplot2::geom_line() +
-      ggplot2::facet_wrap(~ type, ncol = 1) +
-      ggplot2::theme_minimal() +
-      ggplot2::theme(
-        panel.background = ggplot2::element_rect(fill = "white", colour = NA),
-        plot.background  = ggplot2::element_rect(fill = "white", colour = NA),
-        plot.title       = ggplot2::element_text(hjust = 0.5, size = title_size),
-        axis.title       = ggplot2::element_text(size = axis_size),
-        axis.text        = ggplot2::element_text(size = axis_size),
-        legend.position  = "none") +
-      ggplot2::labs(
-        title = "SGT Simulation Traces",
-        x     = paste0("Time (ms)"),
-        y     = paste0("Membrane Potential (mV)")
-      )
+    # Construct one patchwork block per cell type
+    title_size <- 10
+    axis_size  <- 6
     
-    # Add input matrix 
-    if (print_input) {
-      
-      # Remove x axis
-      plt <- plt +
-        ggplot2::theme(
-          axis.title.x = ggplot2::element_blank(),
-          axis.ticks.x = ggplot2::element_blank(),
-          axis.text.x  = ggplot2::element_blank()
-        )
-      
-      # Make input plot
-      plt_stim <- ggplot2::ggplot(
-          v_traces_long, 
-          ggplot2::aes(x = time, y = input, group = id, color = id)) +
-        ggplot2::geom_line(linewidth = 0.6) +
-        ggplot2::theme_minimal() +
-        ggplot2::theme(
-          panel.background = ggplot2::element_rect(fill = "white", colour = NA),
-          plot.background  = ggplot2::element_rect(fill = "white", colour = NA),
-          legend.position  = "none") +
-        ggplot2::xlab("Time (ms)") +
-        ggplot2::ylab("Stimulus (pA)")
-      
-      # Stack them
-      plt <- patchwork::wrap_plots(plt, plt_stim, ncol = 1, heights = c(4, 1))
-      
-    }
+    plots_by_type <- lapply(seq_along(cell_types), 
+      function(k) {
+        
+        cell_type <- cell_types[k]
+        trace_data <- v_traces_long[v_traces_long$type == cell_type, , drop = FALSE]
+        rate_data <- data.frame(time = time_seq, spike_rate = spike_rate[k, ])
+        
+        # Spike-rate plot
+        plt_rate <- ggplot2::ggplot(
+          rate_data,
+          ggplot2::aes(
+            x = time,
+            y = spike_rate
+          )
+        ) +
+          ggplot2::geom_line(linewidth = 0.7) +
+          ggplot2::theme_minimal() +
+          ggplot2::theme(
+            panel.background = ggplot2::element_rect(fill = "white", colour = NA),
+            plot.background  = ggplot2::element_rect(fill = "white", colour = NA),
+            plot.title       = ggplot2::element_text(hjust = 0.5, size = title_size),
+            axis.title.x     = ggplot2::element_blank(),
+            axis.text.x      = ggplot2::element_blank(),
+            axis.ticks.x     = ggplot2::element_blank(),
+            axis.title.y     = ggplot2::element_text(size = axis_size),
+            axis.text.y      = ggplot2::element_text(size = axis_size)
+          ) +
+          ggplot2::labs(
+            title = cell_type,
+            y = "Spike rate (Hz)"
+          )
+        
+        # Membrane-potential traces
+        plt_trace <- ggplot2::ggplot(
+          trace_data,
+          ggplot2::aes(
+            x = time,
+            y = potential,
+            group = id
+          )
+        ) +
+          ggplot2::geom_line(
+            linewidth = 0.5,
+            color = label_colors[k]
+          ) +
+          ggplot2::theme_minimal() +
+          ggplot2::theme(
+            panel.background = ggplot2::element_rect(fill = "white", colour = NA),
+            plot.background  = ggplot2::element_rect(fill = "white", colour = NA),
+            plot.title       = ggplot2::element_text(hjust = 0.5, size = title_size),
+            axis.title.x     = ggplot2::element_blank(),
+            axis.text.x      = ggplot2::element_blank(),
+            axis.ticks.x     = ggplot2::element_blank(),
+            axis.title.y     = ggplot2::element_text(size = axis_size),
+            axis.text.y      = ggplot2::element_text(size = axis_size)
+          ) +
+          ggplot2::labs(
+            y = "potential (mV)"
+          )
+        
+        # Input-current plot
+        if (print_input) {
+          # Remove x axis from plot trace 
+          plt_trace <- plt_trace + ggplot2::theme(
+            axis.title.x     = ggplot2::element_blank(),
+            axis.text.x      = ggplot2::element_blank(),
+            axis.ticks.x     = ggplot2::element_blank()
+          )
+         
+          # Make input plot
+          plt_input <- ggplot2::ggplot(
+            trace_data,
+            ggplot2::aes(
+              x = time,
+              y = input,
+              group = id
+            )
+          ) +
+            ggplot2::geom_line(
+              linewidth = 0.6,
+              color = label_colors[k]
+            ) +
+            ggplot2::theme_minimal() +
+            ggplot2::theme(
+              panel.background = ggplot2::element_rect(fill = "white", colour = NA),
+              plot.background  = ggplot2::element_rect(fill = "white", colour = NA),
+              plot.title       = ggplot2::element_text(hjust = 0.5, size = title_size),
+              axis.title.y     = ggplot2::element_text(size = axis_size),
+              axis.text.y      = ggplot2::element_text(size = axis_size)
+            ) +
+            ggplot2::labs(
+              x = "Time (ms)",
+              y = "Input (pA)"
+            )
+          
+          if (plot_rates) {
+            patchwork::wrap_plots(
+              plt_rate,
+              plt_trace,
+              plt_input,
+              ncol    = 1,
+              heights = c(2, 2, 1)
+            )
+          } else {
+            patchwork::wrap_plots(
+              plt_trace,
+              plt_input,
+              ncol    = 1,
+              heights = c(2, 1)
+            )
+          }
+          
+        } else {
+          
+          if (plot_rates) {
+            patchwork::wrap_plots(
+              plt_trace,
+              ncol    = 1,
+              heights = c(1)
+            )
+          } else {
+            patchwork::wrap_plots(
+              plt_rate,
+              plt_trace,
+              ncol    = 1,
+              heights = c(1, 1)
+            )
+          }
+          
+        }
+      }
+    )
+    
+    # Stack all cell types
+    plt <- patchwork::wrap_plots(plots_by_type, ncol = 1)
     
     if (return_plot) {
       return(plt)
@@ -1294,7 +1487,6 @@ plot.network.traces <- function(
       print(plt)
       return(invisible(NULL))
     }
-    
   }
 
 #' Run Spatial Growth-Transform network simulation
@@ -1305,16 +1497,14 @@ plot.network.traces <- function(
 #' @param stimulus_current_matrix Matrix of stimulus currents, with rows representing neurons and columns representing sample times.
 #' @param dt Time step length in ms (default: 1e-3, i.e., 1 micosecond time steps).
 #' @param initial_potential Initial value for membrane potential, applied to all cells (default is -70 mV).
-#' @param return_v_only Boolean specifying whether to return only the membrane potential traces and related spike counts. If FALSE, will also return matrices containing traces related to the temporal modulation term (default is TRUE).
-#' @return List containing the following elements: \item{v_traces}{Matrix of simulated subthreshold voltage + spike traces for all neurons over time (neurons as rows, sample times as columns).} \item{spike_counts}{Vector of spike counts for each neuron in the network.} If return_v_only is FALSE, will also include, in the same matrix format as v_traces: \item{slow_current_traces}{Slow current trigger: When 1, indicates that the slow-current molecule (e.g., CA2+) is flowing into the cell; when 0, indicates that the slow-current molecule is being pumped out.} \item{Ca_traces}{Intracellular calcium concentrations (or, whatever molecule controls the slow current). Unitless, ratio [0,1].} \item{tau_slow_effect_traces}{Membrane response to slow currents, e.g., Ca2+ (calcium), for modeling bursting. Unitless, ratio [0,1].} \item{Vs_traces}{Synaptic vesicle concentration, models STD. Unitless, ratio [0,1].} \item{T_traces}{Temporal modulation term, units of 1/ms.}
+#' @return List containing the following elements: \item{v_traces}{Matrix of simulated subthreshold voltage + spike traces for all neurons over time (neurons as rows, sample times as columns).} \item{spike_counts}{Vector of spike counts for each neuron in the network.} 
 #' @export
 run.SGT <- function(
     network,
     stimulus_current_matrix, 
     dt                = 1e-3,  
-    initial_potential = -70.0,
-    return_v_only     = TRUE
+    initial_potential = -70.0
   ) {
     network$SGT(stimulus_current_matrix, dt, initial_potential)
-    return(network$fetch_sim_results(return_v_only))
+    return(network$fetch_sim_results())
   }

@@ -1,7 +1,7 @@
 ---
 title: "Spatial growth-transform models"
 author: "Michael Barkasi"
-date: "August 4, 2026 (v1.0)"
+date: "August 8, 2026 (v1.0)"
 ---
 
 ```{r Rmdsetup, echo=FALSE}
@@ -23,9 +23,9 @@ Computational neuroscientists standardly model biological neural networks as [dy
 \[\mathcal{H}(v)\leq \mathcal{H}(v + \partial v/\partial t)\]
 In other words: 
 \[\frac{\partial\mathcal{H}}{\partial v}\frac{\partial v}{\partial t} \leq 0\]
-Thus, GT models are essentially energy-minimization models of neural dynamics. The model parameters provided by DACx are based on a [biological interpretation](tutorial_math.html) of the underlying mathematics of GT models. 
+Thus, GT models are essentially energy-minimization models of neural dynamics. This is in contrast to models such as Hodgkin-Huxley, which describe neural dynamics directly in terms of ionic currents. Despite this apparent disconnect from biology, DACx is based on a [biological interpretation](tutorial_math.html) of the underlying mathematics of GT models. 
 
-In practical terms, instead of only a weight between two homogeneous neurons, GT models use both a cell-type-dependent transconductance parameter and a cell-type-dependent temporal modulation factor to determine network behavior. The transconductance parameter is essentially a traditional connection weight, while the [temporal modulation factor](tutorial_membrane_temporal_dynamics.html) allows for capturing the electrodynamics $\partial v/\partial t$ of different neuron types at a single spatial point. 
+In practical terms, instead of only a weight between two homogeneous neurons, GT models use both a cell-type-dependent synaptic conductance parameter and a cell-type-dependent temporal modulation factor to determine network behavior. The synaptic conductance parameter is essentially a traditional connection weight, while the [temporal modulation factor](tutorial_membrane_temporal_dynamics.html) allows for capturing the electrodynamics $\partial v/\partial t$ of different neuron types at a single spatial point. 
 
 The GT models implemented in the DACx package add a third aspect of biological realism not captured by the original formulation of Gangopadhyay and Chakrabartty: a transmission velocity parameter for each neuron type. While the temporal modulation factor controls membrane voltage over time at a *single* spatial point, the transmission velocity parameter determines the rate at which changes in membrane voltage *propagate between neurons*. 
 For this reason, we refer to our GT models as *spatial GT* (SGT) models. 
@@ -53,46 +53,49 @@ Next, we create a new network object with the <span class = "function">new.netwo
 network.node <- new.network()
 ```
 
-The object initialized by <span class = "function">new.network</span> is a single-node network. As we use the term, a "node" is not necessarily a single neuron, but is rather a cluster of nearby neurons with local recurrent connections. These nodes are expected to be (approximately) fully connected, with cells of each type synapsing into cells of all other types. For this tutorial, our nodes will include two distinct neuron types: an excitatory type, layer 4 principal neurons (spiny stellates), and an inhibitory type, somatostatin (PV) interneurons.
+The object initialized by <span class = "function">new.network</span> is a single-node network. As we use the term, a "node" is not necessarily a single neuron, but is rather a cluster of nearby neurons with local recurrent connections. These nodes are expected to be (approximately, locally) fully connected, with cells of each type synapsing into cells of all other types, at least for nearby cells. For this tutorial, our nodes will include two distinct neuron types: an excitatory type, loosely based on layer 4 principal neurons (spiny stellates), and an inhibitory type, loosely based on parvalbumin (PV) interneurons. We'll call them "responsive spiny stellate" and "retentive PV" cells, to indicate that the simulated spiny stellates have a lower <span class = "code_variable">tau_fast</span> than expected, and that the simulated PV cells have a lower <span class = "code_variable">leak_conductance</span> than expected. 
 
-Nodes are defined by their constitutive cell types and node size (i.e., expected number of neurons per type). DACx comes with a number of preloaded cell types and functions for modifying existing cell types and adding new ones. Details about cell types are discussed in [another tutorial](tutorial_celltypes.html). Although many of the values are just the defaults, we will use the <span class = "code_variable">modify.cell.type</span> to explicit set all values, for later reproducibility.[^defaults] The details of these parameters are explained in the tutorial on cell types. 
+Nodes are defined by their constitutive cell types and node size (i.e., expected number of neurons per type). DACx comes with a number of preloaded cell types and functions for modifying existing cell types and adding new ones. Details about cell types are discussed in [another tutorial](tutorial_celltypes.html). We will use the <span class = "code_variable">modify.cell.type</span> function to set up our responsive spiny stellate and retentive PV cells. We explicitly set all values, even those that aren't changed from the defaults for spiny stellates and PV cells, for later reproducibility.[^defaults] The details of these parameters are explained in the tutorial on cell types. 
 
-[^defaults]: As of August 4, 2026, all cell-type parameter defaults are tentative and under development, and so likely to change.
+[^defaults]: As of August 89, 2026, all cell-type parameter defaults are tentative and under development, and so likely to change.
 
-For now, it suffices to note that PV interneurons are highly responsive cells with a high rate of fire, little adaptation (short-term depression), but also little memory -- that is, they have a high leak current and don't integrate signals. Thus, they function as coincidence detectors (integrating only near-simultaneous input spikes) and send strong inhibitory signals. 
+For now, it suffices to note that PV interneurons are highly responsive cells with a high rate of fire, little adaptation (i.e., little short-term depression), but also little memory -- that is, they have a high leak current and don't integrate signals. Thus, they function as coincidence detectors (integrating only near-simultaneous input spikes) and send strong inhibitory signals. We will keep that character, except for giving them a lower leak conductance to improve their memory. 
 
 ```{r define_celltypes_PV}
-# membrane_current = 5 nS * -10 mV membrane potential = -50 pA
-# power_diss = conductance * -7.5 mV = 0.5 nS * 35 mV = 17.5 pA
-# dHdv = power_diss - membrane_current = -3.75 pA + 50 pA 
+ss_pv <- 2.0
+pv_pv <- 0.2
 modify.cell.type(
     "PV",
     # Membrane kinetics
-    tau_fast              = 1.0,   # ms, Short for fast responses
+    tau_fast              = 0.5,   # ms, Short for fast responses
     tau_slow              = 60.0,  # ms
     tau_Vs                = 2.5,   # ms/spike, Fast recovery for little adaptation
     I_slow                = 0.01,  # concentration/spike
     U_Vs                  = 0.025, # concentration/spike
     max_spike_rate        = 0.5,   # spikes/ms
-    leak_conductance      = 20.0,  # nS, High membrane conductance for fast kinetics
+    leak_conductance      = 1.0,   # nS, Low leak conductance for slow kinetics
     # Intercell transmission
-    transmission_velocity = 1e3,   # micons/ms, = 1 m/s
+    transmission_velocity = 500,   # micons/ms, = 0.5 m/s
     spine_density         = 0.0, 
     axon_target           = "soma",
     # Spiking
-    I_spike               = 300,   # pA, bit of a fiction representing short spike
+    I_spike               = 200,   # pA, bit of a fiction representing short spike
     dHdv_bound            = 1.05,
     spike_potential       = 35,    # mV
     spike_width           = 0.3,   # ms
     equilibrium_potential = list ( # mV
       spiny_stellate = 0.0,
-      PV             = -70.0),
+      PV             = -80.0),
     threshold             = -50,   # mV
     # Membrane characteristics 
     resting_potential     = -70,   # mV
+    v_bound               = 1.15,
     synaptic_conductance  = list(  # nS
-      spiny_stellate = 1.5,
-      PV             = 0.5), 
+      spiny_stellate = ss_pv,
+      PV             = pv_pv), 
+    tau_syn               = list(  # ms
+      spiny_stellate = 2.0,
+      PV             = 6.0),
     # Neurite structure 
     axon_branch_count     = 20, 
     dendrite_branch_count = 20, 
@@ -103,21 +106,23 @@ modify.cell.type(
   )
 ```
 
-Conversely, spiny stellate cells are slower to respond, have higher adaptation, but more memory. They serve as signal integrators, integrating input spikes over longer time stretches. 
+Conversely, spiny stellate cells are slower to respond, have higher adaptation, but more memory. They serve as signal integrators, integrating input spikes over longer time stretches. We keep that character, except for lowering their fast-current time constant (<span class = "code_variable">tau_fast</span>) to make them more responsive. 
 
 ```{r define_celltypes_spiny}
+ss_ss <- 0.4
+pv_ss <- 10.0
 modify.cell.type(
     "spiny_stellate",
     # Membrane kinetics 
-    tau_fast              = 5.0,   # ms, Long for slow responses
+    tau_fast              = 1.0,   # ms, Short-ish for slow(-ish) responses
     tau_slow              = 60.0,  # ms
-    tau_Vs                = 100.0, # ms/spike, Slow recover for more adaptation 
+    tau_Vs                = 100.0, # ms/spike, Slow recovery for more adaptation 
     I_slow                = 0.01,  # concentration/spike
-    U_Vs                  = 0.1,   # concentration/spike
+    U_Vs                  = 0.05,  # concentration/spike
     max_spike_rate        = 0.1,   # spikes/ms
-    leak_conductance      = 2.0,   # nS, Low conductance for slow kinetics 
+    leak_conductance      = 1.0,   # nS, Low conductance for slow kinetics 
     # Intercell transmission 
-    transmission_velocity = 200,   # microns/ms, slower transmission than PV cells
+    transmission_velocity = 100,   # microns/ms, slower transmission than PV cells
     spine_density         = 0.5, 
     axon_target           = "spine",
     # Spiking
@@ -127,13 +132,17 @@ modify.cell.type(
     spike_width           = 1.0,   # ms
     equilibrium_potential = list ( # mV
       spiny_stellate = 0.0,
-      PV             = -70.0),
+      PV             = -80.0),
     threshold             = -55,   # mV
     # Membrane characteristics 
     resting_potential     = -70,   # mV
+    v_bound               = 1.15,
     synaptic_conductance  = list(  # nS
-      spiny_stellate = 0.5,
-      PV             = 1.0),  
+      spiny_stellate = ss_ss,
+      PV             = pv_ss),
+    tau_syn               = list(  # ms
+      spiny_stellate = 2.0,
+      PV             = 6.0),
     # Neurite structure 
     axon_branch_count     = 20, 
     dendrite_branch_count = 20, 
@@ -144,14 +153,18 @@ modify.cell.type(
   )
 ```
 
-Mimicking the structure of the brain, nodes are arrayed into layers and columns, cortical and subcortical regions, and hemispheres. The [network-topology tutorial](tutorial_network_topology.html) explains how to set up this multi-node structure. For now, it suffices to note that this structure is set with the <span class = "function">set.network.structure</span> function. We will set up a single-node network, with an expected count of $50$ for the spiny stellates and $5$ for the PV interneurons.
+Notice that defining the cell types involves setting a <span class = "code_variable">synaptic_conductance</span>, taking a list which each cell type as a named entry. This conductance gives the conductance (in nS) of the cell type's synapses, for each pre-synaptic cell type. So, the above settings imply that PV connections onto spiny stellates are much stronger than connections from other spiny stellates, while spiny stellates have much stronger projections onto PV cells than PV cells have onto other PV cells. These values are not strictly faithful to the actual biology, but will be suitable for modeling a simple excitatory-inhibitory feedback system. 
+
+Mimicking the structure of the brain, nodes are arrayed into layers and columns, cortical and subcortical regions, and hemispheres. The [network-topology tutorial](tutorial_network_topology.html) explains how to set up this multi-node structure. For now, it suffices to note that this structure is set with the <span class = "function">set.network.structure</span> function. We will set up a single-node network, with an expected count of $50$ for the responsive spiny stellates and $10$ for the retentive PV interneurons.
 
 ```{r build_network}
+n_ss <- 50
+n_PV <- 10
 network.node <- set.network.structure(
     network.node,
     neuron_types          = c("spiny_stellate", "PV"),
-    neurons_per_node      = c(50, 10),
-    synaptic_neighborhood = 10 # microns
+    neurons_per_node      = c(n_ss, n_PV),
+    synaptic_neighborhood = 20 # microns
   )
 ```
 
@@ -175,14 +188,16 @@ plt <- plot.network(
 plt$plot
 ```
 
-The existence and number of connections between cells -- synapses, colored orange -- are determined by the proximity of axons to dendrites. After the arbors are created, a separate algorithm looks for axon nodes within a certain small neighborhood of dendrite nodes and, if one is found, extends the axon to connect with the dendrite. 
+The existence and number of connections between cells -- synapses, colored orange -- are determined by the proximity of axons to dendrites. After the arbors are created, a separate algorithm looks for axon nodes within a certain small neighborhood (set by <span class = "code_variable">synaptic_neighborhood</span>) of dendrite nodes and, if one is found, extends the axon to connect with the dendrite. 
 
-As the axis labels indicate, SGT models assign to each neuron a spatial coordinate giving its location along the laminar, columnar, and patch axes. All coordinates are continuous and real-valued and are used in conjunction with the transmission velocity parameter to simulate spike propagation over the axonal arbors. While the above are 2D plots (which drop the patch axis), we can plot a 3D representation of our node including _all_ arbors, colored by cell type: 
+As the axis labels indicate, SGT models assign to each neuron a spatial coordinate giving its location along the laminar, columnar, and patch axes. All coordinates are continuous and real-valued and are used in conjunction with the transmission velocity parameter to simulate spike propagation over the axonal arbors. While the above are 2D plots (which drop the patch axis), we can plot a 3D representation of our node, colored by cell type: 
 
 ```{r plot_network_local_connections_all}
 plt <- plot.network(
     network.node, 
     arbor_density = 1.0,
+    soma_mask     = plt$soma_mask,
+    arbor_idx     = plt$arbor_idx,
     threedim      = TRUE
   )
 plt$plot
@@ -194,7 +209,7 @@ As can be seen, even for a small single node, the arborization and number of syn
 ntw <- fetch.network.components(network.node, include_arbors = TRUE)
 ```
 
-All of the above plots show the spatially extended arbors which product synaptic connections between cells. If we want to visualize just the connections without the mess of the arbors, we can do so by setting <span class = "code_variable">reconstruct_arbors</span> to <span class = "code_variable">FALSE</span>. This represents connections between cells in the familiar form of straight edges. As can be seen here, our resulting network is more-or-less fully connected. 
+All of the above plots show the spatially extended arbors which produce synaptic connections between cells. If we want to visualize just the _connections_ without the mess of the arbors, we can do so by setting <span class = "code_variable">reconstruct_arbors</span> to <span class = "code_variable">FALSE</span>. This represents connections between cells in the familiar form of straight edges. By plotting all arbors, we see that our network is more-or-less fully connected. 
 
 ```{r plot_network_no_arbors}
 plot.network(
@@ -208,17 +223,16 @@ As the axis labels in the previous plots indicate, there is a physically meaning
 
 <h2>SGT simulations</h2>
 
-The function <span class = "function">run.SGT</span> runs a simulation of spiking activity across a network using a SGT model. The function is just a wrapper over the <span class = "function">SGT</span> method of C++ network objects. It takes five arguments: 
+The function <span class = "function">run.SGT</span> runs a simulation of spiking activity across a network using a SGT model. The function is just a wrapper over the <span class = "function">SGT</span> method of C++ network objects. It takes four arguments: 
 
   1. <span class = "code_variable">network</span>: A network created by the <span class = "function">new.network</span> function and structured by the <span class = "function">set.network.structure</span> function.
   2. <span class = "code_variable">stimulus_current_matrix</span>: A matrix of input currents (in pA) over the duration of the simulation, rows representing neurons and columns representing time bins. 
   3. <span class = "code_variable">dt</span>: Time-step size for simulation, in ms. Default is $10^{-3}$.
-  4. <span class = "code_variable">initial_potential</span>: Initial value for membrane potential, applied to all cells. Default is $-70$ mV, and this means that if any cell types in the network have a rest potential below $-70$ mV, this value must be changed. 
-  5. <span class = "code_variable">return_v_only</span>: Boolean specifying whether to return only the membrane potential traces and related spike counts. If <span class = "code_variable">FALSE</span>, will also return matrices containing traces related to the temporal modulation term. Default is <span class = "code_variable">TRUE</span>.
+  4. <span class = "code_variable">initial_potential</span>: Initial value for membrane potential, applied to all cells. Default is $-70$ mV, and this means that if any cell types in the network have a rest potential above $-70$ mV, this value must be changed. 
 
 The number of columns of <span class = "code_variable">stimulus_current_matrix</span> determines the length of the simulation. In essence, the function <span class = "function">run.SGT</span> answers the question: How would the network respond to this stimulus current over this amount of time?
 
-For example, let's create a $500$ms simulation for the node we created above. From the above call to <span class = "code_variable">fetch.network.components</span>, we know there are $15$ neurons in our network. We can load this value directly from the function output:
+For example, let's run a $1,200$ ms simulation for the node we created above. From the above call to <span class = "code_variable">fetch.network.components</span>, we know there are $71$ neurons in our network. We can load this value directly from the function output:
 
 ```{r load_n_neurons}
 n_neurons <- ntw$n_neurons
@@ -227,17 +241,17 @@ n_neurons <- ntw$n_neurons
 This gives us the number of rows needed in our stimulus current matrix. For the number of columns, we need to know the number of time steps required: 
 
 ```{r find_n_steps}
-stim_time_ms <- 500
+stim_time_ms <- 1200
 dt           <- 1e-3
 n_steps      <- stim_time_ms/dt
 cat("Number of time steps in the simulation:", n_steps)
 ```
 
-Now, suppose we want our simulation to involve a $200$ms input current to just the spiny stellates, starting at $100$ms. We can compute the initial and final time steps of this current, plus a mask for the spiny stellates, as follows: 
+Now, suppose we want our simulation to have a $1000$ ms input current to just the responsive spiny stellates, starting at $100$ ms. We can compute the initial and final time steps of this current, plus a mask for the spiny stellates, as follows: 
 
 ```{r find_time_steps_and_principals}
 # Set stimulus start and length
-stim_length_ms      <- 300
+stim_length_ms      <- 1000
 stim_start_ms       <- 100
 # Find start and end steps of the input stimulus current
 stim_length         <- stim_length_ms / dt
@@ -247,11 +261,14 @@ stim_end            <- stim_start + stim_length - 1
 spiny_stellate_mask <- ntw$neuron_type_name == "spiny_stellate"
 ```
 
-A final question is how much current to apply. For this simulation, we'll use a constant current of $100$ pico amp to the spiny stellates during the stimulus period. 
+A final question is how much current to apply. For this simulation, we'll use a constant current of $80$ pA to the responsive spiny stellates during the stimulus period. As cell responses are fully deterministic, we will also feather the onset of this stimulus current, so that the initial spikes come at slightly different times.
 
 ```{r set_up_stimulus_current_matrix}
-stimulus_current_matrix    <- matrix(0, nrow = n_neurons, ncol = n_steps)
-stimulus_current_matrix[spiny_stellate_mask, stim_start:stim_end] <- 400
+stimulus_current_matrix <- matrix(0, nrow = n_neurons, ncol = n_steps)
+stimulus_current_matrix[spiny_stellate_mask, stim_start:stim_end] <- 80
+for (i in which(spiny_stellate_mask)) {
+    stimulus_current_matrix[i, stim_start:(stim_start + sample.int(50/dt, 1))] <- 0
+  }
 ```
 
 With the stimulus current matrix in hand, we can run the simulation:
@@ -266,23 +283,50 @@ sim_results <- run.SGT(
 
 The result of the function <span class = "function">run.SGT</span> is a matrix of spike traces formatted similar to <span class = "code_variable">stimulus_current_matrix</span>: each row represents a neuron and each column represents a time step from the simulation. Each entry is the membrane potential of the neuron at that time bin, in mV. The order of neurons and time steps matches across the input stimulus-current and output spike-trace matrices, of course. In addition, a vector of spike counts for each neuron (giving the number of times each neuron spiked) in the network is also returned. Both are returned in a list of two elements, <span class = "code_variable">sim_traces</span> and <span class = "code_variable">spike_counts</span>.
 
-We can view the head of the simulation traces: 
-
-```{r sim_traces}
-print(sim_results$v_traces[1:10,1:10])
-```
-
-As well as the head of the spike counts: 
-
-```{r spike_counts}
-print(head(sim_results$spike_counts))
-```
-
 The neurons package also includes the function <span class = "function">plot.network.traces</span>, which takes a network object with a trace matrix and produces a plot of the traces, putting all neurons of the same type together. 
 
-```{r}
+```{r plot_network_traces}
 plot.network.traces(network.node, input_matrix = stimulus_current_matrix)
 ```
+
+At first glance, we see a rhythmic firing of the excitatory responsive spiny stellates of about $4$ Hz (i.e., theta waves, as in deep sleep). We see a matching rhythmic pattern for the PV cells. This is a classic excitatory-inhibitory feedback loop, wherein the excitatory cells drive the stimulus-free inhibitory cells to fire, the inhibitory firing silences the excitatory cells, which silences the inhibitory cells, allowing the stimulus current to the excitatory cells to drive them again, producing a new round of firing. 
+
+One way to see this dynamic is to rerun the simulation, first with no input into the PV cells, then with input into the PV cells, but no feedback onto the spiny stellates. Cell type information is saved across the session, so, we only need to modify the relevant part of the PV cells (the strength of the synapses from spiny stellates). 
+
+```{r sim_rerun_disconnectedPV}
+set.seed(12345) 
+network.node_disconnectedPV <- new.network()
+
+# Disconnect PVs from spiny stellates
+modify.cell.type(
+    "PV",
+    synaptic_conductance = list(  # nS
+      'responsive spiny stellate' = 0.0, 
+      'retentive PV'              = 0.2)
+  ) # ... disconnect SS from themselves? 
+
+# Set network
+network.node_disconnectedPV <- set.network.structure(
+    network.node_disconnectedPV,
+    neuron_types          = c("spiny_stellate", "PV"),
+    neurons_per_node      = c(n_ss, n_PV),
+    synaptic_neighborhood = 20 # microns
+  )
+
+# Rerun with PVs disconnected 
+sim_results_disconnectedPV <- run.SGT(
+    network.node_disconnectedPV,
+    stimulus_current_matrix,
+    dt
+  )
+
+# Plot traces
+plot.network.traces(network.node_disconnectedPV, input_matrix = stimulus_current_matrix)
+```
+
+As can be seen, without spike input from the spiny stellates, the PV cells show no activity. Note, also, that without the inhibitory feedback from the PV cells, the spiny stellate population has lost its rhythmic firing. As there is a constant stimulus driving the cells, the population as a whole shows a constant firing. 
+
+Thus, the rhythmic firing pattern of the original network requires the excitatory-inhibitory feedback loop. 
 
 <h2>Spatial lag</h2> 
 

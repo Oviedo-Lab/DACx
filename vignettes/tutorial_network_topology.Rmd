@@ -433,7 +433,6 @@ motif.tc <- load.projection.into.motif(
     motif.tc, 
     presynaptic_layer      = "thalamus", 
     postsynaptic_layer     = "L6", 
-    projection_conductance = 0.1, 
     postsynaptic_type      = "PV"
   )
 ```
@@ -460,7 +459,6 @@ The second type of inter-region connection that's needed is between the cortices
 Let's build and apply the corpus callosum motif. As can be seen in the code, the key is the <span class = "code_variable">hem_shift</span> argument. Here we have set it to $1$, which means that the postsynaptic layer and column are located in the contralateral hemisphere. The default value of <span class = "code_variable">hem_shift</span>, used above in all other motif projections, is $0$. This default keeps the postsynaptic layer and column within the same hemisphere as the presynaptic layer and column. 
 
 ```{r make_corpus_callosum_motif}
-projection_conductance <- 1e-10
 motif.CC <- new.motif(motif_name = "corpus callosum")
 motif.CC <- load.projection.into.motif(motif.CC, "L3", "L3", presynaptic_type = "callosal_pyramidal", postsynaptic_type = "pyramidal", hem_shift = 1)
 motif.CC <- load.projection.into.motif(motif.CC, "L5", "L5", presynaptic_type = "callosal_pyramidal", postsynaptic_type = "pyramidal", hem_shift = 1)

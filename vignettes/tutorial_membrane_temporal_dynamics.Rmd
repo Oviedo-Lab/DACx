@@ -89,8 +89,7 @@ Development note: The values of these parameters are 1/0.0001 times the intended
 
 add.cell.type(
     "subthreshold_only",
-    valence = 1.0,
-    threshold = 1000 # Something large, so we suppress spiking
+    threshold = 1000 # Something large, to suppress spiking
   )
 
 nonspiking_cell <- set.network.structure(
@@ -106,8 +105,8 @@ This gives us the number of rows needed in our stimulus current matrix. For the 
 
 ```{r find_n_steps}
 stim_time_ms <- 1000
-dt <- 1e-3
-n_steps <- stim_time_ms/dt
+dt           <- 1e-3
+n_steps      <- stim_time_ms/dt
 cat("Number of time steps in the simulation:", n_steps)
 ```
 
@@ -117,8 +116,7 @@ Now, suppose we want our simulation to involve a $20$ms input current to just th
 A final question is how much current to apply. For this simulation, we'll use a constant current of $100$ pico amp ($100\times 10^{-9}$mA) to the spiny stellates during the stimulus period. It might be natural to leave the input current at zero outside of the stimulus period, but there is endogenous background activity even without exogenous input to the network. So, we'll specify a baseline input current of $10$ pico amps ($10\times 10^{-9}$mA) to all neurons throughout the entire stimulation period: 
 
 ```{r set_up_stimulus_current_matrix}
-pico_amp <- 1 # Assume units are pA
-stim_magnitude <- 300
+stim_magnitude <- 100
 no_stim  <- matrix(0, nrow = 1, ncol = n_steps)
 ```
 
@@ -131,7 +129,7 @@ nonspiking_cell_results <- run.SGT(
     dt,
     initial_potential = 0.0
   )
-plot.network.traces(nonspiking_cell, input_matrix = no_stim)
+plot.network.traces(nonspiking_cell, input_matrix = no_stim, plot_rates = FALSE)
 ```
 
 
@@ -139,14 +137,14 @@ plot.network.traces(nonspiking_cell, input_matrix = no_stim)
 integrating_cell <- new.network()
 add.cell.type(
     "leaky_integrator",
-    valence   = 1.0,     # excititory cell
     tau_fast       = 1.0,
     tau_slow       = 60.0,
     tau_Vs         = 100.0,
     I_slow         = 0.01, 
     U_Vs           = 0.05, 
     max_spike_rate = 0.1,
-    threshold = -55    # the default, showing for clarity
+    threshold      = -55,
+    leak_conductance      = 1.0
   )
 
 integrating_cell <- set.network.structure(
@@ -168,7 +166,7 @@ stim_start     <- stim_start_ms / dt
 stim_end       <- stim_start + stim_length - 1
 short_stims    <- no_stim
 for (i in seq_along(stim_start)) {
-  short_stims[, stim_start[i]:stim_end[i]] <- stim_magnitude * pico_amp
+  short_stims[, stim_start[i]:stim_end[i]] <- stim_magnitude
 }
 ```
 
@@ -179,21 +177,21 @@ integrating_cell_results <- run.SGT(
   dt,
   initial_potential = -70
 )
-plot.network.traces(integrating_cell, input_matrix = short_stims)
+plot.network.traces(integrating_cell, input_matrix = short_stims, plot_rates = FALSE)
 ```
 
 ```{r bursting_cell}
 bursting_cell <- new.network()
 add.cell.type(
     "bursting_cell",
-    valence        = 1.0, # excititory cell
     tau_fast       = 1.0,
     tau_slow       = 60.0,
     tau_Vs         = 100.0,
     I_slow         = 0.035, 
     U_Vs           = 0.05, 
     max_spike_rate = 0.1,
-    threshold      = -55, # the default, showing for clarity
+    threshold      = -55,
+    leak_conductance      = 1.0
   )
 
 bursting_cell <- set.network.structure(
@@ -214,7 +212,7 @@ stim_start     <- stim_start_ms / dt
 stim_end       <- stim_start + stim_length - 1
 long_stims     <- no_stim
 for (i in seq_along(stim_start)) {
-  long_stims[, stim_start[i]:stim_end[i]] <- stim_magnitude * pico_amp
+  long_stims[, stim_start[i]:stim_end[i]] <- stim_magnitude
 }
 ```
 
@@ -225,12 +223,7 @@ bursting_cell_results <- run.SGT(
   dt,
   initial_potential = -70
 )
-plot.network.traces(bursting_cell, input_matrix = long_stims)
-plot(bursting_cell_results[["slow_current_traces"]][1,], type = "l", ylab = "slow current direction")
-plot(bursting_cell_results[["Ca_traces"]][1,], type = "l", ylab = "Calcium")
-plot(bursting_cell_results[["tau_slow_effect_traces"]][1,], type = "l", ylab = "tau_slow (bursting)")
-plot(bursting_cell_results[["Vs_traces"]][1,], type = "l", ylab = "Vs (STD)")
-plot(bursting_cell_results[["T_traces"]][1,], type = "l", ylab = "T")
+plot.network.traces(bursting_cell, input_matrix = long_stims, plot_rates = FALSE)
 ```
 
 ```{r SGT_integrating_long}
@@ -240,12 +233,7 @@ integrating_cell_results <- run.SGT(
   dt,
   initial_potential = -70
 )
-plot.network.traces(integrating_cell, input_matrix = long_stims)
-plot(integrating_cell_results[["slow_current_traces"]][1,], type = "l", ylab = "slow current direction")
-plot(integrating_cell_results[["Ca_traces"]][1,], type = "l", ylab = "Calcium")
-plot(integrating_cell_results[["tau_slow_effect_traces"]][1,], type = "l", ylab = "tau_slow (bursting)")
-plot(integrating_cell_results[["Vs_traces"]][1,], type = "l", ylab = "Vs (STD)")
-plot(integrating_cell_results[["T_traces"]][1,],  type = "l", ylab = "T")
+plot.network.traces(integrating_cell, input_matrix = long_stims, plot_rates = FALSE)
 ```
 
 ```{r}
@@ -258,7 +246,7 @@ stim_start      <- stim_start_ms / dt
 stim_end        <- stim_start + stim_length - 1
 continuous_stim <- no_stim
 for (i in seq_along(stim_start)) {
-  continuous_stim[, stim_start[i]:stim_end[i]] <- stim_magnitude * pico_amp
+  continuous_stim[, stim_start[i]:stim_end[i]] <- stim_magnitude
 }
 ```
 
@@ -269,12 +257,7 @@ bursting_cell_results_long <- run.SGT(
   dt,
   initial_potential = -70
 )
-plot.network.traces(bursting_cell, input_matrix = continuous_stim)
-plot(bursting_cell_results_long[["slow_current_traces"]][1,], type = "l", ylab = "slow current direction")
-plot(bursting_cell_results_long[["Ca_traces"]][1,], type = "l", ylab = "Calcium")
-plot(bursting_cell_results_long[["tau_slow_effect_traces"]][1,], type = "l", ylab = "tau_slow (bursting)")
-plot(bursting_cell_results_long[["Vs_traces"]][1,], type = "l", ylab = "Vs (STD)")
-plot(bursting_cell_results_long[["T_traces"]][1,], type = "l", ylab = "T")
+plot.network.traces(bursting_cell, input_matrix = continuous_stim, plot_rates = FALSE)
 ```
 
 ```{r}
@@ -284,7 +267,7 @@ integrating_cell_results <- run.SGT(
   dt,
   initial_potential = -70
 )
-plot.network.traces(integrating_cell, input_matrix = continuous_stim)
+plot.network.traces(integrating_cell, input_matrix = continuous_stim, plot_rates = FALSE)
 ```
 
 
