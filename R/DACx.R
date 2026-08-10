@@ -564,8 +564,6 @@ set.network.structure <- function(
         }
       }
       
-
-      
     }
    
     # Grab number of neuron types
@@ -584,7 +582,7 @@ set.network.structure <- function(
           npn_dim          <- dim(neurons_per_node)
         } else {
           neurons_per_node <- matrix(rep(neurons_per_node, n_neuron_types), nrow = 1, ncol = n_neuron_types)
-          npn_dim.         <- c(1, length(neurons_per_node))
+          npn_dim          <- c(1, length(neurons_per_node))
         }
       } else if (length(neurons_per_node) == n_neuron_types) {
         neurons_per_node <- matrix(rep(neurons_per_node, n_layers + n_subcortical_layers), nrow = n_layers + n_subcortical_layers, ncol = n_neuron_types, byrow = TRUE)
@@ -595,7 +593,7 @@ set.network.structure <- function(
     }
     
     # Helper: coerce conductance input to a list of n x n matrices
-
+   
     # Set structure (new C++ signature: hsl_names as list, n as 5-vector, sep_factor as 5-vector)
     # Note: synaptic conductances are now automatically looked up from neuron type properties
     network$set_network_structure(
@@ -701,7 +699,8 @@ apply.circuit.motif <- function(
 # Used by plot.network and plot.network.traces to share a consistent palette.
 .network_label_colors <- function(labels) {
     known_label_colors <- list(
-      "cell"               = "gray50",
+      "cell"               = "gray10",
+      "subthreshold_only"  = "gray10",
       "thalamus"           = "gray20", 
       "layer"              = "gray50",
       "L1"                 = "gray50",
@@ -716,14 +715,20 @@ apply.circuit.motif <- function(
       "thalmacortical"     = "lightgreen", 
       "PN"                 = "green3", 
       "excitatory"         = "green3",
+      "leaky_integrator"   = "green3",
+      "slow_recovery"      = "green3", 
+      "slow_drain"         = "green3", 
       "pyramidal"          = "green4",
       "callosal_pyramidal" = "darkolivegreen2",
       "pyramidal_L6"       = "green4",
       "spiny_stellate"     = "green2",
+      "responsive spiny stellate" = "green2", 
       "interneuron"        = "red",
       "inhibitory"         = "red", 
+      "bursting_cell"      = "red",
       "neurogliaform_cell" = "red", 
       "PV"                 = "violetred2",
+      "retentive PV"       = "violetred2", 
       "callosal_PV"        = "palevioletred3",
       "SOM"                = "red3",
       "SST"                = "tomato",
@@ -731,7 +736,7 @@ apply.circuit.motif <- function(
       "axon"               = "green3",
       "dendrite"           = "darkred"
     )
-    unknown_label_colors <- c("aquamarine1", "gray95", "gray55", "gray75", "cyan", "cornflowerblue", "coral", "burlywood", "darkolivegreen")
+    unknown_label_colors <- c("aquamarine1", "gray55", "gray75", "cyan", "cornflowerblue", "coral", "burlywood", "darkolivegreen")
     label_colors        <- rep("white", length(labels))
     names(label_colors) <- labels
     for (cl in seq_along(labels)) {

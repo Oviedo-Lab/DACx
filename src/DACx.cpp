@@ -442,7 +442,7 @@ ArrayXd dCadt(
     const ArrayXd& Ca,                  // Vector of intracellular slow-current molecule (e.g., calcium) concentrations, per cell
     const ArrayXd& recent_spike_count,  // Vector of counts of recent spikes, per cell; proxy for spike rate (spikes/ms)
     const ArrayXd& I_slow,              // vector giving the slow-current molecule (e.g., Ca2+) influx as concentration per spike (concentration/spike)
-    const ArrayXd& tau_slow             // vector giving time constant for clear calcium, per cell (ms)
+    const ArrayXd& tau_slow             // vector giving time constant for clearing calcium, per cell (ms)
   ) {
     return I_slow * recent_spike_count - Ca / tau_slow;
     // Returns concentration/ms
@@ -1120,8 +1120,8 @@ void network::set_network_structure(
       Rcpp::stop("Ncols of nrn_per_node must equal length of neuron_types");
     }
     
-    // Are we making a single-neuron network? 
-    bool single_cell = nrn_per_node.nrow() == 1 && nrn_per_node.ncol() == 1 && nrn_per_node(0, 0) == 1 ? true : false;
+    // Are we making a single-neuron (per type) network? 
+    bool single_cell = nrn_per_node.nrow() == 1 && nrn_per_node.ncol() == n_local && Rcpp::sum(nrn_per_node) == n_local ? true : false;
     
     // Set/save other network parameters
     ntw.hsl_names             = {hem_names, sub_names, lyr_names};

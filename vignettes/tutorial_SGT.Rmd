@@ -286,7 +286,21 @@ The result of the function <span class = "function">run.SGT</span> is a matrix o
 The neurons package also includes the function <span class = "function">plot.network.traces</span>, which takes a network object with a trace matrix and produces a plot of the traces, putting all neurons of the same type together. 
 
 ```{r plot_network_traces}
-plot.network.traces(network.node, input_matrix = stimulus_current_matrix)
+plt1 <- plot.network.traces(network.node, input_matrix = stimulus_current_matrix, return_plot = TRUE)
+plt1 <- plt1 & ggplot2::theme(
+            plot.title       = ggplot2::element_text(hjust = 0.5, size = 14),
+            axis.title.y     = ggplot2::element_text(size = 10),
+            axis.text.y      = ggplot2::element_text(size = 8)
+          ) 
+```
+
+```{r plot_network_local_connections_all2}
+plt <- plot.network(
+    network.node, 
+    arbor_density = 1.0,
+    threedim      = TRUE
+  )
+plt$plot
 ```
 
 At first glance, we see a rhythmic firing of the excitatory responsive spiny stellates of about $4$ Hz (i.e., theta waves, as in deep sleep). We see a matching rhythmic pattern for the PV cells. This is a classic excitatory-inhibitory feedback loop, wherein the excitatory cells drive the stimulus-free inhibitory cells to fire, the inhibitory firing silences the excitatory cells, which silences the inhibitory cells, allowing the stimulus current to the excitatory cells to drive them again, producing a new round of firing. 
@@ -301,8 +315,8 @@ network.node_disconnectedPV <- new.network()
 modify.cell.type(
     "PV",
     synaptic_conductance = list(  # nS
-      'responsive spiny stellate' = 0.0, 
-      'retentive PV'              = 0.2)
+      spiny_stellate = 0.0, 
+      PV              = pv_pv)
   ) # ... disconnect SS from themselves? 
 
 # Set network
@@ -322,6 +336,15 @@ sim_results_disconnectedPV <- run.SGT(
 
 # Plot traces
 plot.network.traces(network.node_disconnectedPV, input_matrix = stimulus_current_matrix)
+```
+
+```{r}
+plt2 <- plot.network.traces(network.node_disconnectedPV, input_matrix = stimulus_current_matrix, return_plot = TRUE)
+plt2 <- plt2 & ggplot2::theme(
+            plot.title       = ggplot2::element_text(hjust = 0.5, size = 14),
+            axis.title.y     = ggplot2::element_text(size = 10),
+            axis.text.y      = ggplot2::element_text(size = 8)
+          ) 
 ```
 
 As can be seen, without spike input from the spiny stellates, the PV cells show no activity. Note, also, that without the inhibitory feedback from the PV cells, the spiny stellate population has lost its rhythmic firing. As there is a constant stimulus driving the cells, the population as a whole shows a constant firing. 

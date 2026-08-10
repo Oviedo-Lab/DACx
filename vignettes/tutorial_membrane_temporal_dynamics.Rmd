@@ -187,11 +187,12 @@ add.cell.type(
     tau_fast       = 1.0,
     tau_slow       = 60.0,
     tau_Vs         = 100.0,
-    I_slow         = 0.035, 
+    I_slow         = 0.05, 
     U_Vs           = 0.05, 
     max_spike_rate = 0.1,
     threshold      = -55,
-    leak_conductance      = 1.0
+    leak_conductance      = 1.0,
+    spike_width      = 1.0
   )
 
 bursting_cell <- set.network.structure(
@@ -251,23 +252,101 @@ for (i in seq_along(stim_start)) {
 ```
 
 ```{r SGT_bursting_continuous}
-bursting_cell_results_long <- run.SGT(
-  bursting_cell,
-  continuous_stim,
+network_both <- new.network()
+network_both <- set.network.structure(
+    network_both, 
+    neuron_types = c("bursting_cell", "leaky_integrator"), 
+    neurons_per_node = 1
+  )
+no_stim2  <- matrix(0, nrow = 2, ncol = n_steps)
+continuous_stim2 <- no_stim2
+for (i in seq_along(stim_start)) {
+  continuous_stim2[, stim_start[i]:stim_end[i]] <- stim_magnitude
+}
+network_both_long <- run.SGT(
+  network_both,
+  continuous_stim2,
   dt,
   initial_potential = -70
 )
-plot.network.traces(bursting_cell, input_matrix = continuous_stim, plot_rates = FALSE)
+plt <- plot.network.traces(network_both, input_matrix = continuous_stim2, plot_rates = TRUE, window_size = 0.1, return_plot = TRUE)
+plt <- plt & ggplot2::theme(
+            plot.title       = ggplot2::element_text(hjust = 0.5, size = 14),
+            axis.title.y     = ggplot2::element_text(size = 10),
+            axis.text.y      = ggplot2::element_text(size = 8)
+          ) 
 ```
 
 ```{r}
-integrating_cell_results <- run.SGT(
-  integrating_cell,
-  continuous_stim,
+add.cell.type(
+    "slow_recovery",
+    tau_fast       = 1.0,
+    tau_slow       = 60.0,
+    tau_Vs         = 500.0,
+    I_slow         = 0.01, 
+    U_Vs           = 0.05, 
+    max_spike_rate = 0.1,
+    threshold      = -55,
+    leak_conductance      = 1.0
+  )
+add.cell.type(
+    "slow_drain",
+    tau_fast       = 1.0,
+    tau_slow       = 60.0,
+    tau_Vs         = 100.0,
+    I_slow         = 0.01, 
+    U_Vs           = 0.01, 
+    max_spike_rate = 0.1,
+    threshold      = -55,
+    leak_conductance      = 1.0
+  )
+network_both <- new.network()
+network_both <- set.network.structure(
+    network_both, 
+    neuron_types = c("leaky_integrator", "slow_recovery", "slow_drain"), 
+    neurons_per_node = 1
+  )
+
+# Set stimulus start and length
+stim_length_ms  <- 1200
+stim_start_ms   <- 100
+# Find start and end steps of the input stimulus current
+stim_length     <- stim_length_ms / dt
+stim_start      <- stim_start_ms / dt
+stim_end        <- stim_start + stim_length - 1
+no_stim2  <- matrix(0, nrow = 3, ncol = stim_end + (100/dt))
+continuous_stim2 <- no_stim2
+recover_start_ms <- c(200, 500)
+recover_length_ms <- c(100, 500)
+recover_start <- recover_start_ms / dt
+recover_length <- recover_length_ms / dt
+recover_end <- recover_start + recover_length - 1
+for (i in seq_along(stim_start)) {
+  continuous_stim2[, stim_start[i]:stim_end[i]] <- stim_magnitude
+}
+for (i in seq_along(recover_start)) {
+  continuous_stim2[, recover_start[i]:recover_end[i]] <- 0
+}
+network_both_long <- run.SGT(
+  network_both,
+  continuous_stim2,
   dt,
   initial_potential = -70
 )
-plot.network.traces(integrating_cell, input_matrix = continuous_stim, plot_rates = FALSE)
+plt <- plot.network.traces(network_both, input_matrix = continuous_stim2, plot_rates = TRUE, window_size = 0.05, return_plot = TRUE)
+plt <- plt & ggplot2::theme(
+            plot.title       = ggplot2::element_text(hjust = 0.5, size = 14),
+            axis.title.y     = ggplot2::element_text(size = 10),
+            axis.text.y      = ggplot2::element_text(size = 8)
+          ) 
+for (p in c(1:3)) {
+  plt[[p]][[1]] <- plt[[p]][[1]] + ggplot2::coord_cartesian(ylim = c(0, 120)) +
+  ggplot2::geom_hline(
+    yintercept = 75,
+    color = "red",
+    linetype = "dashed"
+  )
+}
 ```
 
 
