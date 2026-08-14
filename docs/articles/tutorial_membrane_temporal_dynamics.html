@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">DACx</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -42,10 +42,10 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Tutorials</h6></li>
     <li><a class="dropdown-item" href="../articles/tutorial_network_topology.html">Network topology from circuit motifs</a></li>
-    <li><a class="dropdown-item" href="../articles/tutorial_math.html">Mathematics of GT models</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_BGT.html">Biological growth-transform models</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial_membrane_temporal_dynamics.html">Single-cell temporal dynamics</a></li>
-    <li><a class="dropdown-item" href="../articles/tutorial_SGT.html">Spatial growth-transform models</a></li>
-    <li><a class="dropdown-item" href="../articles/tutorial_celltypes.html">Cell types</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_EI_loops.html">Excitatory-inhibitory feedback loops</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_celltypes.html">Customizing cell types</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Legal</h6></li>
     <li><a class="dropdown-item" href="../articles/license.html">Dependency licenses</a></li>
@@ -235,15 +235,16 @@ Code variable: <span class="code_variable">apical_target_layer</span>.</li>
 <span></span>
 <span></span>
 <span></span>
-<span><span class="fu"><a href="../reference/add.cell.type.html">add.cell.type</a></span><span class="op">(</span></span>
-<span>    <span class="st">"subthreshold_only"</span>,</span>
-<span>    valence <span class="op">=</span> <span class="fl">1.0</span>,</span>
-<span>    threshold <span class="op">=</span> <span class="fl">1000</span> <span class="co"># Something large, so we suppress spiking</span></span>
+<span><span class="fu"><a href="../reference/modify.cell.type.html">modify.cell.type</a></span><span class="op">(</span></span>
+<span>    <span class="st">"neuron"</span>, </span>
+<span>    <span class="st">"subthreshold only"</span>,</span>
+<span>    g_leak      <span class="op">=</span> <span class="fl">0.1</span>,   <span class="co"># nS, Slow leak for demonstration purposes</span></span>
+<span>    v_threshold <span class="op">=</span> <span class="fl">1000</span>   <span class="co"># Something large, to suppress spiking</span></span>
 <span>  <span class="op">)</span></span>
 <span></span>
 <span><span class="va">nonspiking_cell</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/set.network.structure.html">set.network.structure</a></span><span class="op">(</span></span>
 <span>    <span class="va">nonspiking_cell</span>, </span>
-<span>    neuron_types <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"subthreshold_only"</span><span class="op">)</span>, </span>
+<span>    neuron_types     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"subthreshold only"</span><span class="op">)</span>, </span>
 <span>    neurons_per_node <span class="op">=</span> <span class="fl">1</span></span>
 <span>  <span class="op">)</span></span></code></pre></div>
 <h2>
@@ -254,8 +255,8 @@ matrix. For the number of columns, we need to know the number of time
 steps required:</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">stim_time_ms</span> <span class="op">&lt;-</span> <span class="fl">1000</span></span>
-<span><span class="va">dt</span> <span class="op">&lt;-</span> <span class="fl">1e-3</span></span>
-<span><span class="va">n_steps</span> <span class="op">&lt;-</span> <span class="va">stim_time_ms</span><span class="op">/</span><span class="va">dt</span></span>
+<span><span class="va">dt</span>           <span class="op">&lt;-</span> <span class="fl">1e-3</span></span>
+<span><span class="va">n_steps</span>      <span class="op">&lt;-</span> <span class="va">stim_time_ms</span><span class="op">/</span><span class="va">dt</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Number of time steps in the simulation:"</span>, <span class="va">n_steps</span><span class="op">)</span></span></code></pre></div>
 <pre class="scroll-output"><code><span><span class="co">## Number of time steps in the simulation: 1e+06</span></span></code></pre>
 <p>Now, suppose we want our simulation to involve a <span class="math inline">20</span>ms input current to just the spiny
@@ -271,8 +272,7 @@ endogenous background activity even without exogenous input to the
 network. So, we’ll specify a baseline input current of <span class="math inline">10</span> pico amps (<span class="math inline">10\times 10^{-9}</span>mA) to all neurons throughout
 the entire stimulation period:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">pico_amp</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="co"># Assume units are pA</span></span>
-<span><span class="va">stim_magnitude</span> <span class="op">&lt;-</span> <span class="fl">300</span></span>
+<code class="sourceCode R"><span><span class="va">stim_magnitude</span> <span class="op">&lt;-</span> <span class="fl">100</span></span>
 <span><span class="va">no_stim</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fl">0</span>, nrow <span class="op">=</span> <span class="fl">1</span>, ncol <span class="op">=</span> <span class="va">n_steps</span><span class="op">)</span></span></code></pre></div>
 <p>With the stimulus current matrix in hand, we can run the
 simulation:</p>
@@ -281,27 +281,57 @@ simulation:</p>
 <span>    <span class="va">nonspiking_cell</span>,</span>
 <span>    <span class="va">no_stim</span>,</span>
 <span>    <span class="va">dt</span>,</span>
-<span>    initial_potential <span class="op">=</span> <span class="fl">0.0</span></span>
+<span>    v_initial <span class="op">=</span> <span class="fl">0.0</span></span>
 <span>  <span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/plot-network-traces.html">plot.network.traces</a></span><span class="op">(</span><span class="va">nonspiking_cell</span>, input_matrix <span class="op">=</span> <span class="va">no_stim</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/plot-network-traces.html">plot.network.traces</a></span><span class="op">(</span><span class="va">nonspiking_cell</span>, I_stim <span class="op">=</span> <span class="va">no_stim</span>, plot_rates <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 <p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/run_SGT_simulation_leak_only-1.png" class="r-plt" alt="" width="700"></p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">integrating_cell</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/new.network.html">new.network</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/add.cell.type.html">add.cell.type</a></span><span class="op">(</span></span>
-<span>    <span class="st">"leaky_integrator"</span>,</span>
-<span>    valence   <span class="op">=</span> <span class="fl">1.0</span>,     <span class="co"># excititory cell</span></span>
-<span>    tau_fast       <span class="op">=</span> <span class="fl">1.0</span>,</span>
-<span>    tau_slow       <span class="op">=</span> <span class="fl">60.0</span>,</span>
-<span>    tau_Vs         <span class="op">=</span> <span class="fl">100.0</span>,</span>
-<span>    I_slow         <span class="op">=</span> <span class="fl">0.01</span>, </span>
-<span>    U_Vs           <span class="op">=</span> <span class="fl">0.05</span>, </span>
-<span>    max_spike_rate <span class="op">=</span> <span class="fl">0.1</span>,</span>
-<span>    threshold <span class="op">=</span> <span class="op">-</span><span class="fl">55</span>    <span class="co"># the default, showing for clarity</span></span>
+<span><span class="fu"><a href="../reference/modify.cell.type.html">modify.cell.type</a></span><span class="op">(</span></span>
+<span>    <span class="st">"neuron"</span>,</span>
+<span>    <span class="st">"leaky integrator"</span>, </span>
+<span>    <span class="co"># Membrane kinetics</span></span>
+<span>    tau_fast              <span class="op">=</span> <span class="fl">1.0</span>,   <span class="co"># ms</span></span>
+<span>    tau_slow              <span class="op">=</span> <span class="fl">60.0</span>,  <span class="co"># ms</span></span>
+<span>    tau_Vs                <span class="op">=</span> <span class="fl">100.0</span>, <span class="co"># ms/spike</span></span>
+<span>    dCdr                  <span class="op">=</span> <span class="fl">0.01</span>,  <span class="co"># concentration/spike</span></span>
+<span>    dVdr                  <span class="op">=</span> <span class="fl">0.05</span>,  <span class="co"># concentration/spike</span></span>
+<span>    max_spike_rate        <span class="op">=</span> <span class="fl">0.1</span>,   <span class="co"># spikes/ms</span></span>
+<span>    g_leak                <span class="op">=</span> <span class="fl">1.0</span>,   <span class="co"># nS</span></span>
+<span>    <span class="co"># Intercell transmission</span></span>
+<span>    spike_velocity        <span class="op">=</span> <span class="fl">500</span>,   <span class="co"># micons/ms, = 0.5 m/s</span></span>
+<span>    spine_density         <span class="op">=</span> <span class="fl">0.0</span>,</span>
+<span>    axon_target           <span class="op">=</span> <span class="st">"dendrite_shaft"</span>,</span>
+<span>    <span class="co"># Spiking</span></span>
+<span>    I_spike               <span class="op">=</span> <span class="fl">1e3</span>,   <span class="co"># pA</span></span>
+<span>    dHdv_bound            <span class="op">=</span> <span class="fl">1.05</span>,</span>
+<span>    v_spike               <span class="op">=</span> <span class="fl">35</span>,    <span class="co"># mV</span></span>
+<span>    tau_spike             <span class="op">=</span> <span class="fl">1.0</span>,   <span class="co"># ms</span></span>
+<span>    v_threshold           <span class="op">=</span> <span class="op">-</span><span class="fl">55</span>,   <span class="co"># mV</span></span>
+<span>    v_eq                  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span> <span class="op">(</span> <span class="co"># mV</span></span>
+<span>      <span class="st">"spiny stellate"</span> <span class="op">=</span> <span class="fl">0.0</span>,    <span class="co"># Excitatory, so drives postsynaptic cell membrane v up</span></span>
+<span>      <span class="st">"PV"</span>             <span class="op">=</span> <span class="op">-</span><span class="fl">80.0</span><span class="op">)</span>, <span class="co"># Inhibitory, so drives postsynaptic cell membrane v down</span></span>
+<span>    <span class="co"># Membrane characteristics </span></span>
+<span>    v_rest                <span class="op">=</span> <span class="op">-</span><span class="fl">70</span>,   <span class="co"># mV</span></span>
+<span>    v_bound               <span class="op">=</span> <span class="fl">1.15</span>,</span>
+<span>    g_syn                 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>  <span class="co"># nS</span></span>
+<span>      <span class="st">"spiny stellate"</span> <span class="op">=</span> <span class="fl">0.1</span>,</span>
+<span>      <span class="st">"PV"</span>             <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span>, </span>
+<span>    tau_syn               <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>  <span class="co"># ms</span></span>
+<span>      <span class="st">"spiny stellate"</span> <span class="op">=</span> <span class="fl">2.0</span>,   <span class="co"># Excitatory glutamate channels close quickly</span></span>
+<span>      <span class="st">"PV"</span>             <span class="op">=</span> <span class="fl">6.0</span><span class="op">)</span>,  <span class="co"># Inhibitory GABA channels stay open longer</span></span>
+<span>    <span class="co"># Neurite structure </span></span>
+<span>    axon_branch_count     <span class="op">=</span> <span class="fl">20</span>, </span>
+<span>    dendrite_branch_count <span class="op">=</span> <span class="fl">20</span>, </span>
+<span>    branch_independence   <span class="op">=</span> <span class="fl">0.75</span>, </span>
+<span>    branch_spread         <span class="op">=</span> <span class="fl">0.75</span>, </span>
+<span>    apical_target_layer   <span class="op">=</span> <span class="st">"none"</span></span>
 <span>  <span class="op">)</span></span>
+<span></span>
 <span></span>
 <span><span class="va">integrating_cell</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/set.network.structure.html">set.network.structure</a></span><span class="op">(</span></span>
 <span>    <span class="va">integrating_cell</span>, </span>
-<span>    neuron_types <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"leaky_integrator"</span><span class="op">)</span>, </span>
+<span>    neuron_types     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"leaky integrator"</span><span class="op">)</span>, </span>
 <span>    neurons_per_node <span class="op">=</span> <span class="fl">1</span></span>
 <span>  <span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
@@ -314,34 +344,28 @@ simulation:</p>
 <span><span class="va">stim_end</span>       <span class="op">&lt;-</span> <span class="va">stim_start</span> <span class="op">+</span> <span class="va">stim_length</span> <span class="op">-</span> <span class="fl">1</span></span>
 <span><span class="va">short_stims</span>    <span class="op">&lt;-</span> <span class="va">no_stim</span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">stim_start</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">short_stims</span><span class="op">[</span>, <span class="va">stim_start</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">:</span><span class="va">stim_end</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">stim_magnitude</span> <span class="op">*</span> <span class="va">pico_amp</span></span>
+<span>  <span class="va">short_stims</span><span class="op">[</span>, <span class="va">stim_start</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">:</span><span class="va">stim_end</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">stim_magnitude</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">integrating_cell_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.SGT.html">run.SGT</a></span><span class="op">(</span></span>
 <span>  <span class="va">integrating_cell</span>,</span>
 <span>  <span class="va">short_stims</span>,</span>
 <span>  <span class="va">dt</span>,</span>
-<span>  initial_potential <span class="op">=</span> <span class="op">-</span><span class="fl">70</span></span>
+<span>  v_initial <span class="op">=</span> <span class="op">-</span><span class="fl">70</span></span>
 <span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/plot-network-traces.html">plot.network.traces</a></span><span class="op">(</span><span class="va">integrating_cell</span>, input_matrix <span class="op">=</span> <span class="va">short_stims</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/plot-network-traces.html">plot.network.traces</a></span><span class="op">(</span><span class="va">integrating_cell</span>, I_stim <span class="op">=</span> <span class="va">short_stims</span>, plot_rates <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 <p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating-1.png" class="r-plt" alt="" width="700"></p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">bursting_cell</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/new.network.html">new.network</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/add.cell.type.html">add.cell.type</a></span><span class="op">(</span></span>
-<span>    <span class="st">"bursting_cell"</span>,</span>
-<span>    valence        <span class="op">=</span> <span class="fl">1.0</span>, <span class="co"># excititory cell</span></span>
-<span>    tau_fast       <span class="op">=</span> <span class="fl">1.0</span>,</span>
-<span>    tau_slow       <span class="op">=</span> <span class="fl">60.0</span>,</span>
-<span>    tau_Vs         <span class="op">=</span> <span class="fl">100.0</span>,</span>
-<span>    I_slow         <span class="op">=</span> <span class="fl">0.035</span>, </span>
-<span>    U_Vs           <span class="op">=</span> <span class="fl">0.05</span>, </span>
-<span>    max_spike_rate <span class="op">=</span> <span class="fl">0.1</span>,</span>
-<span>    threshold      <span class="op">=</span> <span class="op">-</span><span class="fl">55</span>, <span class="co"># the default, showing for clarity</span></span>
+<span><span class="fu"><a href="../reference/modify.cell.type.html">modify.cell.type</a></span><span class="op">(</span></span>
+<span>    <span class="st">"leaky integrator"</span>, </span>
+<span>    <span class="st">"bursting cell"</span>,</span>
+<span>    dCdr <span class="op">=</span> <span class="fl">0.05</span>, <span class="co"># up from 0.01, to induce bursting</span></span>
 <span>  <span class="op">)</span></span>
 <span></span>
 <span><span class="va">bursting_cell</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/set.network.structure.html">set.network.structure</a></span><span class="op">(</span></span>
 <span>    <span class="va">bursting_cell</span>, </span>
-<span>    neuron_types <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"bursting_cell"</span><span class="op">)</span>, </span>
+<span>    neuron_types <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"bursting cell"</span><span class="op">)</span>, </span>
 <span>    neurons_per_node <span class="op">=</span> <span class="fl">1</span></span>
 <span>  <span class="op">)</span></span></code></pre></div>
 <div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
@@ -354,57 +378,27 @@ simulation:</p>
 <span><span class="va">stim_end</span>       <span class="op">&lt;-</span> <span class="va">stim_start</span> <span class="op">+</span> <span class="va">stim_length</span> <span class="op">-</span> <span class="fl">1</span></span>
 <span><span class="va">long_stims</span>     <span class="op">&lt;-</span> <span class="va">no_stim</span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">stim_start</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">long_stims</span><span class="op">[</span>, <span class="va">stim_start</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">:</span><span class="va">stim_end</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">stim_magnitude</span> <span class="op">*</span> <span class="va">pico_amp</span></span>
+<span>  <span class="va">long_stims</span><span class="op">[</span>, <span class="va">stim_start</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">:</span><span class="va">stim_end</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">stim_magnitude</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">bursting_cell_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.SGT.html">run.SGT</a></span><span class="op">(</span></span>
 <span>  <span class="va">bursting_cell</span>,</span>
 <span>  <span class="va">long_stims</span>,</span>
 <span>  <span class="va">dt</span>,</span>
-<span>  initial_potential <span class="op">=</span> <span class="op">-</span><span class="fl">70</span></span>
+<span>  v_initial <span class="op">=</span> <span class="op">-</span><span class="fl">70</span></span>
 <span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/plot-network-traces.html">plot.network.traces</a></span><span class="op">(</span><span class="va">bursting_cell</span>, input_matrix <span class="op">=</span> <span class="va">long_stims</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/plot-network-traces.html">plot.network.traces</a></span><span class="op">(</span><span class="va">bursting_cell</span>, I_stim <span class="op">=</span> <span class="va">long_stims</span>, plot_rates <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 <p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting-1.png" class="r-plt" alt="" width="700"></p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">bursting_cell_results</span><span class="op">[[</span><span class="st">"slow_current_traces"</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span>, type <span class="op">=</span> <span class="st">"l"</span>, ylab <span class="op">=</span> <span class="st">"slow current direction"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting-2.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">bursting_cell_results</span><span class="op">[[</span><span class="st">"Ca_traces"</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span>, type <span class="op">=</span> <span class="st">"l"</span>, ylab <span class="op">=</span> <span class="st">"Calcium"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting-3.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">bursting_cell_results</span><span class="op">[[</span><span class="st">"tau_slow_effect_traces"</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span>, type <span class="op">=</span> <span class="st">"l"</span>, ylab <span class="op">=</span> <span class="st">"tau_slow (bursting)"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting-4.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">bursting_cell_results</span><span class="op">[[</span><span class="st">"Vs_traces"</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span>, type <span class="op">=</span> <span class="st">"l"</span>, ylab <span class="op">=</span> <span class="st">"Vs (STD)"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting-5.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">bursting_cell_results</span><span class="op">[[</span><span class="st">"T_traces"</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span>, type <span class="op">=</span> <span class="st">"l"</span>, ylab <span class="op">=</span> <span class="st">"T"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting-6.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">integrating_cell_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.SGT.html">run.SGT</a></span><span class="op">(</span></span>
 <span>  <span class="va">integrating_cell</span>,</span>
 <span>  <span class="va">long_stims</span>,</span>
 <span>  <span class="va">dt</span>,</span>
-<span>  initial_potential <span class="op">=</span> <span class="op">-</span><span class="fl">70</span></span>
+<span>  v_initial <span class="op">=</span> <span class="op">-</span><span class="fl">70</span></span>
 <span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/plot-network-traces.html">plot.network.traces</a></span><span class="op">(</span><span class="va">integrating_cell</span>, input_matrix <span class="op">=</span> <span class="va">long_stims</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/plot-network-traces.html">plot.network.traces</a></span><span class="op">(</span><span class="va">integrating_cell</span>, I_stim <span class="op">=</span> <span class="va">long_stims</span>, plot_rates <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
 <p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating_long-1.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">integrating_cell_results</span><span class="op">[[</span><span class="st">"slow_current_traces"</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span>, type <span class="op">=</span> <span class="st">"l"</span>, ylab <span class="op">=</span> <span class="st">"slow current direction"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating_long-2.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">integrating_cell_results</span><span class="op">[[</span><span class="st">"Ca_traces"</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span>, type <span class="op">=</span> <span class="st">"l"</span>, ylab <span class="op">=</span> <span class="st">"Calcium"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating_long-3.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">integrating_cell_results</span><span class="op">[[</span><span class="st">"tau_slow_effect_traces"</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span>, type <span class="op">=</span> <span class="st">"l"</span>, ylab <span class="op">=</span> <span class="st">"tau_slow (bursting)"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating_long-4.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">integrating_cell_results</span><span class="op">[[</span><span class="st">"Vs_traces"</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span>, type <span class="op">=</span> <span class="st">"l"</span>, ylab <span class="op">=</span> <span class="st">"Vs (STD)"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating_long-5.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">integrating_cell_results</span><span class="op">[[</span><span class="st">"T_traces"</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span>,  type <span class="op">=</span> <span class="st">"l"</span>, ylab <span class="op">=</span> <span class="st">"T"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating_long-6.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Set stimulus start and length</span></span>
 <span><span class="va">stim_length_ms</span>  <span class="op">&lt;-</span> <span class="fl">800</span></span>
 <span><span class="va">stim_start_ms</span>   <span class="op">&lt;-</span> <span class="fl">100</span></span>
@@ -414,41 +408,94 @@ simulation:</p>
 <span><span class="va">stim_end</span>        <span class="op">&lt;-</span> <span class="va">stim_start</span> <span class="op">+</span> <span class="va">stim_length</span> <span class="op">-</span> <span class="fl">1</span></span>
 <span><span class="va">continuous_stim</span> <span class="op">&lt;-</span> <span class="va">no_stim</span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">stim_start</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
-<span>  <span class="va">continuous_stim</span><span class="op">[</span>, <span class="va">stim_start</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">:</span><span class="va">stim_end</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">stim_magnitude</span> <span class="op">*</span> <span class="va">pico_amp</span></span>
+<span>  <span class="va">continuous_stim</span><span class="op">[</span>, <span class="va">stim_start</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">:</span><span class="va">stim_end</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">stim_magnitude</span></span>
 <span><span class="op">}</span></span></code></pre></div>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">bursting_cell_results_long</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.SGT.html">run.SGT</a></span><span class="op">(</span></span>
-<span>  <span class="va">bursting_cell</span>,</span>
-<span>  <span class="va">continuous_stim</span>,</span>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">network_both</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/new.network.html">new.network</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="va">network_both</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/set.network.structure.html">set.network.structure</a></span><span class="op">(</span></span>
+<span>    <span class="va">network_both</span>, </span>
+<span>    neuron_types <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"bursting cell"</span>, <span class="st">"leaky integrator"</span><span class="op">)</span>, </span>
+<span>    neurons_per_node <span class="op">=</span> <span class="fl">1</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="va">no_stim2</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fl">0</span>, nrow <span class="op">=</span> <span class="fl">2</span>, ncol <span class="op">=</span> <span class="va">n_steps</span><span class="op">)</span></span>
+<span><span class="va">continuous_stim2</span> <span class="op">&lt;-</span> <span class="va">no_stim2</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">stim_start</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">continuous_stim2</span><span class="op">[</span>, <span class="va">stim_start</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">:</span><span class="va">stim_end</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">stim_magnitude</span></span>
+<span><span class="op">}</span></span>
+<span><span class="va">network_both_long</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.SGT.html">run.SGT</a></span><span class="op">(</span></span>
+<span>  <span class="va">network_both</span>,</span>
+<span>  <span class="va">continuous_stim2</span>,</span>
 <span>  <span class="va">dt</span>,</span>
-<span>  initial_potential <span class="op">=</span> <span class="op">-</span><span class="fl">70</span></span>
+<span>  v_initial <span class="op">=</span> <span class="op">-</span><span class="fl">70</span></span>
 <span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/plot-network-traces.html">plot.network.traces</a></span><span class="op">(</span><span class="va">bursting_cell</span>, input_matrix <span class="op">=</span> <span class="va">continuous_stim</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/plot-network-traces.html">plot.network.traces</a></span><span class="op">(</span></span>
+<span>  <span class="va">network_both</span>, </span>
+<span>  I_stim <span class="op">=</span> <span class="va">continuous_stim2</span>, </span>
+<span>  plot_rates   <span class="op">=</span> <span class="cn">TRUE</span>, </span>
+<span>  window_size  <span class="op">=</span> <span class="fl">0.1</span>,</span>
+<span>  return_plot  <span class="op">=</span> <span class="cn">TRUE</span></span>
+<span>  <span class="op">)</span></span></code></pre></div>
+<pre><code><span><span class="co">## Warning: Removed 49996 rows containing missing values or values outside the scale range (`geom_line()`).</span></span>
+<span><span class="co">## Removed 49996 rows containing missing values or values outside the scale range (`geom_line()`).</span></span></code></pre>
 <p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting_continuous-1.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">bursting_cell_results_long</span><span class="op">[[</span><span class="st">"slow_current_traces"</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span>, type <span class="op">=</span> <span class="st">"l"</span>, ylab <span class="op">=</span> <span class="st">"slow current direction"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting_continuous-2.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">bursting_cell_results_long</span><span class="op">[[</span><span class="st">"Ca_traces"</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span>, type <span class="op">=</span> <span class="st">"l"</span>, ylab <span class="op">=</span> <span class="st">"Calcium"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting_continuous-3.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">bursting_cell_results_long</span><span class="op">[[</span><span class="st">"tau_slow_effect_traces"</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span>, type <span class="op">=</span> <span class="st">"l"</span>, ylab <span class="op">=</span> <span class="st">"tau_slow (bursting)"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting_continuous-4.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">bursting_cell_results_long</span><span class="op">[[</span><span class="st">"Vs_traces"</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span>, type <span class="op">=</span> <span class="st">"l"</span>, ylab <span class="op">=</span> <span class="st">"Vs (STD)"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting_continuous-5.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">bursting_cell_results_long</span><span class="op">[[</span><span class="st">"T_traces"</span><span class="op">]</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span>, type <span class="op">=</span> <span class="st">"l"</span>, ylab <span class="op">=</span> <span class="st">"T"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting_continuous-6.png" class="r-plt" alt="" width="700"></p>
-<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">integrating_cell_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.SGT.html">run.SGT</a></span><span class="op">(</span></span>
-<span>  <span class="va">integrating_cell</span>,</span>
-<span>  <span class="va">continuous_stim</span>,</span>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/modify.cell.type.html">modify.cell.type</a></span><span class="op">(</span></span>
+<span>    <span class="st">"leaky integrator"</span>,</span>
+<span>    <span class="st">"slow recovery"</span>,</span>
+<span>    tau_Vs <span class="op">=</span> <span class="fl">500.0</span> <span class="co"># up from 100.0</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/modify.cell.type.html">modify.cell.type</a></span><span class="op">(</span></span>
+<span>    <span class="st">"leaky integrator"</span>, </span>
+<span>    <span class="st">"slow drain"</span>,</span>
+<span>    dVdr <span class="op">=</span> <span class="fl">0.01</span> <span class="co"># down from 0.05</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="va">network_both</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/new.network.html">new.network</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="va">network_both</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/set.network.structure.html">set.network.structure</a></span><span class="op">(</span></span>
+<span>    <span class="va">network_both</span>, </span>
+<span>    neuron_types <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"leaky integrator"</span>, <span class="st">"slow recovery"</span>, <span class="st">"slow drain"</span><span class="op">)</span>, </span>
+<span>    neurons_per_node <span class="op">=</span> <span class="fl">1</span></span>
+<span>  <span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Set stimulus start and length</span></span>
+<span><span class="va">stim_length_ms</span>  <span class="op">&lt;-</span> <span class="fl">1200</span></span>
+<span><span class="va">stim_start_ms</span>   <span class="op">&lt;-</span> <span class="fl">100</span></span>
+<span><span class="co"># Find start and end steps of the input stimulus current</span></span>
+<span><span class="va">stim_length</span>     <span class="op">&lt;-</span> <span class="va">stim_length_ms</span> <span class="op">/</span> <span class="va">dt</span></span>
+<span><span class="va">stim_start</span>      <span class="op">&lt;-</span> <span class="va">stim_start_ms</span> <span class="op">/</span> <span class="va">dt</span></span>
+<span><span class="va">stim_end</span>        <span class="op">&lt;-</span> <span class="va">stim_start</span> <span class="op">+</span> <span class="va">stim_length</span> <span class="op">-</span> <span class="fl">1</span></span>
+<span><span class="va">no_stim2</span>          <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="fl">0</span>, nrow <span class="op">=</span> <span class="fl">3</span>, ncol <span class="op">=</span> <span class="va">stim_end</span> <span class="op">+</span> <span class="op">(</span><span class="fl">100</span><span class="op">/</span><span class="va">dt</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">continuous_stim2</span>  <span class="op">&lt;-</span> <span class="va">no_stim2</span></span>
+<span><span class="va">recover_start_ms</span>  <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">200</span>, <span class="fl">500</span><span class="op">)</span></span>
+<span><span class="va">recover_length_ms</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">100</span>, <span class="fl">500</span><span class="op">)</span></span>
+<span><span class="va">recover_start</span>     <span class="op">&lt;-</span> <span class="va">recover_start_ms</span> <span class="op">/</span> <span class="va">dt</span></span>
+<span><span class="va">recover_length</span>    <span class="op">&lt;-</span> <span class="va">recover_length_ms</span> <span class="op">/</span> <span class="va">dt</span></span>
+<span><span class="va">recover_end</span>       <span class="op">&lt;-</span> <span class="va">recover_start</span> <span class="op">+</span> <span class="va">recover_length</span> <span class="op">-</span> <span class="fl">1</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">stim_start</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">continuous_stim2</span><span class="op">[</span>, <span class="va">stim_start</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">:</span><span class="va">stim_end</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">stim_magnitude</span></span>
+<span><span class="op">}</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">recover_start</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">continuous_stim2</span><span class="op">[</span>, <span class="va">recover_start</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">:</span><span class="va">recover_end</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">0</span></span>
+<span><span class="op">}</span></span>
+<span><span class="va">network_both_long</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.SGT.html">run.SGT</a></span><span class="op">(</span></span>
+<span>  <span class="va">network_both</span>,</span>
+<span>  <span class="va">continuous_stim2</span>,</span>
 <span>  <span class="va">dt</span>,</span>
-<span>  initial_potential <span class="op">=</span> <span class="op">-</span><span class="fl">70</span></span>
+<span>  v_initial <span class="op">=</span> <span class="op">-</span><span class="fl">70</span></span>
 <span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/plot-network-traces.html">plot.network.traces</a></span><span class="op">(</span><span class="va">integrating_cell</span>, input_matrix <span class="op">=</span> <span class="va">continuous_stim</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/unnamed-chunk-4-1.png" class="r-plt" alt="" width="700"></p>
+<span><span class="va">plt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plot-network-traces.html">plot.network.traces</a></span><span class="op">(</span><span class="va">network_both</span>, I_stim <span class="op">=</span> <span class="va">continuous_stim2</span>, plot_rates <span class="op">=</span> <span class="cn">TRUE</span>, window_size <span class="op">=</span> <span class="fl">0.05</span>, return_plot <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="va">plt</span> <span class="op">&lt;-</span> <span class="va">plt</span> <span class="op">&amp;</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span></span>
+<span>            plot.title       <span class="op">=</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>hjust <span class="op">=</span> <span class="fl">0.5</span>, size <span class="op">=</span> <span class="fl">14</span><span class="op">)</span>,</span>
+<span>            axis.title.y     <span class="op">=</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">10</span><span class="op">)</span>,</span>
+<span>            axis.text.y      <span class="op">=</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/element.html" class="external-link">element_text</a></span><span class="op">(</span>size <span class="op">=</span> <span class="fl">8</span><span class="op">)</span></span>
+<span>          <span class="op">)</span> </span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">p</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">plt</span><span class="op">[[</span><span class="va">p</span><span class="op">]</span><span class="op">]</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">plt</span><span class="op">[[</span><span class="va">p</span><span class="op">]</span><span class="op">]</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span> <span class="op">+</span> <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_cartesian.html" class="external-link">coord_cartesian</a></span><span class="op">(</span>ylim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">120</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu">ggplot2</span><span class="fu">::</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_abline.html" class="external-link">geom_hline</a></span><span class="op">(</span></span>
+<span>    yintercept <span class="op">=</span> <span class="fl">75</span>,</span>
+<span>    color <span class="op">=</span> <span class="st">"red"</span>,</span>
+<span>    linetype <span class="op">=</span> <span class="st">"dashed"</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div>
 <h2>
 Temporal modulation
 </h2>

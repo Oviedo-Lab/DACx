@@ -36,6 +36,10 @@ load.projection.into.motif(
 
 \item{max_col_shift_down}{Maximum number of columns downwards (decreasing columnar indexes) that the projection can reach (default: 0, should be positive integer).}
 
+\item{max_pch_shift_up}{Same as \code{max_col_shift_up}, but for secondary columnar axis "patch".}
+
+\item{max_pch_shift_down}{Same as \code{max_col_shift_down}, but for secondary columnar axis "patch".}
+
 \item{hem_shift}{Hemisphere shift for the projection: 0 = same hemisphere (default), 1 = contralateral hemisphere. Ignored when the network has only one hemisphere.}
 }
 \value{

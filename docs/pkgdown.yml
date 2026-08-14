@@ -4,12 +4,12 @@ pkgdown_sha: ~
 articles:
   install: install.html
   license: license.html
+  tutorial_BGT: tutorial_BGT.html
   tutorial_celltypes: tutorial_celltypes.html
-  tutorial_math: tutorial_math.html
+  tutorial_EI_loops: tutorial_EI_loops.html
   tutorial_membrane_temporal_dynamics: tutorial_membrane_temporal_dynamics.html
   tutorial_network_topology: tutorial_network_topology.html
-  tutorial_SGT: tutorial_SGT.html
-last_built: 2026-08-03T13:49Z
+last_built: 2026-08-16T00:54Z
 urls:
   reference: https://Oviedo-Lab.org/DACx/reference
   article: https://Oviedo-Lab.org/DACx/articles

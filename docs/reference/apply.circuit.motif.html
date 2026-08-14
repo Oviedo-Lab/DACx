@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">DACx</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -25,10 +25,10 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Tutorials</h6></li>
     <li><a class="dropdown-item" href="../articles/tutorial_network_topology.html">Network topology from circuit motifs</a></li>
-    <li><a class="dropdown-item" href="../articles/tutorial_math.html">Mathematics of GT models</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_BGT.html">Biological growth-transform models</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial_membrane_temporal_dynamics.html">Single-cell temporal dynamics</a></li>
-    <li><a class="dropdown-item" href="../articles/tutorial_SGT.html">Spatial growth-transform models</a></li>
-    <li><a class="dropdown-item" href="../articles/tutorial_celltypes.html">Cell types</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_EI_loops.html">Excitatory-inhibitory feedback loops</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_celltypes.html">Customizing cell types</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Legal</h6></li>
     <li><a class="dropdown-item" href="../articles/license.html">Dependency licenses</a></li>
@@ -61,7 +61,7 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">apply.circuit.motif</span><span class="op">(</span><span class="va">network</span>, <span class="va">motif</span>, verbose <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">apply.circuit.motif</span><span class="op">(</span><span class="va">network</span>, <span class="va">motif</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -74,10 +74,6 @@
 
 <dt id="arg-motif">motif<a class="anchor" aria-label="anchor" href="#arg-motif"></a></dt>
 <dd><p>Motif object defining the circuit motif to apply.</p></dd>
-
-
-<dt id="arg-verbose">verbose<a class="anchor" aria-label="anchor" href="#arg-verbose"></a></dt>
-<dd><p>Logical indicating whether to print progress messages during motif application (default: TRUE).</p></dd>
 
 </dl></div>
     <div class="section level2">

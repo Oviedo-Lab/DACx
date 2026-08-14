@@ -6,7 +6,13 @@ Growth-Transform (SGT) simulation.
 ## Usage
 
 ``` r
-plot.network.traces(network, return_plot)
+plot.network.traces(
+  network, 
+  return_plot = FALSE, 
+  I_stim      = NULL, 
+  window_size = 0.01, 
+  plot_rates  = TRUE
+)
 ```
 
 ## Arguments
@@ -20,12 +26,22 @@ plot.network.traces(network, return_plot)
   Logical indicating whether to return the ggplot object (TRUE) or print
   it (FALSE) (default: FALSE).
 
-- input_matrix:
+- I_stim:
 
   Matrix of stimulus currents, with rows representing neurons and
   columns representing sample times. Presumably the one used to generate
   the traces. Options. If provided, will be added to the bottom of the
   plot.
+
+- window_size:
+
+  Proportion of time steps to use as a moving window for computing spike
+  rate (default: 0.01).
+
+- plot_rates:
+
+  Boolean specifying whether to include a plot of estimated mean spike
+  rate for each cell type above the type's membrane potential plot.
 
 ## Value
 

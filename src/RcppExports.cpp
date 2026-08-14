@@ -21,50 +21,39 @@ BEGIN_RCPP
 END_RCPP
 }
 // fetch_cell_type_params
-List fetch_cell_type_params(const std::string& type_name);
+List fetch_cell_type_params(std::string type_name);
 RcppExport SEXP _DACx_fetch_cell_type_params(SEXP type_nameSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const std::string& >::type type_name(type_nameSEXP);
+    Rcpp::traits::input_parameter< std::string >::type type_name(type_nameSEXP);
     rcpp_result_gen = Rcpp::wrap(fetch_cell_type_params(type_name));
     return rcpp_result_gen;
 END_RCPP
 }
-// add_cell_type
-void add_cell_type(const List& params);
-RcppExport SEXP _DACx_add_cell_type(SEXP paramsSEXP) {
-BEGIN_RCPP
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const List& >::type params(paramsSEXP);
-    add_cell_type(params);
-    return R_NilValue;
-END_RCPP
-}
-// modify_cell_type
-void modify_cell_type(const std::string& type_name, const List& params);
-RcppExport SEXP _DACx_modify_cell_type(SEXP type_nameSEXP, SEXP paramsSEXP) {
+// build_cell_type_from_list
+void build_cell_type_from_list(const std::string& type_name, const List& params);
+RcppExport SEXP _DACx_build_cell_type_from_list(SEXP type_nameSEXP, SEXP paramsSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const std::string& >::type type_name(type_nameSEXP);
     Rcpp::traits::input_parameter< const List& >::type params(paramsSEXP);
-    modify_cell_type(type_name, params);
+    build_cell_type_from_list(type_name, params);
     return R_NilValue;
 END_RCPP
 }
 
 RcppExport SEXP _rcpp_module_boot_motif();
 RcppExport SEXP _rcpp_module_boot_network();
-RcppExport SEXP _rcpp_module_boot_Projection();
+RcppExport SEXP _rcpp_module_boot_Prj();
 
 static const R_CallMethodDef CallEntries[] = {
     {"_DACx_print_known_celltypes", (DL_FUNC) &_DACx_print_known_celltypes, 0},
     {"_DACx_fetch_cell_type_params", (DL_FUNC) &_DACx_fetch_cell_type_params, 1},
-    {"_DACx_add_cell_type", (DL_FUNC) &_DACx_add_cell_type, 1},
-    {"_DACx_modify_cell_type", (DL_FUNC) &_DACx_modify_cell_type, 2},
+    {"_DACx_build_cell_type_from_list", (DL_FUNC) &_DACx_build_cell_type_from_list, 2},
     {"_rcpp_module_boot_motif", (DL_FUNC) &_rcpp_module_boot_motif, 0},
     {"_rcpp_module_boot_network", (DL_FUNC) &_rcpp_module_boot_network, 0},
-    {"_rcpp_module_boot_Projection", (DL_FUNC) &_rcpp_module_boot_Projection, 0},
+    {"_rcpp_module_boot_Prj", (DL_FUNC) &_rcpp_module_boot_Prj, 0},
     {NULL, NULL, 0}
 };
 

@@ -1,30 +1,38 @@
-# Modify existing cell type
+# Modify existing cell type or add new cell type based on existing cell type
 
 This function modifies parameters of an existing cell type in the
 current session. Parameters can be updated selectively. If a parameter
 is not specified (or is specified as `NULL`), the existing value will be
-kept.
+kept. Will either generate a new cell type from an existing one, or
+modify an existing one, depending on whether `new_type_name` is
+specified.
 
 ## Usage
 
 ``` r
 modify.cell.type(
-  type_name,
-  valence = NULL,
+  old_type_name,
+  new_type_name = NULL,
   tau_fast = NULL,
   tau_slow = NULL,
   tau_Vs = NULL,
-  I_slow = NULL,
-  U_Vs = NULL,
+  dCdr = NULL,
+  dVdr = NULL,
   max_spike_rate = NULL,
-  transmission_velocity = NULL,
+  g_leak = NULL,
+  spike_velocity = NULL,
   spine_density = NULL,
   axon_target = NULL,
   I_spike = NULL,
-  spike_potential = NULL,
-  resting_potential = NULL,
-  threshold = NULL,
-  leak_conductance = NULL,
+  dHdv_bound = NULL,
+  v_spike = NULL,
+  tau_spike = NULL,
+  v_threshold = NULL,
+  v_eq = NULL,
+  v_rest = NULL,
+  v_bound = NULL,
+  g_syn = NULL,
+  tau_syn = NULL,
   axon_branch_count = NULL,
   dendrite_branch_count = NULL,
   branch_independence = NULL,
@@ -35,36 +43,40 @@ modify.cell.type(
 
 ## Arguments
 
-- type_name:
+- old_type_name:
 
-  Character string giving name of the cell type, e.g. "pyramidal", "PV",
-  "SST", etc.
+  Character string giving name of the cell type from which to start,
+  e.g. "pyramidal", "PV", "SST", etc.
 
-- valence:
+- new_type_name:
 
-  Valence of each neuron type, +1 for excitatory, -1 for inhibitory.
+  Character string giving name to label new cell type created from
+  `old_type_name`. If `NULL`, `old_type_name` is modified directly and
+  no new cell type is created.
 
 - tau_fast:
 
-  Time constant (ms) of the fast sodium (Na+) current (positive current,
-  time to flow in).
+  Time constant (ms) of the fast sodium (Na+) current (Na+ influx is
+  inward, i.e. negative under the outward-positive convention; time to
+  flow in).
 
 - tau_slow:
 
-  Time constant (ms) of the slow calcium (Ca2+) current (negative
-  current, time to pump out).
+  Time constant (ms) of the slow calcium (Ca2+) current (Ca2+ influx is
+  inward, i.e. negative under the outward-positive convention; time to
+  pump out).
 
 - tau_Vs:
 
   Time constant (ms) for restoring presynaptic vesicles, i.e., recovery
   from short-term depression (STD).
 
-- I_slow:
+- dCdr:
 
-  Slow-current molecule (e.g., Ca2+) influx as concentration per spike
+  Slow-current molecule (Ca2+) influx as concentration per spike
   (concentration/spike).
 
-- U_Vs:
+- dVdr:
 
   Utilization ratio (concentration/spike) of vesicles per spike.
 
@@ -73,7 +85,12 @@ modify.cell.type(
   Constant (spikes/ms) controlling estimation of spike rate and its
   maximum value.
 
-- transmission_velocity:
+- g_leak:
+
+  Conductance controlling the leak current,
+  `I_leak = g_leak * (v - v_rest)` (outward-positive), in nS.
+
+- spike_velocity:
 
   Transmission velocity (in microns/ms) along axon, for each neuron
   type.
@@ -90,26 +107,62 @@ modify.cell.type(
 
 - I_spike:
 
-  Spike current, in pA; absolute value plus a little bit used as
-  `dHdv_bound`.
+  Spike current, in pA.
 
-- spike_potential:
+- dHdv_bound:
+
+  Scale factor giving the bound on derivative of metabolic energy wrt
+  potential, such that `dHdv_bound * I_spike > abs(dHdv)`, for each
+  neuron in the network, based on its type.
+
+- v_spike:
 
   Peak potential during a spike, in mV.
 
-- resting_potential:
+- tau_spike:
+
+  Time spike activates synapse, in ms.
+
+- v_threshold:
+
+  Spike threshold, in mV.
+
+- v_eq:
+
+  Induced potential (mV) at which no current naturally flows across this
+  cell type's membrane, given the neurotransmitter released by each
+  possible presynaptic cell type (e.g., 0 mV for an excitatory
+  presynaptic cell, -70 mV for an inhibitory presynaptic cell). Accepts
+  the same formats as `g_syn`.
+
+- v_rest:
 
   Resting potential, in mV; absolute value plus a little bit used as
   `v_bound`.
 
-- threshold:
+- v_bound:
 
-  Spike threshold, in mV.
+  Multiplier on the absolute value of `v_rest` giving the membrane
+  potential barrier (mirrors `dHdv_bound`). Increase to allow
+  hyperpolarization below rest.
 
-- leak_conductance:
+- g_syn:
 
-  Conductance controlling the leak current,
-  `I_leak = leak_conductance * (resting_potential - v)`, in nS.
+  Conductance (nS) of this cell type's synapses, treating this cell type
+  as postsynaptic and indexing by the type of each possible presynaptic
+  cell. Can be a single number (applied uniformly to every presynaptic
+  type), a numeric vector ordered as in
+  [`print.known.celltypes()`](https://Oviedo-Lab.org/DACx/reference/print-known-celltypes.md),
+  or a named list keyed by presynaptic type name, e.g.
+  `list(pyramidal = 0.xx, PV = 0.yy)`.
+
+- tau_syn:
+
+  Decay time constant (ms) of the postsynaptic current evoked by the
+  neurotransmitter of each possible presynaptic cell type (e.g., faster
+  for AMPA, slower for GABA_A). A larger value makes the current outlast
+  the presynaptic spike; 0 recovers an instantaneous (boxcar) current.
+  Accepts the same formats as `g_syn`.
 
 - axon_branch_count:
 

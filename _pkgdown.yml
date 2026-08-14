@@ -29,9 +29,9 @@ articles:
   navbar: Tutorials
   contents: 
   - tutorial_network_topology
-  - tutorial_math
+  - tutorial_BGT
   - tutorial_membrane_temporal_dynamics
-  - tutorial_SGT
+  - tutorial_EI_loops
   - starts_with("tutorial_")
 
 - title: Legal
@@ -65,7 +65,6 @@ reference:
   contents:
   - print.known.celltypes
   - fetch.cell.type.params
-  - add.cell.type
   - modify.cell.type
   - principal.neurons
   

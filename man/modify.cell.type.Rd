@@ -2,31 +2,31 @@
 % Please edit documentation in R/DACx.R
 \name{modify.cell.type}
 \alias{modify.cell.type}
-\title{Modify existing cell type}
+\title{Modify existing cell type or add new cell type based on existing cell type}
 \usage{
 modify.cell.type(
   old_type_name,
   new_type_name = NULL,
-  synaptic_conductance = NULL,
-  equilibrium_potential = NULL,
-  tau_syn = NULL,
   tau_fast = NULL,
   tau_slow = NULL,
   tau_Vs = NULL,
-  I_slow = NULL,
-  U_Vs = NULL,
+  dCdr = NULL,
+  dVdr = NULL,
   max_spike_rate = NULL,
-  transmission_velocity = NULL,
+  g_leak = NULL,
+  spike_velocity = NULL,
   spine_density = NULL,
   axon_target = NULL,
   I_spike = NULL,
   dHdv_bound = NULL,
-  spike_potential = NULL,
-  spike_width = NULL,
-  resting_potential = NULL,
+  v_spike = NULL,
+  tau_spike = NULL,
+  v_threshold = NULL,
+  v_eq = NULL,
+  v_rest = NULL,
   v_bound = NULL,
-  threshold = NULL,
-  leak_conductance = NULL,
+  g_syn = NULL,
+  tau_syn = NULL,
   axon_branch_count = NULL,
   dendrite_branch_count = NULL,
   branch_independence = NULL,
@@ -35,13 +35,9 @@ modify.cell.type(
 )
 }
 \arguments{
-\item{old_type_name}{Character string giving name of the cell type, e.g. "pyramidal", "PV", "SST", etc.}
+\item{old_type_name}{Character string giving name of the cell type from which to start, e.g. "pyramidal", "PV", "SST", etc.}
 
-\item{synaptic_conductance}{Conductance (nS) of this cell type's synapses, treating this cell type as post-synaptic and indexing by the type of each possible pre-synaptic cell. Can be a single number (applied uniformly to every pre-synaptic type), a numeric vector ordered as in \code{print.known.celltypes()}, or a named list keyed by pre-synaptic type name, e.g. \code{list(pyramidal = 0.15, PV = 0.08)}.}
-
-\item{equilibrium_potential}{Induced potential (mV) at which no current naturally flows across this cell type's membrane, given the neurotransmitter released by each possible pre-synaptic cell type (e.g., 0 mV for an excitatory pre-synaptic cell, -70 mV for an inhibitory pre-synaptic cell). Accepts the same formats as \code{synaptic_conductance}.}
-
-\item{tau_syn}{Decay time constant (ms) of the post-synaptic current evoked by the neurotransmitter of each possible pre-synaptic cell type (e.g., faster for AMPA, slower for GABA_A). A larger value makes the current outlast the pre-synaptic spike; 0 recovers an instantaneous (boxcar) current. Accepts the same formats as \code{synaptic_conductance}.}
+\item{new_type_name}{Character string giving name to label new cell type created from \code{old_type_name}. If \code{NULL}, \code{old_type_name} is modified directly and no new cell type is created.}
 
 \item{tau_fast}{Time constant (ms) of the fast sodium (Na+) current (Na+ influx is inward, i.e. negative under the outward-positive convention; time to flow in).}
 
@@ -49,13 +45,15 @@ modify.cell.type(
 
 \item{tau_Vs}{Time constant (ms) for restoring presynaptic vesicles, i.e., recovery from short-term depression (STD).}
 
-\item{I_slow}{Slow-current molecule (e.g., Ca2+) influx as concentration per spike (concentration/spike).}
+\item{dCdr}{Slow-current molecule (Ca2+) influx as concentration per spike (concentration/spike).}
 
-\item{U_Vs}{Utilization ratio (concentration/spike) of vesicles per spike.}
+\item{dVdr}{Utilization ratio (concentration/spike) of vesicles per spike.}
 
 \item{max_spike_rate}{Constant (spikes/ms) controlling estimation of spike rate and its maximum value.}
 
-\item{transmission_velocity}{Transmission velocity (in microns/ms) along axon, for each neuron type.}
+\item{g_leak}{Conductance controlling the leak current, \code{I_leak = g_leak * (v - v_rest)} (outward-positive), in nS.}
+
+\item{spike_velocity}{Transmission velocity (in microns/ms) along axon, for each neuron type.}
 
 \item{spine_density}{Scale controlling percentage of dendrite nodes with spines: zero means none, one means all.}
 
@@ -65,17 +63,21 @@ modify.cell.type(
 
 \item{dHdv_bound}{Scale factor giving the bound on derivative of metabolic energy wrt potential, such that \code{dHdv_bound * I_spike > abs(dHdv)}, for each neuron in the network, based on its type.}
 
-\item{spike_potential}{Peak potential during a spike, in mV.}
+\item{v_spike}{Peak potential during a spike, in mV.}
 
-\item{spike_width}{Time spike activates synapse, in ms.}
+\item{tau_spike}{Time spike activates synapse, in ms.}
 
-\item{resting_potential}{Resting potential, in mV; absolute value plus a little bit used as \code{v_bound}.}
+\item{v_threshold}{Spike threshold, in mV.}
 
-\item{v_bound}{Multiplier on the absolute value of \code{resting_potential} giving the membrane potential barrier (mirrors \code{dHdv_bound}). Increase to allow hyperpolarization below rest.}
+\item{v_eq}{Induced potential (mV) at which no current naturally flows across this cell type's membrane, given the neurotransmitter released by each possible presynaptic cell type (e.g., 0 mV for an excitatory presynaptic cell, -70 mV for an inhibitory presynaptic cell). Accepts the same formats as \code{g_syn}.}
 
-\item{threshold}{Spike threshold, in mV.}
+\item{v_rest}{Resting potential, in mV; absolute value plus a little bit used as \code{v_bound}.}
 
-\item{leak_conductance}{Conductance controlling the leak current, \code{I_leak = leak_conductance * (v - resting_potential)} (outward-positive), in nS.}
+\item{v_bound}{Multiplier on the absolute value of \code{v_rest} giving the membrane potential barrier (mirrors \code{dHdv_bound}). Increase to allow hyperpolarization below rest.}
+
+\item{g_syn}{Conductance (nS) of this cell type's synapses, treating this cell type as postsynaptic and indexing by the type of each possible presynaptic cell. Can be a single number (applied uniformly to every presynaptic type), a numeric vector ordered as in \code{print.known.celltypes()}, or a named list keyed by presynaptic type name, e.g. \code{list(pyramidal = 0.xx, PV = 0.yy)}.}
+
+\item{tau_syn}{Decay time constant (ms) of the postsynaptic current evoked by the neurotransmitter of each possible presynaptic cell type (e.g., faster for AMPA, slower for GABA_A). A larger value makes the current outlast the presynaptic spike; 0 recovers an instantaneous (boxcar) current. Accepts the same formats as \code{g_syn}.}
 
 \item{axon_branch_count}{Expected number of axon branches.}
 
@@ -91,5 +93,5 @@ modify.cell.type(
 Nothing.
 }
 \description{
-This function modifies parameters of an existing cell type in the current session. Parameters can be updated selectively. If a parameter is not specified (or is specified as \code{NULL}), the existing value will be kept.
+This function modifies parameters of an existing cell type in the current session. Parameters can be updated selectively. If a parameter is not specified (or is specified as \code{NULL}), the existing value will be kept. Will either generate a new cell type from an existing one, or modify an existing one, depending on whether \code{new_type_name} is specified.
 }

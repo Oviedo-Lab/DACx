@@ -1,28 +1,27 @@
 # Plot network as directed graph
 
-This function plots a network object as a directed graph using ggplot2.
-Nodes represent neurons, and directed edges represent connections
-between them. The plot can be customized by selecting which motif to
-display and how to color the edges.
+This function plots a network object using ggplot2. Nodes represent
+neurons. Can plot either connections as edges, or neuron arbors. Can
+also be in 2D (collapsing the patch axis) or 3D.
 
 ## Usage
 
 ``` r
 plot.network(
  network, 
- soma_mask = NULL,
- arbor_idx = NULL,
- threedim = FALSE,
- title = NULL, 
- soma_density = 1.0,
- arbor_density = 0.01,
- arbor_cell_type = "all",
- plot_motif = "all", 
- reconstruct_arbors = TRUE,
- edge_color = "pre_type", 
- soma_color = "layer", 
- soma_size_factor = 0.5, 
- return_plot = TRUE,
+ soma_mask             = NULL,
+ arbor_idx             = NULL,
+ threedim              = FALSE,
+ title                 = NULL, 
+ soma_density          = 1.0,
+ arbor_density         = 0.01,
+ arbor_cell_type       = "all",
+ plot_motif            = "all", 
+ reconstruct_arbors    = TRUE,
+ edge_color            = "pre_type", 
+ soma_color            = "layer", 
+ soma_size_factor      = 0.5, 
+ return_plot           = TRUE,
  return_cell_arbor_idx = TRUE
 )
 ```
@@ -36,28 +35,27 @@ plot.network(
 - soma_mask:
 
   Logical vector of length equal to the number of neurons in the
-  network, indicating which neurons to include in the plot (TRUE for
-  included neurons, FALSE for excluded neurons). If NULL (default), a
-  random sample of neurons will be selected based on the specified
-  soma_density. Useful for reproducing the same cells across plots.
+  network, indicating which neurons to include in the plot (`TRUE` for
+  included neurons, `FALSE` for excluded neurons). If `NULL` (default),
+  a random sample of neurons will be selected based on the specified
+  `soma_density`. Useful for reproducing the same cells across plots.
 
 - arbor_idx:
 
   Integer vector giving the indices of neurons for which to plot arbors
-  (i.e., axonal and dendritic processes). If NULL (default), a random
+  (i.e., axonal and dendritic processes). If `NULL` (default), a random
   sample of neurons will be selected based on the specified
-  arbor_density and arbor_cell_type. Useful for reproducing the same
+  `arbor_density` and `arbor_cell_type`. Useful for reproducing the same
   cells across plots.
 
 - threedim:
 
   Logical indicating whether to plot in 3D or to collapse the patch
-  dimension and plot in 2D (default: FALSE).
+  dimension and plot in 2D (default: `FALSE`).
 
 - title:
 
-  Title for the plot (default: "Cortex" or network name (if provided),
-  plus plot motif name(s)).
+  Title for the plot (default: "Network Topology").
 
 - soma_density:
 
@@ -86,17 +84,15 @@ plot.network(
 
 - plot_motif:
 
-  Character string specifying which motif to plot (applies only if
-  plotting edges; as arbors can be built from multiple motifs, cannot
-  plot arbors by motif); options include "all" for all, "local
-  connections" for local connections within each node, or the name of a
-  long-range projection motif (default: "all").
+  Character string specifying which motif to plot; options include "all"
+  for all, "local connections" for local connections within each node,
+  or the name of a long-range projection motif (default: "all").
 
 - reconstruct_arbors:
 
   Logical indicating whether to reconstruct axonal and dendritic arbors
   for the neurons in the plot, or whether to instead show synaptic
-  connections as straight edges (default: TRUE, but can be
+  connections as straight edges (default: `TRUE`, but can be
   computationally intensive).
 
 - edge_color:
@@ -125,14 +121,14 @@ plot.network(
 - return_plot:
 
   Logical indicating whether to return the ggplot object or print the
-  plot directly (default: TRUE).
+  plot directly (default: `TRUE`).
 
 - return_cell_arbor_idx:
 
-  Logical indicating whether to return the soma_mask and arbor_idx used
-  for plotting or not (default: TRUE).
+  Logical indicating whether to return the `soma_mask` and `arbor_idx`
+  used for plotting or not (default: `TRUE`).
 
 ## Value
 
 Either prints the plot directly or returns the ggplot object, depending
-on the value of return_plot.
+on the value of `return_plot`.

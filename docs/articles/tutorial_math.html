@@ -22,7 +22,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">DACx</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -45,7 +45,7 @@
     <li><a class="dropdown-item" href="../articles/tutorial_math.html">Mathematics of GT models</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial_membrane_temporal_dynamics.html">Single-cell temporal dynamics</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial_SGT.html">Spatial growth-transform models</a></li>
-    <li><a class="dropdown-item" href="../articles/tutorial_celltypes.html">Cell types</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_celltypes.html">Customizing cell types</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Legal</h6></li>
     <li><a class="dropdown-item" href="../articles/license.html">Dependency licenses</a></li>
@@ -285,11 +285,9 @@ I_\mathrm{synaptic\;transmission} - I_\mathrm{membrane\;current} +
 I_\mathrm{spike}</span> In this equation, <span class="math inline">I_\mathrm{synaptic\;transmission}</span> is the
 input current induced by synaptic transmission across all synapses,
 <span class="math inline">I_\mathrm{membrane\;current}</span> gives the
-current across the membrane of each neuron due to external stimuli
-(<span class="math inline">I_\mathrm{stim}</span>) and intrinsic
-membrane leak (<span class="math inline">I_\mathrm{leak}</span>), and
-<span class="math inline">I_\mathrm{spike}</span> gives the spike
-current (if any). The stimulus current <span class="math inline">I_\mathrm{stim}</span> is what’s specified by the
+current across the cell membrane due to external stimuli (<span class="math inline">I_\mathrm{stim}</span>) and intrinsic membrane leak
+(<span class="math inline">I_\mathrm{leak}</span>), and <span class="math inline">I_\mathrm{spike}</span> gives the spike current (if
+any). The stimulus current <span class="math inline">I_\mathrm{stim}</span> is what’s specified by the
 simulation variable <span class="code_variable">stimulus_current_matrix</span>, while the membrane
 leak current <span class="math inline">I_\mathrm{leak}</span> is
 determiend by the cell type parameter <span class="code_variable">leak_conductance</span>. The spike current <span class="math inline">I_\mathrm{spike}</span> is determined by simple

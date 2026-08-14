@@ -1,7 +1,7 @@
 ---
-title: "Mathematics of GT models"
+title: "Biological growth-transform models"
 author: "Michael Barkasi"
-date: "August 1, 2026 (v1.0)"
+date: "August 15, 2026 (v1.0)"
 ---
 
 ```{r Rmdsetup, echo=FALSE}
@@ -11,6 +11,26 @@ knitr::opts_chunk$set(class.output = "scroll-output", cache = TRUE)
 ```
 
 <h2>Introduction</h2>
+
+The simplest mathematical models of neural networks are built from homogeneous McCulloch-Pitts neurons with atemporal, scalar-weight connections between them. Biological neural networks, such as those in the mammalian brain, are far more complex. They contain different types of neurons each with their own electrical behavior and spatiotemporally extended connections. 
+
+<div class="figure">
+  <img src="fig_MPN.png" alt="Example diagram of a simple neural network from the original 1943 paper by McCulloch and Pitts" width="65%">
+  <p class="caption">A sample neural network diagram from the original [1943 paper](https://link.springer.com/article/10.1007/BF02478259) by McCulloch and Pitts.</p>
+</div>
+
+Computational neuroscientists standardly model biological neural networks as [dynamical systems](https://philpapers.org/rec/ELIMBM-3), i.e., as having time-dependent states. [Growth-transform](https://doi.org/10.3389/fnins.2020.00425) (GT) models, extended to spiking neural networks by Gangopadhyay and Chakrabartty, are one example. These models treat the change in membrane potential over time, $\partial v/\partial t$, as a growth-transform of the membrane potentials $v$ on the net metabolic power $\mathcal{H}$ of a network, in the sense that it's assumed that $\partial v/\partial t$ satisfies the [Baum-Eagon inequality](https://doi.org/10.1090/S0002-9904-1967-11751-8): 
+\[\mathcal{H}(v)\leq \mathcal{H}(v + \partial v/\partial t)\]
+In other words: 
+\[\frac{\partial\mathcal{H}}{\partial v}\frac{\partial v}{\partial t} \leq 0\]
+Thus, GT models are essentially energy-minimization models of neural dynamics. This is in contrast to models such as Hodgkin-Huxley, which describe neural dynamics directly in terms of ionic currents. Despite this apparent disconnect from biology, DACx is based on a [biological interpretation](tutorial_math.html) of the underlying mathematics of GT models. 
+
+In practical terms, instead of only a weight between two homogeneous neurons, GT models use both a cell-type-dependent synaptic conductance parameter and a cell-type-dependent temporal modulation factor to determine network behavior. The synaptic conductance parameter is essentially a traditional connection weight, while the [temporal modulation factor](tutorial_membrane_temporal_dynamics.html) allows for capturing the electrodynamics $\partial v/\partial t$ of different neuron types at a single spatial point. 
+
+The GT models implemented in the DACx package add a third aspect of biological realism not captured by the original formulation of Gangopadhyay and Chakrabartty: a transmission velocity parameter for each neuron type. While the temporal modulation factor controls membrane voltage over time at a *single* spatial point, the transmission velocity parameter determines the rate at which changes in membrane voltage *propagate between neurons*. 
+For this reason, we refer to our GT models as *spatial GT* (SGT) models. 
+
+SGT models thus allow for network topologies that not only capture connection strengths between neurons, but also the different types of neurons and their electrodynamics across both time *and space*. A [separate tutorial](tutorial_network_topology.html) demonstrates how to build spatially extended network topologies for these models from circuit motifs. This tutorial explains SGT models in more detail. 
 
 Suppose our network has $n$ neurons $N$. We want to run a simulation of the membrane potential $v(t)$ of each neuron $N$ over time $t$. Naturally, the system evolves so that: 
 \[v(t+1) = v(t) + \left.\frac{\partial v}{\partial t}\right|_{t+1}\]
@@ -121,3 +141,10 @@ Notice that unlike a leaky integrate-and-fire neuron, $\partial v/\partial t$ it
 and hence $f\approx -1$, because, in general, $(x-y)/(y-x)=-1$. Thus, when $v\approx v_\mathrm{threshold}$:
 \[v + \frac{\partial v}{\partial t }\approx -v_\mathrm{rest}\]
 At first glance, this seems off by a sign: shouldn't $\partial v/\partial t $ return us to $v_\mathrm{rest}$ when near $v_\mathrm{threshold}$? Yes, but the issue is easy enough to fix: simply add a negation to our definition of $f$. In the actual DACx code, the relevant multiple for $f$ is not $v_\mathrm{rest}$, but  $|v_\mathrm{rest}| + \epsilon$ for some small $\epsilon$, but the result is the same: the model produces a reset to a value near the rest potential after a spike, without any explicit reset mechanism.
+
+<h2>Spatial lag</h2> 
+
+What about $I_\mathrm{synaptic\;transmission}$, the input current induced by synaptic transmission across all synapses? We assume that the induced post-synaptic current is equal to the inducing pre-synaptic potential, modulated by the synaptic conduction. However, the complicating factor is that, given spatial distance between cells and synaptic transmission time, the relevant pre-synaptic potential $v$ at time $t$ from pre-synaptic neuron $N$ may not be $v(t)$, but rather $v(t^\prime)$ for some $t^\prime < t$.
+
+Let $\vec{v} = \langle v_1, v_2, \ldots, v_n\rangle$ be the vector of membrane potentials for all $n$ neurons in the network at time $t$. Further, let $V$ be a $n\times n$ time-dependent matrix which captures how each neuron "sees" the others. Specifically, $V_{ij}(t)$ is the membrane potential of neuron $N_i$ that reaches neuron $N_j$ at time $t$. Then, assuming $Q$ is an $n\times n$ matrix of synaptic connections such that $Q_{ij}$ is the conductance from neuron $j$ to neuron $i$, we have that:
+\[I_\mathrm{synaptic\;transmission}(N_i) = \sum_{j=1}^n Q_{ij}V_{ji}(t)\]

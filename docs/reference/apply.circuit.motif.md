@@ -7,7 +7,7 @@ defined projections.
 ## Usage
 
 ``` r
-apply.circuit.motif(network, motif, verbose = FALSE)
+apply.circuit.motif(network, motif)
 ```
 
 ## Arguments
@@ -19,11 +19,6 @@ apply.circuit.motif(network, motif, verbose = FALSE)
 - motif:
 
   Motif object defining the circuit motif to apply.
-
-- verbose:
-
-  Logical indicating whether to print progress messages during motif
-  application (default: TRUE).
 
 ## Value
 

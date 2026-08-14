@@ -11,7 +11,7 @@ in a list.
 ## Usage
 
 ``` r
-run.SGT(network, stimulus_current_matrix, dt = 0.001, initial_potential = -70)
+run.SGT(network, I_stim, dt = 0.001, v_initial = -70)
 ```
 
 ## Arguments
@@ -20,7 +20,7 @@ run.SGT(network, stimulus_current_matrix, dt = 0.001, initial_potential = -70)
 
   Network object on which to run the simulation.
 
-- stimulus_current_matrix:
+- I_stim:
 
   Matrix of stimulus currents, with rows representing neurons and
   columns representing sample times.
@@ -29,9 +29,9 @@ run.SGT(network, stimulus_current_matrix, dt = 0.001, initial_potential = -70)
 
   Time step length in ms (default: 1e-3, i.e., 1 micosecond time steps).
 
-- initial_potential:
+- v_initial:
 
-  Initial value for membrane potential, applied to all cells (Default is
+  Initial value for membrane potential, applied to all cells (default:
   -70 mV).
 
 ## Value
@@ -40,8 +40,8 @@ List containing the following elements:
 
 - v_traces:
 
-  Matrix of simulated spike traces for all neurons over time (neurons as
-  rows, sample times as columns).
+  Matrix of simulated sub-threshold voltage + spike traces for all
+  neurons over time (neurons as rows, sample times as columns).
 
 - spike_counts:
 

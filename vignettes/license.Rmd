@@ -1,7 +1,7 @@
 ---
 title: "Dependency licenses"
 author: "Michael Barkasi"
-date: "July 13, 2026 (v1.0)"
+date: "August 13, 2026 (v1.1)"
 ---
 
 This package uses code from the following packages, which are distributed under the licenses listed below.

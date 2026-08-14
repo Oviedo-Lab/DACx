@@ -10,7 +10,7 @@ load.projection.into.motif(
   motif,
   presynaptic_layer,
   postsynaptic_layer,
-  projection_conductance = 0.1,
+  pre_neuron_fraction = 0.5,
   presynaptic_type = "principal",
   postsynaptic_type = "principal",
   max_col_shift_up = 0,
@@ -38,10 +38,12 @@ load.projection.into.motif(
   Character string, or vector of character strings, giving layer of
   postsynaptic neuron.
 
-- projection_conductance:
+- pre_neuron_fraction:
 
-  Numeric giving overall strength of the projection, as expected
-  synaptic conductance (nS, default: 0.1).
+  Numeric between 0 and 1 giving the fraction of eligible presynaptic
+  neurons that send axons in this projection (default: 0.5). This
+  controls projection sparsity; conductance values are automatically
+  looked up from neuron type properties.
 
 - presynaptic_type:
 
@@ -62,6 +64,14 @@ load.projection.into.motif(
 
   Maximum number of columns downwards (decreasing columnar indexes) that
   the projection can reach (default: 0, should be positive integer).
+
+- max_pch_shift_up:
+
+  Same as `max_col_shift_up`, but for secondary columnar axis "patch".
+
+- max_pch_shift_down:
+
+  Same as `max_col_shift_down`, but for secondary columnar axis "patch".
 
 - hem_shift:
 

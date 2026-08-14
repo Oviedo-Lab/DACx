@@ -33,10 +33,9 @@
   : Print known cell types
 - [`fetch.cell.type.params()`](https://Oviedo-Lab.org/DACx/reference/fetch.cell.type.params.md)
   : Fetch cell type parameters
-- [`add.cell.type()`](https://Oviedo-Lab.org/DACx/reference/add.cell.type.md)
-  : Add new cell type
 - [`modify.cell.type()`](https://Oviedo-Lab.org/DACx/reference/modify.cell.type.md)
-  : Modify existing cell type
+  : Modify existing cell type or add new cell type based on existing
+  cell type
 - [`principal.neurons()`](https://Oviedo-Lab.org/DACx/reference/principal.neurons.md)
   : Return principal neurons by standard layers
 

@@ -94,10 +94,9 @@ Copyright (C) 2026, Michael Barkasi <barkasi@wustl.edu>
   : Print known cell types
 - [`fetch.cell.type.params()`](https://Oviedo-Lab.org/DACx/reference/fetch.cell.type.params.md)
   : Fetch cell type parameters
-- [`add.cell.type()`](https://Oviedo-Lab.org/DACx/reference/add.cell.type.md)
-  : Add new cell type
 - [`modify.cell.type()`](https://Oviedo-Lab.org/DACx/reference/modify.cell.type.md)
-  : Modify existing cell type
+  : Modify existing cell type or add new cell type based on existing
+  cell type
 - [`principal.neurons()`](https://Oviedo-Lab.org/DACx/reference/principal.neurons.md)
   : Return principal neurons by standard layers
 
@@ -114,13 +113,13 @@ Copyright (C) 2026, Michael Barkasi <barkasi@wustl.edu>
 
 - [Network topology from circuit
   motifs](https://Oviedo-Lab.org/DACx/articles/tutorial_network_topology.md):
-- [Mathematics of GT
-  models](https://Oviedo-Lab.org/DACx/articles/tutorial_math.md):
+- [Biological growth-transform
+  models](https://Oviedo-Lab.org/DACx/articles/tutorial_BGT.md):
 - [Single-cell temporal
   dynamics](https://Oviedo-Lab.org/DACx/articles/tutorial_membrane_temporal_dynamics.md):
-- [Spatial growth-transform
-  models](https://Oviedo-Lab.org/DACx/articles/tutorial_SGT.md):
-- [Cell
+- [Excitatory-inhibitory feedback
+  loops](https://Oviedo-Lab.org/DACx/articles/tutorial_EI_loops.md):
+- [Customizing cell
   types](https://Oviedo-Lab.org/DACx/articles/tutorial_celltypes.md):
 
 ### Legal

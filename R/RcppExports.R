@@ -9,11 +9,7 @@ fetch_cell_type_params <- function(type_name) {
     .Call(`_DACx_fetch_cell_type_params`, type_name)
 }
 
-add_cell_type <- function(params) {
-    invisible(.Call(`_DACx_add_cell_type`, params))
-}
-
-modify_cell_type <- function(type_name, params) {
-    invisible(.Call(`_DACx_modify_cell_type`, type_name, params))
+build_cell_type_from_list <- function(type_name, params) {
+    invisible(.Call(`_DACx_build_cell_type_from_list`, type_name, params))
 }
 

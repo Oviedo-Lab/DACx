@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">DACx</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.0</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">1.1</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -25,10 +25,10 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Tutorials</h6></li>
     <li><a class="dropdown-item" href="../articles/tutorial_network_topology.html">Network topology from circuit motifs</a></li>
-    <li><a class="dropdown-item" href="../articles/tutorial_math.html">Mathematics of GT models</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_BGT.html">Biological growth-transform models</a></li>
     <li><a class="dropdown-item" href="../articles/tutorial_membrane_temporal_dynamics.html">Single-cell temporal dynamics</a></li>
-    <li><a class="dropdown-item" href="../articles/tutorial_SGT.html">Spatial growth-transform models</a></li>
-    <li><a class="dropdown-item" href="../articles/tutorial_celltypes.html">Cell types</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_EI_loops.html">Excitatory-inhibitory feedback loops</a></li>
+    <li><a class="dropdown-item" href="../articles/tutorial_celltypes.html">Customizing cell types</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Legal</h6></li>
     <li><a class="dropdown-item" href="../articles/license.html">Dependency licenses</a></li>
@@ -61,7 +61,7 @@
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">run.SGT</span><span class="op">(</span><span class="va">network</span>, <span class="va">stimulus_current_matrix</span>, dt <span class="op">=</span> <span class="fl">0.001</span>, initial_potential <span class="op">=</span> <span class="op">-</span><span class="fl">70</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">run.SGT</span><span class="op">(</span><span class="va">network</span>, <span class="va">I_stim</span>, dt <span class="op">=</span> <span class="fl">0.001</span>, v_initial <span class="op">=</span> <span class="op">-</span><span class="fl">70</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -72,7 +72,7 @@
 <dd><p>Network object on which to run the simulation.</p></dd>
 
 
-<dt id="arg-stimulus-current-matrix">stimulus_current_matrix<a class="anchor" aria-label="anchor" href="#arg-stimulus-current-matrix"></a></dt>
+<dt id="arg-i-stim">I_stim<a class="anchor" aria-label="anchor" href="#arg-i-stim"></a></dt>
 <dd><p>Matrix of stimulus currents, with rows representing neurons and columns representing sample times.</p></dd>
 
 
@@ -80,15 +80,15 @@
 <dd><p>Time step length in ms (default: 1e-3, i.e., 1 micosecond time steps).</p></dd>
 
 
-<dt id="arg-initial-potential">initial_potential<a class="anchor" aria-label="anchor" href="#arg-initial-potential"></a></dt>
-<dd><p>Initial value for membrane potential, applied to all cells (Default is -70 mV).</p></dd>
+<dt id="arg-v-initial">v_initial<a class="anchor" aria-label="anchor" href="#arg-v-initial"></a></dt>
+<dd><p>Initial value for membrane potential, applied to all cells (default: -70 mV).</p></dd>
 
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>List containing the following elements:</p>
 <dl><dt>v_traces</dt>
-<dd><p>Matrix of simulated spike traces for all neurons over time (neurons as rows, sample times as columns).</p></dd>
+<dd><p>Matrix of simulated sub-threshold voltage + spike traces for all neurons over time (neurons as rows, sample times as columns).</p></dd>
  <dt>spike_counts</dt>
 <dd><p>Vector of spike counts for each neuron in the network.</p></dd>
 

@@ -26,8 +26,6 @@ set.network.structure(
   layer_separation_factor = 2.5,
   column_separation_factor = 2.5,
   patch_separation_factor = 2.5,
-  local_synaptic_conductance = 0.1,
-  subcortical_local_conductance = 0.1,
   synaptic_neighborhood = 10,
   neurons_per_node = 10
 )
@@ -41,8 +39,8 @@ set.network.structure(
 
 - neuron_types:
 
-  Character vector giving types of neurons in the network. Known types
-  can be accessed using
+  Character vector giving (names of) types of neurons in the network.
+  Known types can be accessed using
   [`print.known.celltypes()`](https://Oviedo-Lab.org/DACx/reference/print-known-celltypes.md).
   Default is "principal", which will assign the most common neuron type
   for each layer, as defined in
@@ -50,12 +48,13 @@ set.network.structure(
 
 - hemisphere_names:
 
-  Character vector of length n_hemispheres giving names for the
-  hemispheres (default: auto-generated as "left" or c("left","right")).
+  Character vector of length `n_hemispheres` giving names for the
+  hemispheres (default: auto-generated as "left" or c("left","right"),
+  depending on if there are one or two hemispheres).
 
 - subcortical_layer_names:
 
-  Character vector of length n_subcortical_layers giving names for the
+  Character vector of length `n_subcortical_layers` giving names for the
   subcortical layers (default: auto-generated as "subL1", "subL2", ...).
   Must be distinct from all cortical layer names.
 
@@ -76,42 +75,40 @@ set.network.structure(
 
 - n_layers:
 
-  Integer giving number of cortical layers in the network.
+  Integer giving number of cortical layers in the network (default: 1).
 
 - n_columns:
 
-  Integer giving number of columns in the network.
+  Integer giving number of columns in the network (default: 1).
 
 - n_patches:
 
   Integer giving the number of "patches" (n_layers x n_columns sheets)
-  in the network.
+  in the network. This is the secondarly columnar axis, orthogonal to
+  the laminar and principal columnar axes (default: 1).
 
 - layer_height:
 
-  Numeric giving height of each layer (default value is 180.0, which
-  assumes an implicit unit of micron).
+  Numeric giving height of each layer (default: 180.0 micron).
 
 - column_diameter:
 
-  Numeric giving diameter of each column (default value is 120.0, which
-  assumes an implicit unit of micron).
+  Numeric giving diameter of each column (default: 120.0 micron).
 
 - segment_length:
 
   Numeric giving expected length of each segment in the axonal and
-  dendritic processes of each neuron (default value is 20.0, which
-  assumes an implicit unit of micron).
+  dendritic processes of each neuron (default: 20.0 micron).
 
 - hem_separation_factor:
 
   Numeric giving distance between hemispheres as a fraction of column
-  diameter (default: 5.0).
+  diameter (default: 40.0).
 
 - sub_separation_factor:
 
   Numeric giving distance from the cortical sheet to the first
-  subcortical layer as a fraction of layer height (default: 5.0).
+  subcortical layer as a fraction of layer height (default: 20.0).
 
 - layer_separation_factor:
 
@@ -128,34 +125,18 @@ set.network.structure(
   Numeric giving mean distance between network patches as a fraction of
   column diameter (default: 2.5).
 
-- local_synaptic_conductance:
-
-  List (one entry per cortical layer) of matrices giving synaptic
-  conductance in nS for local connections by cell-type; each matrix must
-  have dimensions matching length of neuron_types (rows and columns).
-
-- subcortical_local_conductance:
-
-  List (one entry per subcortical layer) of matrices giving synaptic
-  conductance for local connections in each subcortical layer. Required
-  if n_subcortical_layers \> 0; can be a single matrix or scalar
-  (broadcast to all layers).
-
 - synaptic_neighborhood:
 
   Numeric giving the radius (in microns) within which an axon node will
-  trigger a synapse when near a dendrite node (default: 10.0).
-
-- neurons_per_node:
-
-  Matrix giving mean number of neurons of each type per node in each
-  layer, with cortical layers first and then subcortical layers;
-  dimensions must match n_layers + n_subcortical_layers (rows) and
-  length of neuron_types (columns), or 2 \* (n_layers +
-  n_subcortical_layers) if specifying different cell type counts for a
-  second hemisphere. If there are two hemispheres but only n_layers +
-  n_subcortical_layers rows, then the counts are reused for the second
-  hemisphere.
+  trigger a synapse when near a dendrite node (default: 10.0). \#'
+  @param neurons_per_node Matrix giving mean number of neurons of each
+  type per node in each layer, with cortical layers first and then
+  subcortical layers; dimensions must match
+  `n_layers + n_subcortical_layers` (rows) and length of `neuron_types`
+  (columns), or `2 * (n_layers + n_subcortical_layers)` if specifying
+  different cell type counts for a second hemisphere. If there are two
+  hemispheres but only `n_layers + n_subcortical_layers` rows, then the
+  counts are reused for the second hemisphere.
 
 ## Value
 

@@ -1,13 +1,13 @@
 Package: DACx
 Type: Package
 Title: Digital Auditory Cortex
-Version: 1.0
-Date: 2026-04-02
+Version: 1.1
+Date: 2026-08-13
 Author: Michael Barkasi
 Maintainer: Michael Barkasi <barkasi@wustl.edu>
 Description: Digital twin of the auditory cortex made with a biologically realistic spiking neural network model.
 License: GPL 3
 Imports: Rcpp (>= 1.0.13), RcppEigen, ggplot2, colorspace, plotly, patchwork
-LinkingTo: Rcpp, RcppEigen, BH, MASS
+LinkingTo: Rcpp, RcppEigen
 SystemRequirements: NLopt
 RoxygenNote: 7.3.3

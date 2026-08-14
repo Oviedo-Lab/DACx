@@ -1,4 +1,4 @@
-# Cell types
+# Customizing cell types
 
 ## Under construction!
 
@@ -33,20 +33,22 @@ print.known.celltypes()
 ## Known cell types:
 ## 
 ## Type: SST
-##   Valence: -1
-##   Time constant, fast current (ms): 1
+##   Time constant, fast current (ms): 5
 ##   Time constant, slow current (ms): 60
 ##   STD recovery time constant (spikes/ms): 100
 ##   Slow current influx (concentration/spike): 0.035
 ##   Vesicle utilization ratio (concentration/spike): 0.05
 ##   Spike recovery rate (spikes/ms): 0.1
 ##   Leak conductance (nS): 10
-##   Transmission velocity (micron/ms): 30000
+##   Transmission velocity (micron/ms): 1000
 ##   Spine density: 0
 ##   Axon target: dendrite_shaft
 ##   Spike current (pA): 1000
+##   dHdv bound (* I_spike): 1.05
 ##   Spike potential (mV): 35
+##   Spike width (ms): 1
 ##   Resting potential (mV): -70
+##   v_bound (* |v_rest|): 1.15
 ##   Spike threshold (mV): -55
 ##   Axon branch count: 10
 ##   Dendrite branch count: 10
@@ -55,20 +57,22 @@ print.known.celltypes()
 ##   Apical target layer: none
 ## 
 ## Type: PV
-##   Valence: -1
-##   Time constant, fast current (ms): 1
+##   Time constant, fast current (ms): 2.5
 ##   Time constant, slow current (ms): 60
 ##   STD recovery time constant (spikes/ms): 100
 ##   Slow current influx (concentration/spike): 0.01
 ##   Vesicle utilization ratio (concentration/spike): 0.05
-##   Spike recovery rate (spikes/ms): 0.1
-##   Leak conductance (nS): 10
-##   Transmission velocity (micron/ms): 30000
+##   Spike recovery rate (spikes/ms): 0.3
+##   Leak conductance (nS): 20
+##   Transmission velocity (micron/ms): 1000
 ##   Spine density: 0
 ##   Axon target: soma
 ##   Spike current (pA): 1000
+##   dHdv bound (* I_spike): 1.05
 ##   Spike potential (mV): 35
+##   Spike width (ms): 0.3
 ##   Resting potential (mV): -70
+##   v_bound (* |v_rest|): 1.15
 ##   Spike threshold (mV): -55
 ##   Axon branch count: 10
 ##   Dendrite branch count: 10
@@ -77,20 +81,22 @@ print.known.celltypes()
 ##   Apical target layer: none
 ## 
 ## Type: callosal_PV
-##   Valence: -1
-##   Time constant, fast current (ms): 1
+##   Time constant, fast current (ms): 2.5
 ##   Time constant, slow current (ms): 60
 ##   STD recovery time constant (spikes/ms): 100
 ##   Slow current influx (concentration/spike): 0.01
 ##   Vesicle utilization ratio (concentration/spike): 0.05
-##   Spike recovery rate (spikes/ms): 0.1
-##   Leak conductance (nS): 10
-##   Transmission velocity (micron/ms): 30000
+##   Spike recovery rate (spikes/ms): 0.3
+##   Leak conductance (nS): 20
+##   Transmission velocity (micron/ms): 1000
 ##   Spine density: 0
 ##   Axon target: soma
 ##   Spike current (pA): 1000
+##   dHdv bound (* I_spike): 1.05
 ##   Spike potential (mV): 35
+##   Spike width (ms): 0.3
 ##   Resting potential (mV): -70
+##   v_bound (* |v_rest|): 1.15
 ##   Spike threshold (mV): -55
 ##   Axon branch count: 20
 ##   Dendrite branch count: 10
@@ -99,20 +105,22 @@ print.known.celltypes()
 ##   Apical target layer: none
 ## 
 ## Type: neurogliaform_cell
-##   Valence: -1
-##   Time constant, fast current (ms): 1
+##   Time constant, fast current (ms): 5
 ##   Time constant, slow current (ms): 120
 ##   STD recovery time constant (spikes/ms): 100
 ##   Slow current influx (concentration/spike): 0.035
 ##   Vesicle utilization ratio (concentration/spike): 0.05
 ##   Spike recovery rate (spikes/ms): 0.1
 ##   Leak conductance (nS): 10
-##   Transmission velocity (micron/ms): 15000
+##   Transmission velocity (micron/ms): 500
 ##   Spine density: 0
 ##   Axon target: dendrite_shaft
 ##   Spike current (pA): 1000
+##   dHdv bound (* I_spike): 1.05
 ##   Spike potential (mV): 35
+##   Spike width (ms): 1
 ##   Resting potential (mV): -70
+##   v_bound (* |v_rest|): 1.15
 ##   Spike threshold (mV): -55
 ##   Axon branch count: 10
 ##   Dendrite branch count: 10
@@ -120,21 +128,47 @@ print.known.celltypes()
 ##   Branch spread: 0.75
 ##   Apical target layer: none
 ## 
+## Type: neuron
+##   Time constant, fast current (ms): 5
+##   Time constant, slow current (ms): 60
+##   STD recovery time constant (spikes/ms): 100
+##   Slow current influx (concentration/spike): 0.01
+##   Vesicle utilization ratio (concentration/spike): 0.05
+##   Spike recovery rate (spikes/ms): 0.1
+##   Leak conductance (nS): 10
+##   Transmission velocity (micron/ms): 1000
+##   Spine density: 0
+##   Axon target: dendrite_shaft
+##   Spike current (pA): 1000
+##   dHdv bound (* I_spike): 1.05
+##   Spike potential (mV): 35
+##   Spike width (ms): 1
+##   Resting potential (mV): -70
+##   v_bound (* |v_rest|): 1.15
+##   Spike threshold (mV): -55
+##   Axon branch count: 10
+##   Dendrite branch count: 10
+##   Branch independence: 0.5
+##   Branch spread: 0.5
+##   Apical target layer: none
+## 
 ## Type: VIP
-##   Valence: -1
-##   Time constant, fast current (ms): 1
+##   Time constant, fast current (ms): 5
 ##   Time constant, slow current (ms): 60
 ##   STD recovery time constant (spikes/ms): 100
 ##   Slow current influx (concentration/spike): 0.035
 ##   Vesicle utilization ratio (concentration/spike): 0.05
 ##   Spike recovery rate (spikes/ms): 0.1
 ##   Leak conductance (nS): 10
-##   Transmission velocity (micron/ms): 30000
+##   Transmission velocity (micron/ms): 1000
 ##   Spine density: 0
 ##   Axon target: dendrite_shaft
 ##   Spike current (pA): 1000
+##   dHdv bound (* I_spike): 1.05
 ##   Spike potential (mV): 35
+##   Spike width (ms): 1
 ##   Resting potential (mV): -70
+##   v_bound (* |v_rest|): 1.15
 ##   Spike threshold (mV): -55
 ##   Axon branch count: 10
 ##   Dendrite branch count: 10
@@ -143,20 +177,22 @@ print.known.celltypes()
 ##   Apical target layer: none
 ## 
 ## Type: thalmacortical
-##   Valence: 1
-##   Time constant, fast current (ms): 1
+##   Time constant, fast current (ms): 5
 ##   Time constant, slow current (ms): 60
 ##   STD recovery time constant (spikes/ms): 150
 ##   Slow current influx (concentration/spike): 0.01
 ##   Vesicle utilization ratio (concentration/spike): 0.075
 ##   Spike recovery rate (spikes/ms): 0.1
 ##   Leak conductance (nS): 10
-##   Transmission velocity (micron/ms): 30000
+##   Transmission velocity (micron/ms): 1000
 ##   Spine density: 0.5
 ##   Axon target: spine
 ##   Spike current (pA): 1000
+##   dHdv bound (* I_spike): 1.05
 ##   Spike potential (mV): 35
+##   Spike width (ms): 1
 ##   Resting potential (mV): -70
+##   v_bound (* |v_rest|): 1.15
 ##   Spike threshold (mV): -55
 ##   Axon branch count: 5
 ##   Dendrite branch count: 10
@@ -165,20 +201,22 @@ print.known.celltypes()
 ##   Apical target layer: none
 ## 
 ## Type: spiny_stellate
-##   Valence: 1
-##   Time constant, fast current (ms): 1
+##   Time constant, fast current (ms): 5
 ##   Time constant, slow current (ms): 60
 ##   STD recovery time constant (spikes/ms): 100
 ##   Slow current influx (concentration/spike): 0.01
 ##   Vesicle utilization ratio (concentration/spike): 0.05
 ##   Spike recovery rate (spikes/ms): 0.1
 ##   Leak conductance (nS): 10
-##   Transmission velocity (micron/ms): 30000
+##   Transmission velocity (micron/ms): 1000
 ##   Spine density: 0.5
 ##   Axon target: spine
 ##   Spike current (pA): 1000
+##   dHdv bound (* I_spike): 1.05
 ##   Spike potential (mV): 35
+##   Spike width (ms): 1
 ##   Resting potential (mV): -70
+##   v_bound (* |v_rest|): 1.15
 ##   Spike threshold (mV): -55
 ##   Axon branch count: 10
 ##   Dendrite branch count: 10
@@ -187,20 +225,22 @@ print.known.celltypes()
 ##   Apical target layer: none
 ## 
 ## Type: pyramidal_L6
-##   Valence: 1
-##   Time constant, fast current (ms): 1
+##   Time constant, fast current (ms): 5
 ##   Time constant, slow current (ms): 60
 ##   STD recovery time constant (spikes/ms): 100
 ##   Slow current influx (concentration/spike): 0.01
 ##   Vesicle utilization ratio (concentration/spike): 0.05
 ##   Spike recovery rate (spikes/ms): 0.1
 ##   Leak conductance (nS): 10
-##   Transmission velocity (micron/ms): 30000
+##   Transmission velocity (micron/ms): 1000
 ##   Spine density: 0.5
 ##   Axon target: spine
 ##   Spike current (pA): 1000
+##   dHdv bound (* I_spike): 1.05
 ##   Spike potential (mV): 35
+##   Spike width (ms): 1
 ##   Resting potential (mV): -70
+##   v_bound (* |v_rest|): 1.15
 ##   Spike threshold (mV): -55
 ##   Axon branch count: 10
 ##   Dendrite branch count: 10
@@ -209,20 +249,22 @@ print.known.celltypes()
 ##   Apical target layer: L4
 ## 
 ## Type: callosal_pyramidal
-##   Valence: 1
-##   Time constant, fast current (ms): 1
+##   Time constant, fast current (ms): 5
 ##   Time constant, slow current (ms): 60
 ##   STD recovery time constant (spikes/ms): 100
 ##   Slow current influx (concentration/spike): 0.01
 ##   Vesicle utilization ratio (concentration/spike): 0.05
 ##   Spike recovery rate (spikes/ms): 0.1
 ##   Leak conductance (nS): 10
-##   Transmission velocity (micron/ms): 30000
+##   Transmission velocity (micron/ms): 1000
 ##   Spine density: 0.5
 ##   Axon target: spine
 ##   Spike current (pA): 1000
+##   dHdv bound (* I_spike): 1.05
 ##   Spike potential (mV): 35
+##   Spike width (ms): 1
 ##   Resting potential (mV): -70
+##   v_bound (* |v_rest|): 1.15
 ##   Spike threshold (mV): -55
 ##   Axon branch count: 20
 ##   Dendrite branch count: 10
@@ -231,20 +273,22 @@ print.known.celltypes()
 ##   Apical target layer: L1
 ## 
 ## Type: pyramidal
-##   Valence: 1
-##   Time constant, fast current (ms): 1
+##   Time constant, fast current (ms): 5
 ##   Time constant, slow current (ms): 60
 ##   STD recovery time constant (spikes/ms): 100
 ##   Slow current influx (concentration/spike): 0.01
 ##   Vesicle utilization ratio (concentration/spike): 0.05
 ##   Spike recovery rate (spikes/ms): 0.1
 ##   Leak conductance (nS): 10
-##   Transmission velocity (micron/ms): 30000
+##   Transmission velocity (micron/ms): 1000
 ##   Spine density: 0.5
 ##   Axon target: spine
 ##   Spike current (pA): 1000
+##   dHdv bound (* I_spike): 1.05
 ##   Spike potential (mV): 35
+##   Spike width (ms): 1
 ##   Resting potential (mV): -70
+##   v_bound (* |v_rest|): 1.15
 ##   Spike threshold (mV): -55
 ##   Axon branch count: 10
 ##   Dendrite branch count: 10
@@ -269,10 +313,12 @@ interpretable and can be set with, or tested against, experimental data.
 #### Membrane kinetics
 
 - *Fast current time constant:* Time constant (ms) of the fast sodium
-  (Na+) current (positive current, time to flow in). Code variable:
+  (Na+) current (Na+ influx is inward, i.e. negative under the
+  outward-positive convention; time to flow in). Code variable:
   tau_fast.
 - *Slow current time constant:* Time constant (ms) of the slow calcium
-  (Ca2+) current (negative current, time to pump out). Code variable:
+  (Ca2+) current (Ca2+ influx is inward, i.e. negative under the
+  outward-positive convention; time to pump out). Code variable:
   tau_slow.
 - *STD recovery time constant:* Time constant (ms) for restoring
   presynaptic vesicles, i.e., recovery from short-term depression (STD).
@@ -284,8 +330,8 @@ interpretable and can be set with, or tested against, experimental data.
 - *Spike recovery rate:* Constant (spikes/ms) controlling estimation of
   spike rate and its max value. Code variable: max_spike_rate.
 - *Leak conductance:* Conductance (nS) controlling the leak current:
-  I_leak = leak_conductance \* (resting_potential - v). Code variable:
-  leak_conductance.
+  I_leak = leak_conductance \* (v - resting_potential)
+  (outward-positive). Code variable: leak_conductance.
 
 #### Intercell transmission
 

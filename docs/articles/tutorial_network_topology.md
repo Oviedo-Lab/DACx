@@ -813,7 +813,6 @@ motif.tc <- load.projection.into.motif(
     motif.tc, 
     presynaptic_layer      = "thalamus", 
     postsynaptic_layer     = "L6", 
-    projection_conductance = 0.1, 
     postsynaptic_type      = "PV"
   )
 ```
@@ -855,7 +854,6 @@ column.
 
 ``` r
 
-projection_conductance <- 1e-10
 motif.CC <- new.motif(motif_name = "corpus callosum")
 motif.CC <- load.projection.into.motif(motif.CC, "L3", "L3", presynaptic_type = "callosal_pyramidal", postsynaptic_type = "pyramidal", hem_shift = 1)
 motif.CC <- load.projection.into.motif(motif.CC, "L5", "L5", presynaptic_type = "callosal_pyramidal", postsynaptic_type = "pyramidal", hem_shift = 1)
@@ -892,7 +890,7 @@ ACx_mini_comps <- fetch.network.components(ACx_mini, include_arbors = TRUE, retu
 ``` scroll-output
 ## Summary of network:
 ##  Number of neurons: 5853 
-##  Number of synapses: 80155 
+##  Number of synapses: 51136 
 ##  Hemisphere names: left, right 
 ##  Number of hemispheres: 2 
 ##  Subortical layer names: thalamus 
@@ -916,16 +914,16 @@ print(aggregate(n_synapses ~ neuron_type, data = ACx_mini_comps$synapse_info, FU
 
 ``` scroll-output
 ##           neuron_type n_synapses
-## 1         callosal_PV  12.168459
-## 2  callosal_pyramidal  12.480818
-## 3  neurogliaform_cell   9.338753
-## 4                  PV   7.545151
-## 5           pyramidal  16.262488
-## 6        pyramidal_L6  12.217993
-## 7      spiny_stellate  19.359455
-## 8                 SST   8.220551
-## 9      thalmacortical  16.026042
-## 10                VIP   6.105105
+## 1         callosal_PV  10.820789
+## 2  callosal_pyramidal  11.491049
+## 3  neurogliaform_cell   6.311653
+## 4                  PV   7.240803
+## 5           pyramidal  10.910382
+## 6        pyramidal_L6   8.055363
+## 7      spiny_stellate   8.209540
+## 8                 SST   7.751880
+## 9      thalmacortical   3.868056
+## 10                VIP   6.171171
 ```
 
 Before concluding, two other plotting options are helpful in exploring a

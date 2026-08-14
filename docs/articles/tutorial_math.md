@@ -181,15 +181,15 @@ I\_\mathrm{synaptic\\transmission} - I\_\mathrm{membrane\\current} +
 I\_\mathrm{spike} In this equation, I\_\mathrm{synaptic\\transmission}
 is the input current induced by synaptic transmission across all
 synapses, I\_\mathrm{membrane\\current} gives the current across the
-membrane of each neuron due to external stimuli (I\_\mathrm{stim}) and
-intrinsic membrane leak (I\_\mathrm{leak}), and I\_\mathrm{spike} gives
-the spike current (if any). The stimulus current I\_\mathrm{stim} is
-what’s specified by the simulation variable stimulus_current_matrix,
-while the membrane leak current I\_\mathrm{leak} is determiend by the
-cell type parameter leak_conductance. The spike current
-I\_\mathrm{spike} is determined by simple thresholding:
-I\_\mathrm{spike}=0 if v \< v\_\mathrm{threshold} and otherwise is equal
-to the value of the simulation variable I_spike for the cell type.
+cell membrane due to external stimuli (I\_\mathrm{stim}) and intrinsic
+membrane leak (I\_\mathrm{leak}), and I\_\mathrm{spike} gives the spike
+current (if any). The stimulus current I\_\mathrm{stim} is what’s
+specified by the simulation variable stimulus_current_matrix, while the
+membrane leak current I\_\mathrm{leak} is determiend by the cell type
+parameter leak_conductance. The spike current I\_\mathrm{spike} is
+determined by simple thresholding: I\_\mathrm{spike}=0 if v \<
+v\_\mathrm{threshold} and otherwise is equal to the value of the
+simulation variable I_spike for the cell type.
 
 The input current induced by synaptic transmission across all synapses,
 I\_\mathrm{synaptic\\transmission}, is handled specially to account for

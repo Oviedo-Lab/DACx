@@ -127,15 +127,16 @@ intended values in ms, due to debugging.
 
 
 
-add.cell.type(
-    "subthreshold_only",
-    valence = 1.0,
-    threshold = 1000 # Something large, so we suppress spiking
+modify.cell.type(
+    "neuron", 
+    "subthreshold only",
+    g_leak      = 0.1,   # nS, Slow leak for demonstration purposes
+    v_threshold = 1000   # Something large, to suppress spiking
   )
 
 nonspiking_cell <- set.network.structure(
     nonspiking_cell, 
-    neuron_types = c("subthreshold_only"), 
+    neuron_types     = c("subthreshold only"), 
     neurons_per_node = 1
   )
 ```
@@ -149,8 +150,8 @@ required:
 ``` r
 
 stim_time_ms <- 1000
-dt <- 1e-3
-n_steps <- stim_time_ms/dt
+dt           <- 1e-3
+n_steps      <- stim_time_ms/dt
 cat("Number of time steps in the simulation:", n_steps)
 ```
 
@@ -174,8 +175,7 @@ period:
 
 ``` r
 
-pico_amp <- 1 # Assume units are pA
-stim_magnitude <- 300
+stim_magnitude <- 100
 no_stim  <- matrix(0, nrow = 1, ncol = n_steps)
 ```
 
@@ -187,9 +187,9 @@ nonspiking_cell_results <- run.SGT(
     nonspiking_cell,
     no_stim,
     dt,
-    initial_potential = 0.0
+    v_initial = 0.0
   )
-plot.network.traces(nonspiking_cell, input_matrix = no_stim)
+plot.network.traces(nonspiking_cell, I_stim = no_stim, plot_rates = FALSE)
 ```
 
 ![](tutorial_membrane_temporal_dynamics_files/figure-html/run_SGT_simulation_leak_only-1.png)
@@ -197,21 +197,51 @@ plot.network.traces(nonspiking_cell, input_matrix = no_stim)
 ``` r
 
 integrating_cell <- new.network()
-add.cell.type(
-    "leaky_integrator",
-    valence   = 1.0,     # excititory cell
-    tau_fast       = 1.0,
-    tau_slow       = 60.0,
-    tau_Vs         = 100.0,
-    I_slow         = 0.01, 
-    U_Vs           = 0.05, 
-    max_spike_rate = 0.1,
-    threshold = -55    # the default, showing for clarity
+modify.cell.type(
+    "neuron",
+    "leaky integrator", 
+    # Membrane kinetics
+    tau_fast              = 1.0,   # ms
+    tau_slow              = 60.0,  # ms
+    tau_Vs                = 100.0, # ms/spike
+    dCdr                  = 0.01,  # concentration/spike
+    dVdr                  = 0.05,  # concentration/spike
+    max_spike_rate        = 0.1,   # spikes/ms
+    g_leak                = 1.0,   # nS
+    # Intercell transmission
+    spike_velocity        = 500,   # micons/ms, = 0.5 m/s
+    spine_density         = 0.0,
+    axon_target           = "dendrite_shaft",
+    # Spiking
+    I_spike               = 1e3,   # pA
+    dHdv_bound            = 1.05,
+    v_spike               = 35,    # mV
+    tau_spike             = 1.0,   # ms
+    v_threshold           = -55,   # mV
+    v_eq                  = list ( # mV
+      "spiny stellate" = 0.0,    # Excitatory, so drives postsynaptic cell membrane v up
+      "PV"             = -80.0), # Inhibitory, so drives postsynaptic cell membrane v down
+    # Membrane characteristics 
+    v_rest                = -70,   # mV
+    v_bound               = 1.15,
+    g_syn                 = list(  # nS
+      "spiny stellate" = 0.1,
+      "PV"             = 0.1), 
+    tau_syn               = list(  # ms
+      "spiny stellate" = 2.0,   # Excitatory glutamate channels close quickly
+      "PV"             = 6.0),  # Inhibitory GABA channels stay open longer
+    # Neurite structure 
+    axon_branch_count     = 20, 
+    dendrite_branch_count = 20, 
+    branch_independence   = 0.75, 
+    branch_spread         = 0.75, 
+    apical_target_layer   = "none"
   )
+
 
 integrating_cell <- set.network.structure(
     integrating_cell, 
-    neuron_types = c("leaky_integrator"), 
+    neuron_types     = c("leaky integrator"), 
     neurons_per_node = 1
   )
 ```
@@ -227,7 +257,7 @@ stim_start     <- stim_start_ms / dt
 stim_end       <- stim_start + stim_length - 1
 short_stims    <- no_stim
 for (i in seq_along(stim_start)) {
-  short_stims[, stim_start[i]:stim_end[i]] <- stim_magnitude * pico_amp
+  short_stims[, stim_start[i]:stim_end[i]] <- stim_magnitude
 }
 ```
 
@@ -237,9 +267,9 @@ integrating_cell_results <- run.SGT(
   integrating_cell,
   short_stims,
   dt,
-  initial_potential = -70
+  v_initial = -70
 )
-plot.network.traces(integrating_cell, input_matrix = short_stims)
+plot.network.traces(integrating_cell, I_stim = short_stims, plot_rates = FALSE)
 ```
 
 ![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating-1.png)
@@ -247,21 +277,15 @@ plot.network.traces(integrating_cell, input_matrix = short_stims)
 ``` r
 
 bursting_cell <- new.network()
-add.cell.type(
-    "bursting_cell",
-    valence        = 1.0, # excititory cell
-    tau_fast       = 1.0,
-    tau_slow       = 60.0,
-    tau_Vs         = 100.0,
-    I_slow         = 0.035, 
-    U_Vs           = 0.05, 
-    max_spike_rate = 0.1,
-    threshold      = -55, # the default, showing for clarity
+modify.cell.type(
+    "leaky integrator", 
+    "bursting cell",
+    dCdr = 0.05, # up from 0.01, to induce bursting
   )
 
 bursting_cell <- set.network.structure(
     bursting_cell, 
-    neuron_types = c("bursting_cell"), 
+    neuron_types = c("bursting cell"), 
     neurons_per_node = 1
   )
 ```
@@ -277,7 +301,7 @@ stim_start     <- stim_start_ms / dt
 stim_end       <- stim_start + stim_length - 1
 long_stims     <- no_stim
 for (i in seq_along(stim_start)) {
-  long_stims[, stim_start[i]:stim_end[i]] <- stim_magnitude * pico_amp
+  long_stims[, stim_start[i]:stim_end[i]] <- stim_magnitude
 }
 ```
 
@@ -287,47 +311,12 @@ bursting_cell_results <- run.SGT(
   bursting_cell,
   long_stims,
   dt,
-  initial_potential = -70
+  v_initial = -70
 )
-plot.network.traces(bursting_cell, input_matrix = long_stims)
+plot.network.traces(bursting_cell, I_stim = long_stims, plot_rates = FALSE)
 ```
 
 ![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting-1.png)
-
-``` r
-
-plot(bursting_cell_results[["slow_current_traces"]][1,], type = "l", ylab = "slow current direction")
-```
-
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting-2.png)
-
-``` r
-
-plot(bursting_cell_results[["Ca_traces"]][1,], type = "l", ylab = "Calcium")
-```
-
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting-3.png)
-
-``` r
-
-plot(bursting_cell_results[["tau_slow_effect_traces"]][1,], type = "l", ylab = "tau_slow (bursting)")
-```
-
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting-4.png)
-
-``` r
-
-plot(bursting_cell_results[["Vs_traces"]][1,], type = "l", ylab = "Vs (STD)")
-```
-
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting-5.png)
-
-``` r
-
-plot(bursting_cell_results[["T_traces"]][1,], type = "l", ylab = "T")
-```
-
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting-6.png)
 
 ``` r
 
@@ -335,47 +324,12 @@ integrating_cell_results <- run.SGT(
   integrating_cell,
   long_stims,
   dt,
-  initial_potential = -70
+  v_initial = -70
 )
-plot.network.traces(integrating_cell, input_matrix = long_stims)
+plot.network.traces(integrating_cell, I_stim = long_stims, plot_rates = FALSE)
 ```
 
 ![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating_long-1.png)
-
-``` r
-
-plot(integrating_cell_results[["slow_current_traces"]][1,], type = "l", ylab = "slow current direction")
-```
-
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating_long-2.png)
-
-``` r
-
-plot(integrating_cell_results[["Ca_traces"]][1,], type = "l", ylab = "Calcium")
-```
-
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating_long-3.png)
-
-``` r
-
-plot(integrating_cell_results[["tau_slow_effect_traces"]][1,], type = "l", ylab = "tau_slow (bursting)")
-```
-
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating_long-4.png)
-
-``` r
-
-plot(integrating_cell_results[["Vs_traces"]][1,], type = "l", ylab = "Vs (STD)")
-```
-
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating_long-5.png)
-
-``` r
-
-plot(integrating_cell_results[["T_traces"]][1,],  type = "l", ylab = "T")
-```
-
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating_long-6.png)
 
 ``` r
 
@@ -388,70 +342,103 @@ stim_start      <- stim_start_ms / dt
 stim_end        <- stim_start + stim_length - 1
 continuous_stim <- no_stim
 for (i in seq_along(stim_start)) {
-  continuous_stim[, stim_start[i]:stim_end[i]] <- stim_magnitude * pico_amp
+  continuous_stim[, stim_start[i]:stim_end[i]] <- stim_magnitude
 }
 ```
 
 ``` r
 
-bursting_cell_results_long <- run.SGT(
-  bursting_cell,
-  continuous_stim,
+network_both <- new.network()
+network_both <- set.network.structure(
+    network_both, 
+    neuron_types = c("bursting cell", "leaky integrator"), 
+    neurons_per_node = 1
+  )
+no_stim2  <- matrix(0, nrow = 2, ncol = n_steps)
+continuous_stim2 <- no_stim2
+for (i in seq_along(stim_start)) {
+  continuous_stim2[, stim_start[i]:stim_end[i]] <- stim_magnitude
+}
+network_both_long <- run.SGT(
+  network_both,
+  continuous_stim2,
   dt,
-  initial_potential = -70
+  v_initial = -70
 )
-plot.network.traces(bursting_cell, input_matrix = continuous_stim)
+plot.network.traces(
+  network_both, 
+  I_stim = continuous_stim2, 
+  plot_rates   = TRUE, 
+  window_size  = 0.1,
+  return_plot  = TRUE
+  )
 ```
+
+    ## Warning: Removed 49996 rows containing missing values or values outside the scale range (`geom_line()`).
+    ## Removed 49996 rows containing missing values or values outside the scale range (`geom_line()`).
 
 ![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting_continuous-1.png)
 
 ``` r
 
-plot(bursting_cell_results_long[["slow_current_traces"]][1,], type = "l", ylab = "slow current direction")
-```
+modify.cell.type(
+    "leaky integrator",
+    "slow recovery",
+    tau_Vs = 500.0 # up from 100.0
+  )
+modify.cell.type(
+    "leaky integrator", 
+    "slow drain",
+    dVdr = 0.01 # down from 0.05
+  )
+network_both <- new.network()
+network_both <- set.network.structure(
+    network_both, 
+    neuron_types = c("leaky integrator", "slow recovery", "slow drain"), 
+    neurons_per_node = 1
+  )
 
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting_continuous-2.png)
-
-``` r
-
-plot(bursting_cell_results_long[["Ca_traces"]][1,], type = "l", ylab = "Calcium")
-```
-
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting_continuous-3.png)
-
-``` r
-
-plot(bursting_cell_results_long[["tau_slow_effect_traces"]][1,], type = "l", ylab = "tau_slow (bursting)")
-```
-
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting_continuous-4.png)
-
-``` r
-
-plot(bursting_cell_results_long[["Vs_traces"]][1,], type = "l", ylab = "Vs (STD)")
-```
-
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting_continuous-5.png)
-
-``` r
-
-plot(bursting_cell_results_long[["T_traces"]][1,], type = "l", ylab = "T")
-```
-
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting_continuous-6.png)
-
-``` r
-
-integrating_cell_results <- run.SGT(
-  integrating_cell,
-  continuous_stim,
+# Set stimulus start and length
+stim_length_ms  <- 1200
+stim_start_ms   <- 100
+# Find start and end steps of the input stimulus current
+stim_length     <- stim_length_ms / dt
+stim_start      <- stim_start_ms / dt
+stim_end        <- stim_start + stim_length - 1
+no_stim2          <- matrix(0, nrow = 3, ncol = stim_end + (100/dt))
+continuous_stim2  <- no_stim2
+recover_start_ms  <- c(200, 500)
+recover_length_ms <- c(100, 500)
+recover_start     <- recover_start_ms / dt
+recover_length    <- recover_length_ms / dt
+recover_end       <- recover_start + recover_length - 1
+for (i in seq_along(stim_start)) {
+  continuous_stim2[, stim_start[i]:stim_end[i]] <- stim_magnitude
+}
+for (i in seq_along(recover_start)) {
+  continuous_stim2[, recover_start[i]:recover_end[i]] <- 0
+}
+network_both_long <- run.SGT(
+  network_both,
+  continuous_stim2,
   dt,
-  initial_potential = -70
+  v_initial = -70
 )
-plot.network.traces(integrating_cell, input_matrix = continuous_stim)
+plt <- plot.network.traces(network_both, I_stim = continuous_stim2, plot_rates = TRUE, window_size = 0.05, return_plot = TRUE)
+plt <- plt & ggplot2::theme(
+            plot.title       = ggplot2::element_text(hjust = 0.5, size = 14),
+            axis.title.y     = ggplot2::element_text(size = 10),
+            axis.text.y      = ggplot2::element_text(size = 8)
+          ) 
+for (p in c(1:3)) {
+  plt[[p]][[1]] <- plt[[p]][[1]] + ggplot2::coord_cartesian(ylim = c(0, 120)) +
+  ggplot2::geom_hline(
+    yintercept = 75,
+    color = "red",
+    linetype = "dashed"
+  )
+}
 ```
-
-![](tutorial_membrane_temporal_dynamics_files/figure-html/unnamed-chunk-4-1.png)
 
 ## Temporal modulation
 
