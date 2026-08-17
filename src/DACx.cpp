@@ -292,8 +292,8 @@ class network {
     
     // Data fields 
     double                        sim_dt;            // Size of simulation timestep, in ms
-    ArrayXXd                      v_traces;          // traces from SGT simulation
-    ArrayXd                       spike_counts;      // Vector of length n_neurons giving spike counts during a SGT simulation
+    ArrayXXd                      v_traces;          // traces from BGT simulation
+    ArrayXd                       spike_counts;      // Vector of length n_neurons giving spike counts during a BGT simulation
     
     // Functions *********************************
     
@@ -353,9 +353,9 @@ class network {
           bool            via_apical
         );
     
-    // SGT simulations 
+    // BGT simulations 
     ArrayXXi find_pairwise_lags_by_axon(double dt);
-    void     SGT(const NumericMatrix& I_stim_R, double dt, double v_initial);
+    void     BGT(const NumericMatrix& I_stim_R, double dt, double v_initial);
     
     // Fetch for R
     List     fetch_network_components(bool include_arbors = false) const;
@@ -2307,7 +2307,7 @@ List network::fetch_network_components(
    
   }
 
-// Method to fetch SGT simulation results 
+// Method to fetch BGT simulation results 
 List network::fetch_sim_results() const {
     return  List::create(
       _["v_traces"]     = v_traces,
@@ -2366,7 +2366,7 @@ ArrayXXi network::find_pairwise_lags_by_axon(
   }
 
 // Simulate network responses to input current using Growth Transform model
-void network::SGT(
+void network::BGT(
     const NumericMatrix& I_stim_R, // matrix of stimulus currents in pA, n_neurons x n_steps
     double               dt,       // time step length in ms; units: ms/step
     double               v_initial // start all neurons with this membrane potential
@@ -2424,16 +2424,14 @@ void network::SGT(
     // Set threshold for membrane response to slow currents 
     double  theta_low           = 0.1;
     double  theta_high          = 0.9; 
-    ArrayXd theta_low_n         = ArrayXd::Constant(n_neurons, std::pow(theta_low,  4.0));
-    ArrayXd theta_high_n        = ArrayXd::Constant(n_neurons, std::pow(theta_high, 4.0));
+    ArrayXd theta_n             = ArrayXd::Constant(n_neurons, std::pow(theta_low, 4.0));
     
     // Initialize vector to hold Schmitt trigger for whether Ca levels are rising or falling
     // ... = 1 if + flowing in, = 0 if + being pushed out
     ArrayXd slow_current(n_neurons);
     
-    // Set initial slow current and threshold
+    // Set initial slow current
     slow_current.setOnes(); 
-    ArrayXd theta_n = theta_low_n; 
     
     // Initialize vectors to hold synaptic vesicle and intracellular calcium concentrations
     ArrayXd Vs(n_neurons); 
@@ -2478,8 +2476,8 @@ void network::SGT(
      
       // Advance synaptic (post-synaptic current) gates: a pre-synaptic spike arrival opens receptors (up to 1), which then decay with tau_syn
       // ... arrival(i, j) = pre-synaptic neuron j's (lagged) spike as seen by post-synaptic neuron i
-      ArrayXXd arrival          = v_lagged.transpose();
-      S                         = (syn_decay * S).max(arrival);
+      ArrayXXd arrival = v_lagged.transpose();
+      S                = (syn_decay * S).max(arrival);
       
       // Compute synaptic and leak currents
       ArrayXXd v_drive = -(per_nrn.v_eq.colwise() - v_sub.col(t - 1));
@@ -2524,7 +2522,7 @@ void network::SGT(
       // Compute temporal modulation term T
       ArrayXd Ca_n            = slow_current - Ca;
       for (int i = 0; i < 2; ++i) Ca_n = Ca_n * Ca_n; 
-      ArrayXd tau_slow_effect = Ca_n / (Ca_n + theta_n);
+      ArrayXd tau_slow_effect = slow_current * Ca_n / (Ca_n + theta_n);
       ArrayXd T               = (Vs * tau_slow_effect) / per_nrn.tau_fast;
       /*
        * T               = temporal modulation term, units of 1/ms
@@ -2543,10 +2541,10 @@ void network::SGT(
       
       // Apply T to dvdt 
       dvdt = (spikes == 1.0).select(
-        per_nrn.v_rest - v_sub.col(t - 1),            // ... reset if immediately after a spike. dvdt should reset v_sub, but if dt is too small, there can be problems.
+        dvdt,   // ... reset if immediately after a spike
         (last_spike > 0).select(
-            ArrayXd::Zero(n_neurons),                 // ... hold at rest if spike is on-going 
-            dvdt * T * dt)
+          ArrayXd::Zero(n_neurons),          // ... hold at rest if spike is on-going 
+          dvdt * T * dt)
         );
       
       // Find new sub-threshold membrane potential by adding dvdt
@@ -2569,11 +2567,9 @@ void network::SGT(
         if (slow_current(i)) {
           if (Ca(i) > theta_high) {
             slow_current(i) = 0.0; 
-            theta_n(i)      = theta_high_n(i); 
           }
         } else if (Ca(i) < theta_low) {
           slow_current(i) = 1.0;
-          theta_n(i)      = theta_low_n(i); 
         }
       }
       
@@ -2604,7 +2600,7 @@ RCPP_MODULE(network) {
   .method("apply_circuit_motif", &network::apply_circuit_motif)
   .method("fetch_network_components", &network::fetch_network_components)
   .method("fetch_sim_results", &network::fetch_sim_results)
-  .method("SGT", &network::SGT);
+  .method("BGT", &network::BGT);
 }
 
 RCPP_EXPOSED_CLASS(Prj)

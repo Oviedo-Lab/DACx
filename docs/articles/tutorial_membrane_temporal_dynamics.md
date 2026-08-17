@@ -141,7 +141,7 @@ nonspiking_cell <- set.network.structure(
   )
 ```
 
-## SGT simulations
+## BGT simulations
 
 This gives us the number of rows needed in our stimulus current matrix.
 For the number of columns, we need to know the number of time steps
@@ -183,7 +183,7 @@ With the stimulus current matrix in hand, we can run the simulation:
 
 ``` r
 
-nonspiking_cell_results <- run.SGT(
+nonspiking_cell_results <- run.BGT(
     nonspiking_cell,
     no_stim,
     dt,
@@ -192,7 +192,7 @@ nonspiking_cell_results <- run.SGT(
 plot.network.traces(nonspiking_cell, I_stim = no_stim, plot_rates = FALSE)
 ```
 
-![](tutorial_membrane_temporal_dynamics_files/figure-html/run_SGT_simulation_leak_only-1.png)
+![](tutorial_membrane_temporal_dynamics_files/figure-html/run_BGT_simulation_leak_only-1.png)
 
 ``` r
 
@@ -263,7 +263,7 @@ for (i in seq_along(stim_start)) {
 
 ``` r
 
-integrating_cell_results <- run.SGT(
+integrating_cell_results <- run.BGT(
   integrating_cell,
   short_stims,
   dt,
@@ -272,7 +272,7 @@ integrating_cell_results <- run.SGT(
 plot.network.traces(integrating_cell, I_stim = short_stims, plot_rates = FALSE)
 ```
 
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating-1.png)
+![](tutorial_membrane_temporal_dynamics_files/figure-html/BGT_integrating-1.png)
 
 ``` r
 
@@ -307,7 +307,7 @@ for (i in seq_along(stim_start)) {
 
 ``` r
 
-bursting_cell_results <- run.SGT(
+bursting_cell_results <- run.BGT(
   bursting_cell,
   long_stims,
   dt,
@@ -316,11 +316,11 @@ bursting_cell_results <- run.SGT(
 plot.network.traces(bursting_cell, I_stim = long_stims, plot_rates = FALSE)
 ```
 
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting-1.png)
+![](tutorial_membrane_temporal_dynamics_files/figure-html/BGT_bursting-1.png)
 
 ``` r
 
-integrating_cell_results <- run.SGT(
+integrating_cell_results <- run.BGT(
   integrating_cell,
   long_stims,
   dt,
@@ -329,7 +329,7 @@ integrating_cell_results <- run.SGT(
 plot.network.traces(integrating_cell, I_stim = long_stims, plot_rates = FALSE)
 ```
 
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating_long-1.png)
+![](tutorial_membrane_temporal_dynamics_files/figure-html/BGT_integrating_long-1.png)
 
 ``` r
 
@@ -359,7 +359,7 @@ continuous_stim2 <- no_stim2
 for (i in seq_along(stim_start)) {
   continuous_stim2[, stim_start[i]:stim_end[i]] <- stim_magnitude
 }
-network_both_long <- run.SGT(
+network_both_long <- run.BGT(
   network_both,
   continuous_stim2,
   dt,
@@ -377,7 +377,7 @@ plot.network.traces(
     ## Warning: Removed 49996 rows containing missing values or values outside the scale range (`geom_line()`).
     ## Removed 49996 rows containing missing values or values outside the scale range (`geom_line()`).
 
-![](tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting_continuous-1.png)
+![](tutorial_membrane_temporal_dynamics_files/figure-html/BGT_bursting_continuous-1.png)
 
 ``` r
 
@@ -418,7 +418,7 @@ for (i in seq_along(stim_start)) {
 for (i in seq_along(recover_start)) {
   continuous_stim2[, recover_start[i]:recover_end[i]] <- 0
 }
-network_both_long <- run.SGT(
+network_both_long <- run.BGT(
   network_both,
   continuous_stim2,
   dt,
@@ -442,7 +442,7 @@ for (p in c(1:3)) {
 
 ## Temporal modulation
 
-The final step in GT models (including SGT models) is to divide the rate
+The final step in GT models (including BGT models) is to divide the rate
 of change for membrane potential \partial v/\partial t by a temporal
 modulation term T, such that: v(t+1) = v(t) + \frac{\left.\frac{\partial
 v}{\partial t}\right\|\_{t+1}}{T} This term T is given by the following

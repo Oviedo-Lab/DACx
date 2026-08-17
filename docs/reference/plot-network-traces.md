@@ -1,7 +1,7 @@
-# Plot spike traces for network from SGT simulation
+# Plot spike traces for network from BGT simulation
 
-This function plots spike traces for a network object from a Spatial
-Growth-Transform (SGT) simulation.
+This function plots spike traces for a network object from a Biological
+Growth-Transform (BGT) simulation.
 
 ## Usage
 
@@ -19,7 +19,7 @@ plot.network.traces(
 
 - network:
 
-  Network object with SGT simulation traces to plot.
+  Network object with BGT simulation traces to plot.
 
 - return_plot:
 

@@ -56,7 +56,7 @@ reference:
   - set.network.structure
   - fetch.network.components
   - apply.circuit.motif
-  - run.SGT
+  - run.BGT
   - plot.network
   - plot.network.traces
   

@@ -248,7 +248,7 @@ Code variable: <span class="code_variable">apical_target_layer</span>.</li>
 <span>    neurons_per_node <span class="op">=</span> <span class="fl">1</span></span>
 <span>  <span class="op">)</span></span></code></pre></div>
 <h2>
-SGT simulations
+BGT simulations
 </h2>
 <p>This gives us the number of rows needed in our stimulus current
 matrix. For the number of columns, we need to know the number of time
@@ -277,14 +277,14 @@ the entire stimulation period:</p>
 <p>With the stimulus current matrix in hand, we can run the
 simulation:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">nonspiking_cell_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.SGT.html">run.SGT</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">nonspiking_cell_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.BGT.html">run.BGT</a></span><span class="op">(</span></span>
 <span>    <span class="va">nonspiking_cell</span>,</span>
 <span>    <span class="va">no_stim</span>,</span>
 <span>    <span class="va">dt</span>,</span>
 <span>    v_initial <span class="op">=</span> <span class="fl">0.0</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot-network-traces.html">plot.network.traces</a></span><span class="op">(</span><span class="va">nonspiking_cell</span>, I_stim <span class="op">=</span> <span class="va">no_stim</span>, plot_rates <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/run_SGT_simulation_leak_only-1.png" class="r-plt" alt="" width="700"></p>
+<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/run_BGT_simulation_leak_only-1.png" class="r-plt" alt="" width="700"></p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">integrating_cell</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/new.network.html">new.network</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/modify.cell.type.html">modify.cell.type</a></span><span class="op">(</span></span>
@@ -347,14 +347,14 @@ simulation:</p>
 <span>  <span class="va">short_stims</span><span class="op">[</span>, <span class="va">stim_start</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">:</span><span class="va">stim_end</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">stim_magnitude</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">integrating_cell_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.SGT.html">run.SGT</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">integrating_cell_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.BGT.html">run.BGT</a></span><span class="op">(</span></span>
 <span>  <span class="va">integrating_cell</span>,</span>
 <span>  <span class="va">short_stims</span>,</span>
 <span>  <span class="va">dt</span>,</span>
 <span>  v_initial <span class="op">=</span> <span class="op">-</span><span class="fl">70</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot-network-traces.html">plot.network.traces</a></span><span class="op">(</span><span class="va">integrating_cell</span>, I_stim <span class="op">=</span> <span class="va">short_stims</span>, plot_rates <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating-1.png" class="r-plt" alt="" width="700"></p>
+<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/BGT_integrating-1.png" class="r-plt" alt="" width="700"></p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">bursting_cell</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/new.network.html">new.network</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/modify.cell.type.html">modify.cell.type</a></span><span class="op">(</span></span>
@@ -381,23 +381,23 @@ simulation:</p>
 <span>  <span class="va">long_stims</span><span class="op">[</span>, <span class="va">stim_start</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">:</span><span class="va">stim_end</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">stim_magnitude</span></span>
 <span><span class="op">}</span></span></code></pre></div>
 <div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">bursting_cell_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.SGT.html">run.SGT</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">bursting_cell_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.BGT.html">run.BGT</a></span><span class="op">(</span></span>
 <span>  <span class="va">bursting_cell</span>,</span>
 <span>  <span class="va">long_stims</span>,</span>
 <span>  <span class="va">dt</span>,</span>
 <span>  v_initial <span class="op">=</span> <span class="op">-</span><span class="fl">70</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot-network-traces.html">plot.network.traces</a></span><span class="op">(</span><span class="va">bursting_cell</span>, I_stim <span class="op">=</span> <span class="va">long_stims</span>, plot_rates <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting-1.png" class="r-plt" alt="" width="700"></p>
+<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/BGT_bursting-1.png" class="r-plt" alt="" width="700"></p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">integrating_cell_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.SGT.html">run.SGT</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">integrating_cell_results</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.BGT.html">run.BGT</a></span><span class="op">(</span></span>
 <span>  <span class="va">integrating_cell</span>,</span>
 <span>  <span class="va">long_stims</span>,</span>
 <span>  <span class="va">dt</span>,</span>
 <span>  v_initial <span class="op">=</span> <span class="op">-</span><span class="fl">70</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/plot-network-traces.html">plot.network.traces</a></span><span class="op">(</span><span class="va">integrating_cell</span>, I_stim <span class="op">=</span> <span class="va">long_stims</span>, plot_rates <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></code></pre></div>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_integrating_long-1.png" class="r-plt" alt="" width="700"></p>
+<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/BGT_integrating_long-1.png" class="r-plt" alt="" width="700"></p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Set stimulus start and length</span></span>
 <span><span class="va">stim_length_ms</span>  <span class="op">&lt;-</span> <span class="fl">800</span></span>
@@ -422,7 +422,7 @@ simulation:</p>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">stim_start</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">continuous_stim2</span><span class="op">[</span>, <span class="va">stim_start</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">:</span><span class="va">stim_end</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="va">stim_magnitude</span></span>
 <span><span class="op">}</span></span>
-<span><span class="va">network_both_long</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.SGT.html">run.SGT</a></span><span class="op">(</span></span>
+<span><span class="va">network_both_long</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.BGT.html">run.BGT</a></span><span class="op">(</span></span>
 <span>  <span class="va">network_both</span>,</span>
 <span>  <span class="va">continuous_stim2</span>,</span>
 <span>  <span class="va">dt</span>,</span>
@@ -437,7 +437,7 @@ simulation:</p>
 <span>  <span class="op">)</span></span></code></pre></div>
 <pre><code><span><span class="co">## Warning: Removed 49996 rows containing missing values or values outside the scale range (`geom_line()`).</span></span>
 <span><span class="co">## Removed 49996 rows containing missing values or values outside the scale range (`geom_line()`).</span></span></code></pre>
-<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/SGT_bursting_continuous-1.png" class="r-plt" alt="" width="700"></p>
+<p><img src="tutorial_membrane_temporal_dynamics_files/figure-html/BGT_bursting_continuous-1.png" class="r-plt" alt="" width="700"></p>
 <div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/modify.cell.type.html">modify.cell.type</a></span><span class="op">(</span></span>
 <span>    <span class="st">"leaky integrator"</span>,</span>
@@ -476,7 +476,7 @@ simulation:</p>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">recover_start</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">continuous_stim2</span><span class="op">[</span>, <span class="va">recover_start</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">:</span><span class="va">recover_end</span><span class="op">[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fl">0</span></span>
 <span><span class="op">}</span></span>
-<span><span class="va">network_both_long</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.SGT.html">run.SGT</a></span><span class="op">(</span></span>
+<span><span class="va">network_both_long</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run.BGT.html">run.BGT</a></span><span class="op">(</span></span>
 <span>  <span class="va">network_both</span>,</span>
 <span>  <span class="va">continuous_stim2</span>,</span>
 <span>  <span class="va">dt</span>,</span>
@@ -499,7 +499,7 @@ simulation:</p>
 <h2>
 Temporal modulation
 </h2>
-<p>The final step in GT models (including SGT models) is to divide the
+<p>The final step in GT models (including BGT models) is to divide the
 rate of change for membrane potential <span class="math inline">\partial
 v/\partial t</span> by a temporal modulation term <span class="math inline">T</span>, such that: <span class="math display">v(t+1) =  v(t) + \frac{\left.\frac{\partial
 v}{\partial t}\right|_{t+1}}{T}</span> This term <span class="math inline">T</span> is given by the following exponential decay

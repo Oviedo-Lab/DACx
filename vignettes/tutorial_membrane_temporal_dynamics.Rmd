@@ -1,7 +1,7 @@
 ---
 title: "Single-cell temporal dynamics"
 author: "Michael Barkasi"
-date: "July 13, 2026 (v1.0)"
+date: "August 19, 2026 (v1.1)"
 ---
 
 ```{r Rmdsetup, echo=FALSE}
@@ -90,7 +90,8 @@ Development note: The values of these parameters are 1/0.0001 times the intended
 modify.cell.type(
     "neuron", 
     "subthreshold only",
-    g_leak      = 0.1,   # nS, Slow leak for demonstration purposes
+    v_bound     = 2.0,
+    g_leak      = 1.5,   # nS, Slow leak for demonstration purposes
     v_threshold = 1000   # Something large, to suppress spiking
   )
 
@@ -101,7 +102,7 @@ nonspiking_cell <- set.network.structure(
   )
 ```
 
-<h2>SGT simulations</h2>
+<h2>BGT simulations</h2>
 
 This gives us the number of rows needed in our stimulus current matrix. For the number of columns, we need to know the number of time steps required: 
 
@@ -124,8 +125,8 @@ no_stim  <- matrix(0, nrow = 1, ncol = n_steps)
 
 With the stimulus current matrix in hand, we can run the simulation:
 
-```{r run_SGT_simulation_leak_only}
-nonspiking_cell_results <- run.SGT(
+```{r run_BGT_simulation_leak_only}
+nonspiking_cell_results <- run.BGT(
     nonspiking_cell,
     no_stim,
     dt,
@@ -202,8 +203,8 @@ for (i in seq_along(stim_start)) {
 }
 ```
 
-```{r SGT_integrating}
-integrating_cell_results <- run.SGT(
+```{r BGT_integrating}
+integrating_cell_results <- run.BGT(
   integrating_cell,
   short_stims,
   dt,
@@ -217,7 +218,7 @@ bursting_cell <- new.network()
 modify.cell.type(
     "leaky integrator", 
     "bursting cell",
-    dCdr = 0.05, # up from 0.01, to induce bursting
+    dCdr = 0.09, # up from 0.01, to induce bursting
   )
 
 bursting_cell <- set.network.structure(
@@ -242,8 +243,8 @@ for (i in seq_along(stim_start)) {
 }
 ```
 
-```{r SGT_bursting}
-bursting_cell_results <- run.SGT(
+```{r BGT_bursting}
+bursting_cell_results <- run.BGT(
   bursting_cell,
   long_stims,
   dt,
@@ -252,8 +253,8 @@ bursting_cell_results <- run.SGT(
 plot.network.traces(bursting_cell, I_stim = long_stims, plot_rates = FALSE)
 ```
 
-```{r SGT_integrating_long}
-integrating_cell_results <- run.SGT(
+```{r BGT_integrating_long}
+integrating_cell_results <- run.BGT(
   integrating_cell,
   long_stims,
   dt,
@@ -276,7 +277,7 @@ for (i in seq_along(stim_start)) {
 }
 ```
 
-```{r SGT_bursting_continuous}
+```{r BGT_bursting_continuous}
 network_both <- new.network()
 network_both <- set.network.structure(
     network_both, 
@@ -288,7 +289,7 @@ continuous_stim2 <- no_stim2
 for (i in seq_along(stim_start)) {
   continuous_stim2[, stim_start[i]:stim_end[i]] <- stim_magnitude
 }
-network_both_long <- run.SGT(
+network_both_long <- run.BGT(
   network_both,
   continuous_stim2,
   dt,
@@ -341,7 +342,7 @@ for (i in seq_along(stim_start)) {
 for (i in seq_along(recover_start)) {
   continuous_stim2[, recover_start[i]:recover_end[i]] <- 0
 }
-network_both_long <- run.SGT(
+network_both_long <- run.BGT(
   network_both,
   continuous_stim2,
   dt,
@@ -366,7 +367,7 @@ for (p in c(1:3)) {
 
 <h2>Temporal modulation</h2>
 
-The final step in GT models (including SGT models) is to divide the rate of change for membrane potential $\partial v/\partial t$ by a temporal modulation term $T$, such that: 
+The final step in GT models (including BGT models) is to divide the rate of change for membrane potential $\partial v/\partial t$ by a temporal modulation term $T$, such that: 
 \[v(t+1) =  v(t) + \frac{\left.\frac{\partial v}{\partial t}\right|_{t+1}}{T}\]
 This term $T$ is given by the following exponential decay model: 
 \[T = b + A\exp\left(-\frac{x}{\tau}\right)\]
@@ -374,5 +375,298 @@ where $b$ is the temporal modulation bias, $A$ is the temporal modulation amplit
 
 When the amplitude $A$ is zero, the exponential decay has no effect and all that's relevant is the bias $b$. When $A>0$, the effect is to increase $T$ at the start of the step counter, thereby shrinking the effect of $\partial v/\partial t$. This shrinkage follows the exponential decay of $T$, so that there is little chance in $v$ (i.e., small $\partial v/\partial t$) at the start of the step counter, but the possibility for large changes in $v$ at the end of the step counter. Thus, when at the end of the step counter, neurons are prone to many spikes as their membrane potential rapidly changes, creating a bursting effect.
 
+```{r bursting_mechanism_plot, fig.width=10, fig.height=5.5}
+library(patchwork)
+library(dplyr)
+library(ggplot2)
 
+# Parameters matching DACx.cpp BGT simulation
+theta_low  <- 0.1
+theta_high <- 0.9
+theta_n    <- theta_low^4   # places Hill midpoint at Ca = theta_high
+tau_slow   <- 60            # ms, Ca2+ decay time constant
+dCdr_eff   <- 0.05          # Ca2+ influx per unit tau_slow_effect
+dt_plot    <- 0.1           # ms, step size for this illustrative simulation
+
+# Analytical curves: tau_slow_effect vs Ca2+ for each Schmitt trigger state
+Ca_seq   <- seq(0, 1, by = 0.001)
+df_phase <- bind_rows(
+  tibble(Ca  = Ca_seq,
+         tau = (1 - Ca_seq)^4 / ((1 - Ca_seq)^4 + theta_n),
+         phase = "Active (slow_current = 1)"),
+  tibble(Ca  = Ca_seq,
+         tau = 0,
+         phase = "Inter-burst (slow_current = 0)")
+)
+
+# Simplified Ca2+ dynamics simulation
+n_sim <- 60000L
+Ca_sim  <- numeric(n_sim)
+tau_sim <- numeric(n_sim)
+sc_sim  <- logical(n_sim)
+Ca_sim[1] <- 0
+sc_sim[1] <- TRUE
+for (t in 2:n_sim) {
+  sc       <- sc_sim[t - 1]
+  Ca       <- Ca_sim[t - 1]
+  Ca_n     <- (as.numeric(sc) - Ca)^4
+  tau_se   <- as.numeric(sc) * Ca_n / (Ca_n + theta_n)
+  tau_sim[t - 1] <- tau_se
+  Ca_new   <- Ca + (dCdr_eff * tau_se - Ca / tau_slow) * dt_plot
+  Ca_sim[t] <- max(0, Ca_new)
+  if      ( sc && Ca_new >= theta_high) sc_sim[t] <- FALSE
+  else if (!sc && Ca_new <= theta_low)  sc_sim[t] <- TRUE
+  else                                  sc_sim[t] <- sc
+}
+Ca_n_last    <- (as.numeric(sc_sim[n_sim]) - Ca_sim[n_sim])^4
+tau_sim[n_sim] <- as.numeric(sc_sim[n_sim]) * Ca_n_last / (Ca_n_last + theta_n)
+t_ms_sim <- (seq_len(n_sim) - 1) * dt_plot
+
+# Select a representative window with ~6 burst cycles (after transient settles)
+win_start <- 500
+win_end   <- 1500
+idx    <- which(t_ms_sim >= win_start & t_ms_sim <= win_end)
+df_ts  <- tibble(t = t_ms_sim[idx], Ca = Ca_sim[idx],
+                 tau = tau_sim[idx], sc = sc_sim[idx])
+
+# Identify inter-burst intervals for shading
+runs      <- rle(df_ts$sc)
+grp_end   <- cumsum(runs$lengths)
+grp_start <- c(1, grp_end[-length(grp_end)] + 1)
+shade_df  <- tibble(sc    = runs$values,
+                    t_min = df_ts$t[grp_start],
+                    t_max = df_ts$t[grp_end]) |>
+  filter(!sc)
+
+# Panel A: Phase portrait (analytical)
+p_phase3 <- ggplot() +
+  geom_line(data = df_phase, aes(x = Ca, y = tau, color = phase), linewidth = 1.1) +
+  geom_vline(xintercept = theta_low,  linetype = "dashed", color = "gray40", linewidth = 0.6) +
+  geom_vline(xintercept = theta_high, linetype = "dashed", color = "gray40", linewidth = 0.6) +
+  annotate("segment", x=0.18, xend=0.55, y=0.95, yend=0.75,
+           arrow=arrow(length=unit(0.2,"cm"), type="closed"), color="#2166ac", linewidth=0.8) +
+  annotate("segment", x=0.87, xend=0.87, y=0.30, yend=0.04,
+           arrow=arrow(length=unit(0.2,"cm"), type="closed"), color="gray30",  linewidth=0.8) +
+  annotate("segment", x=0.73, xend=0.18, y=0,    yend=0,
+           arrow=arrow(length=unit(0.2,"cm"), type="closed"), color="#d6604d", linewidth=0.8) +
+  annotate("segment", x=0.1,  xend=0.1,  y=0.02, yend=0.90,
+           arrow=arrow(length=unit(0.2,"cm"), type="closed"), color="gray30",  linewidth=0.8) +
+  annotate("text", x=0.34, y=0.87, label="Ca accumulates\n(burst fires)", size=3.0, color="#2166ac", hjust=0) +
+  annotate("text", x=0.64, y=0.16, label="trigger\nOFF",                  size=3.0, color="gray30",  hjust=0.5) +
+  annotate("text", x=0.44, y=0.07, label="Ca decays  (silent)",           size=3.0, color="#d6604d", hjust=0.5) +
+  annotate("text", x=0.13, y=0.48, label="trigger\nON",                   size=3.0, color="gray30",  hjust=0) +
+  annotate("text", x=theta_low,  y=0.22, label="theta_low",  size=2.9, color="gray35", hjust=-0.05, fontface="italic") +
+  annotate("text", x=theta_high, y=0.22, label="theta_high", size=2.9, color="gray35", hjust= 1.05, fontface="italic") +
+  scale_color_manual(
+    values = c("Active (slow_current = 1)"     = "#2166ac",
+               "Inter-burst (slow_current = 0)" = "#d6604d"),
+    labels = c("Active phase", "Inter-burst phase")
+  ) +
+  scale_x_continuous(limits = c(0, 1), expand = c(0.02, 0)) +
+  scale_y_continuous(limits = c(0, 1.0), expand = c(0.01, 0.01)) +
+  labs(title = "A  Phase portrait",
+       x = "Ca2+ (normalized)", y = "tau_slow", color = NULL) +
+  theme_bw(base_size = 11) +
+  theme(legend.position     = c(0.98, 0.98),
+        legend.justification = c(1, 1),
+        legend.background   = element_rect(fill = "white", color = "gray80"),
+        legend.text         = element_text(size = 9),
+        plot.title          = element_text(face = "bold", size = 11))
+
+# Panel B: Ca2+ over time
+p_ca3 <- ggplot(df_ts, aes(x = t, y = Ca)) +
+  geom_rect(data = shade_df,
+            aes(xmin = t_min, xmax = t_max, ymin = -Inf, ymax = Inf),
+            inherit.aes = FALSE, fill = "#fee0d2", alpha = 0.7) +
+  geom_hline(yintercept = theta_low,  linetype = "dashed", color = "gray50", linewidth = 0.6) +
+  geom_hline(yintercept = theta_high, linetype = "dashed", color = "gray50", linewidth = 0.6) +
+  geom_line(color = "#2166ac", linewidth = 0.8) +
+  annotate("text", x=win_start+5, y=theta_low +0.06, label="theta_low",  size=2.9, color="gray40", hjust=0, fontface="italic") +
+  annotate("text", x=win_start+5, y=theta_high-0.07, label="theta_high", size=2.9, color="gray40", hjust=0, fontface="italic") +
+  labs(title = "B  Ca2+ over time", x = NULL, y = "Ca2+") +
+  theme_bw(base_size = 11) +
+  theme(plot.title   = element_text(face = "bold", size = 11),
+        axis.text.x  = element_blank(),
+        axis.ticks.x = element_blank())
+
+# Panel C: tau_slow over time
+p_tau3 <- ggplot(df_ts, aes(x = t, y = tau)) +
+  geom_rect(data = shade_df,
+            aes(xmin = t_min, xmax = t_max, ymin = -Inf, ymax = Inf),
+            inherit.aes = FALSE, fill = "#fee0d2", alpha = 0.7) +
+  geom_line(color = "#d6604d", linewidth = 0.8) +
+  annotate("text", x=1050, y=0.55,
+           label="inter-burst\n(slow_current = 0,\ntau_slow = 0)",
+           size=2.8, color="gray45", hjust=0.5) +
+  labs(title = "C  Temporal modulation (tau_slow) over time",
+       x = "Time (ms)", y = "tau_slow") +
+  theme_bw(base_size = 11) +
+  theme(plot.title = element_text(face = "bold", size = 11))
+
+# Combine panels
+p_phase3 + (p_ca3 / p_tau3) +
+  plot_layout(widths = c(1, 1.5)) +
+  plot_annotation(
+    title   = "Bursting via Ca2+-gated Schmitt trigger and Hill-function temporal modulation",
+    caption = paste("Shaded = inter-burst periods. Dashed lines = Schmitt trigger thresholds",
+                    "(theta_low = 0.1, theta_high = 0.9)."),
+    theme   = theme(plot.title   = element_text(size = 11, face = "bold"),
+                    plot.caption = element_text(size = 9,  color = "gray40"))
+  )
+p_phase3
+```
+
+
+<h2>Normalized spike cost in the lead-up to a spike</h2>
+
+The quantity `normalized_spike_cost` (DACx.cpp, line 2514) is the energetic heart of the BGT spike-generation mechanism. It is defined as
+
+$$\text{nsc}(t) = \frac{\overbrace{\partial\mathcal{H}_{\max} \cdot v(t)}^{\text{spike initiation power}} - \overbrace{\left.\frac{\partial\mathcal{H}}{\partial v}\right|_t \cdot v_{\text{bound}}}^{\text{rest maintenance power}}}{\underbrace{\partial\mathcal{H}_{\max} \cdot v_{\text{bound}}}_{\text{max initiation power from rest}} - \underbrace{\left.\frac{\partial\mathcal{H}}{\partial v}\right|_t \cdot v(t)}_{\text{maintenance power at current } v}}$$
+
+where $\partial\mathcal{H}/\partial v$ captures the net current balance at the membrane (synaptic + leak + stimulus + any ongoing spike current) and $\partial\mathcal{H}_{\max}$ is its bound. The quantity nsc $\in [-1, 1]$, where $\text{nsc} = -1$ corresponds to maximum hyperpolarization and $\text{nsc} = 1$ to maximum depolarization or maximum inward current.
+
+**nsc as an attractor.** The raw rate of change of membrane potential is set as $\partial v/\partial t = v_{\text{bound}} \cdot \text{nsc} - v$, making $v_{\text{bound}} \cdot \text{nsc}$ an *attractor voltage* toward which the membrane is continuously pulled. The temporal modulation term $T$ (line 2526) then scales this raw $\partial v/\partial t$ by $T \cdot \Delta t$, controlling the *rate* of movement toward the attractor independently of the attractor's position. This cleanly separates the energetic *direction* of membrane dynamics (determined by nsc) from the kinetic *rate* of those dynamics (determined by $T$ via spike history and calcium).
+
+**Energetic interpretation.** The sign of nsc reflects a metabolic cost comparison: $\text{nsc} < 0$ means spike initiation is energetically *cheaper* than maintaining the current subthreshold state — the cell is continuously being pulled toward a spike. Under physiological depolarizing input this holds throughout the charging phase, with nsc rising (becoming less negative) as the membrane approaches threshold. The voltage threshold itself plays a secondary role: it only determines when the spike current $I_\text{spike}$ enters the $\partial\mathcal{H}/\partial v$ calculation, sharply increasing the outward current and collapsing nsc post-spike. Spiking in this model is therefore not a threshold-crossing rule but the outcome of continuous energetic accounting: the membrane moves toward the spike because that is the lower-energy trajectory.
+
+The block below runs a leaky integrator cell (same parameters as the tutorial) with a constant 100 pA input, reconstructs `normalized_spike_cost` from the voltage trace, and plots it alongside the membrane potential in the lead-up to the first spike.
+
+```{r normalized_spike_cost_demo, fig.width = 8, fig.height = 5}
+library(DACx)
+library(ggplot2)
+library(patchwork)
+
+# ── 1. Build a leaky integrator network (tutorial parameters) ──────────────────
+nsc_cell <- new.network()
+modify.cell.type(
+  "neuron", "leaky integrator",
+  tau_fast              = 1.0,    # ms
+  tau_slow              = 60.0,   # ms
+  tau_Vs                = 100.0,  # ms/spike
+  dCdr                  = 0.01,   # concentration/spike
+  dVdr                  = 0.05,   # concentration/spike
+  max_spike_rate        = 0.1,    # spikes/ms
+  g_leak                = 1.0,    # nS
+  spike_velocity        = 500,    # microns/ms
+  spine_density         = 0.0,
+  axon_target           = "dendrite_shaft",
+  I_spike               = 1e3,    # pA
+  dHdv_bound            = 1.05,
+  v_spike               = 35,     # mV
+  tau_spike             = 1.0,    # ms
+  v_threshold           = -55,    # mV
+  v_eq                  = list("spiny stellate" = 0.0, "PV" = -80.0),
+  v_rest                = -70,    # mV
+  v_bound               = 1.15,
+  g_syn                 = list("spiny stellate" = 0.1, "PV" = 0.1),
+  tau_syn               = list("spiny stellate" = 2.0, "PV" = 6.0),
+  axon_branch_count     = 20,
+  dendrite_branch_count = 20,
+  branch_independence   = 0.75,
+  branch_spread         = 0.75,
+  apical_target_layer   = "none"
+)
+nsc_cell <- set.network.structure(
+  nsc_cell,
+  neuron_types     = c("leaky integrator"),
+  neurons_per_node = 1
+)
+
+# ── 2. Stimulus: 100 pA constant input starting at 10 ms ──────────────────────
+dt_nsc    <- 1e-3          # ms
+sim_ms    <- 25            # ms (captures first spike)
+n_steps   <- sim_ms / dt_nsc
+I_nsc     <- matrix(0, nrow = 1, ncol = n_steps)
+I_nsc[, round(10 / dt_nsc):n_steps] <- 100  # pA
+
+# ── 3. Run BGT simulation ──────────────────────────────────────────────────────
+run.BGT(nsc_cell, I_nsc, dt_nsc, v_initial = -70)
+v_nsc <- as.numeric(nsc_cell$fetch_sim_results()$v_traces[1, ])
+
+# ── 4. Reconstruct normalized_spike_cost from v_traces ────────────────────────
+# Cell parameters (actual values, after internal scaling)
+v_rest_p    <- -70                        # mV
+v_thr_p     <- -55                        # mV
+I_spike_p   <- 1e3                        # pA
+g_leak_p    <- 1.0                        # nS
+v_bound_p   <- 1.15 * abs(v_rest_p)      # mV  (= 80.5)
+dHdv_bnd_p  <- 1.05 * I_spike_p          # pA  (= 1050)
+
+n_nsc <- length(v_nsc)
+nsc   <- rep(NA_real_, n_nsc)
+
+for (t in 2:n_nsc) {
+  # Sub-threshold voltage and spike flag at the previous step
+  # (v_traces stores v_sub + spike_height*spike, so clamp at threshold to recover v_sub)
+  v_sub_prev <- min(v_nsc[t - 1], v_thr_p)
+  is_spk     <- v_nsc[t - 1] > v_thr_p
+  i_stim_t   <- I_nsc[1, t - 1]
+
+  # dHdv: net current (outward-positive convention), bounded above by dHdv_bound
+  dHdv <- min(
+    -i_stim_t + g_leak_p * (v_sub_prev - v_rest_p) + as.numeric(is_spk) * I_spike_p,
+    dHdv_bnd_p - .Machine$double.eps
+  )
+
+  # Spike cost and its maximum (DACx.cpp lines 2506–2514)
+  spike_cost     <- dHdv_bnd_p * v_sub_prev - dHdv * v_bound_p
+  max_spike_cost <- dHdv_bnd_p * v_bound_p  - dHdv * v_sub_prev
+
+  nsc[t] <- spike_cost / max_spike_cost
+}
+
+# ── 5. Build tidy data frame and focus on stimulus onset → just past spike ────
+t_ms_nsc     <- seq_len(n_nsc) * dt_nsc
+first_spk    <- which(v_nsc > v_thr_p)[1]
+win_start    <- round(9 / dt_nsc)
+win_end      <- min(first_spk + round(1.5 / dt_nsc), n_nsc)
+
+df_nsc <- data.frame(
+  t   = t_ms_nsc[win_start:win_end],
+  v   = v_nsc[win_start:win_end],
+  nsc = nsc[win_start:win_end]
+)
+spike_t <- t_ms_nsc[first_spk]
+
+# ── 6. Plot ───────────────────────────────────────────────────────────────────
+p_v_nsc <- ggplot(df_nsc, aes(x = t, y = v)) +
+  geom_vline(xintercept = spike_t, linetype = "dotted", color = "gray60", linewidth = 0.6) +
+  geom_hline(yintercept = v_thr_p, linetype = "dashed", color = "gray50", linewidth = 0.6) +
+  geom_line(color = "#2166ac", linewidth = 0.8) +
+  annotate("text", x = 10.3, y = v_thr_p + 1.5, label = "threshold (−55 mV)",
+           size = 3, hjust = 0, color = "gray40", fontface = "italic") +
+  annotate("text", x = spike_t + 0.15, y = 10, label = "spike",
+           size = 3, hjust = 0, color = "gray40", fontface = "italic") +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  labs(title = "A  Membrane potential", x = NULL, y = "Membrane potential (mV)") +
+  theme_bw(base_size = 11) +
+  theme(plot.title = element_text(face = "bold", size = 11))
+
+p_nsc <- ggplot(df_nsc, aes(x = t, y = nsc)) +
+  geom_vline(xintercept = spike_t,  linetype = "dotted", color = "gray60", linewidth = 0.6) +
+  geom_vline(xintercept = 10, linetype = "dashed", color = "gray50", linewidth = 0.6) +
+  geom_hline(yintercept = 0,        linetype = "dashed", color = "gray50", linewidth = 0.6) +
+  geom_line(color = "#d6604d", linewidth = 0.8) +
+  annotate("text", x = 10.3, y = -0.73, label = "stim on (100 pA)",
+           size = 3, hjust = 0, color = "gray40", fontface = "italic") +
+  annotate("text", x = spike_t + 0.15, y = -0.70, label = "spike",
+           size = 3, hjust = 0, color = "gray40", fontface = "italic") +
+  scale_x_continuous(expand = c(0.01, 0)) +
+  labs(title = "B  Normalized spike cost", x = "Time (ms)", y = "normalized_spike_cost") +
+  theme_bw(base_size = 11) +
+  theme(plot.title = element_text(face = "bold", size = 11))
+
+p_v_nsc / p_nsc +
+  plot_annotation(
+    title   = "Normalized spike cost in the lead-up to a spike",
+    subtitle = paste0(
+      "Leaky integrator cell, 100 pA input from t = 10 ms. ",
+      "nsc rises from \u2248\u22120.87 at rest to \u2248\u22120.64 at threshold."
+    ),
+    theme = theme(
+      plot.title    = element_text(size = 12, face = "bold"),
+      plot.subtitle = element_text(size = 9,  color = "gray40")
+    )
+  )
+```
 

@@ -54,15 +54,15 @@ each neuron type. While the temporal modulation factor controls membrane
 voltage over time at a *single* spatial point, the transmission velocity
 parameter determines the rate at which changes in membrane voltage
 *propagate between neurons*. For this reason, we refer to our GT models
-as *spatial GT* (SGT) models.
+as *biological GT* (BGT) models.
 
-SGT models thus allow for network topologies that not only capture
+BGT models thus allow for network topologies that not only capture
 connection strengths between neurons, but also the different types of
 neurons and their electrodynamics across both time *and space*. A
 [separate
 tutorial](https://Oviedo-Lab.org/DACx/articles/tutorial_network_topology.md)
 demonstrates how to build spatially extended network topologies for
-these models from circuit motifs. This tutorial explains SGT models in
+these models from circuit motifs. This tutorial explains BGT models in
 more detail.
 
 Suppose our network has n neurons N. We want to run a simulation of the
@@ -256,8 +256,8 @@ simulation variable I_spike for the cell type.
 
 The input current induced by synaptic transmission across all synapses,
 I\_\mathrm{synaptic\\transmission}, is handled specially to account for
-signal transmission lag, as described in [the tutorial on spatial GT
-models](https://Oviedo-Lab.org/DACx/articles/tutorial_SGT.md). However,
+signal transmission lag, as described in [the tutorial on biological GT
+models](https://Oviedo-Lab.org/DACx/articles/tutorial_BGT.md). However,
 the basic idea is straightforward: the synaptic current is the synaptic
 conductance times the presynaptic membrane potential v.
 

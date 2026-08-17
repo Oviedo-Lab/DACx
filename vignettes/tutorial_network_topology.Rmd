@@ -1,7 +1,7 @@
 ---
 title: "Network topology from circuit motifs"
 author: "Michael Barkasi"
-date: "August 1, 2026 (v1.0)"
+date: "August 16, 2026 (v1.1)"
 ---
 
 ```{r Rmdsetup, echo=FALSE}
@@ -24,7 +24,7 @@ DACx provides a framework for modeling connections over the brain's spatial topo
 
 [^1]: As of v1.0, DACx is unable to model connections within a hemisphere between two distinct cortical regions, e.g., between auditory and motor cortex. However, an extension to this case would be straightforward: simply add a "region" index which adds cell nodes at a distance along the columnar (x) axis, similar to how hemispheres are modeled by extending a new index along the patch (z) axis.
 
-This tutorial constructs a bilateral (i.e., two-hemisphere) small-scale network-topology model of the primary auditory cortex, including subcortical thalamic inputs. Separate tutorials explain the [mathematics](tutorial_math.html) of GT models, single-cell [temporal membrane dynamics](tutorial_membrane_temporal_dynamics.html) in GT models, and the [extension of GT models](tutorial_SGT.html) into the network topology framework of DACx -- what we call _spatial growth-transform_ models (SGT). 
+This tutorial constructs a bilateral (i.e., two-hemisphere) small-scale network-topology model of the primary auditory cortex, including subcortical thalamic inputs. Separate tutorials explain the [mathematics](tutorial_math.html) of GT models, single-cell [temporal membrane dynamics](tutorial_membrane_temporal_dynamics.html) in GT models, and the [extension of GT models](tutorial_BGT.html) into the network topology framework of DACx -- what we call _biological growth-transform_ models (BGT). 
 
 <h2>Networks</h2>
 
@@ -47,7 +47,7 @@ Network topologies are held in a special class of objects, <span class = "code_v
 ACx_mini <- new.network()
 ```
 
-The <span class = "code_variable">network</span> object class is native to C++ and integrated into DACx (an R package) via Rcpp. The object initialized by <span class = "function">new.network</span> is a minimal -- and empty -- "single node" network. In this context, "node" does not necessarily mean a single neuron, but rather a cluster of nearby neurons with local recurrent connections. (However, a single neuron can be modeled by making a single-node network from a single-cell node; e.g., see the [temporal membrane dynamics tutorial](tutorial_membrane_temporal_dynamics.html).) The current structure of our network can be got by calling the <span class = "function">fetch.network.components</span> function. 
+The <span class = "code_variable">network</span> object class is native to C++ and integrated into DACx (an R package) via Rcpp. The object initialized by <span class = "function">new.network</span> is a minimal -- and empty -- "single node" network. As we use the term, "node" does not necessarily mean a single neuron, but rather a cluster of nearby neurons with local recurrent connections. (However, a single neuron can be modeled by making a single-node network from a single-cell node; e.g., see the [temporal membrane dynamics tutorial](tutorial_membrane_temporal_dynamics.html).) The current structure of our network can be got by calling the <span class = "function">fetch.network.components</span> function. 
 
 ```{r get_network_components}
 ACx_mini_comps <- fetch.network.components(ACx_mini)
@@ -102,7 +102,7 @@ Notice that we set both a value for <span class = "code_variable">n_columns</spa
 
 Notice also that we specified the number of each neuron type in a node via a matrix <span class = "code_variable">neurons_per_node</span>. This matrix must have one column for each cell type (as shown), and one row per layer, with subcortical layers at the bottom (also shown). If there are two hemispheres but only a single row for each layer (as shown above), then the counts provided will be reused across hemispheres. If the matrix has twice the number of rows as the number of layers, then it's assumed that the bottom half of the rows specify counts for the second (i.e., right) hemisphere, again with cortical layers first, subcortical layers second. A single value can be passed as well (which will serve as the number of cells for all cell types in all layers), or a vector the length of the number of cell types (which will be used for all layers). 
 
-The DACx package predefines some cell types. The process of setting additional cell types is discussed in the [tutorial on SGT models](tutorial_SGT.html). The <span class = "code_variable">principal</span> class is special, insofar as it's not a cell type itself, but instead points towards the most numerous (i.e., the "principal") cell type in each layer. Known principal-layer combinations can be seen by calling the <span class = "function">principal.neurons</span> function: 
+The DACx package predefines some cell types. The process of setting additional cell types is discussed in the [tutorial on BGT models](tutorial_BGT.html). The <span class = "code_variable">principal</span> class is special, insofar as it's not a cell type itself, but instead points towards the most numerous (i.e., the "principal") cell type in each layer. Known principal-layer combinations can be seen by calling the <span class = "function">principal.neurons</span> function: 
 
 ```{r print_principal_neurons}
 principal.neurons(print_nicely = TRUE)

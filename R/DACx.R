@@ -1090,9 +1090,9 @@ plot.network <- function(
     
   }
 
-#' Plot spike traces for network from SGT simulation 
+#' Plot spike traces for network from BGT simulation 
 #' 
-#' This function plots spike traces for a network object from a Spatial Growth-Transform (SGT) simulation. 
+#' This function plots spike traces for a network object from a Biological Growth-Transform (BGT) simulation. 
 #' 
 #' @name plot.network.traces
 #' @rdname plot-network-traces
@@ -1103,7 +1103,7 @@ plot.network <- function(
 #'   window_size = 0.01, 
 #'   plot_rates  = TRUE
 #' )
-#' @param network Network object with SGT simulation traces to plot.
+#' @param network Network object with BGT simulation traces to plot.
 #' @param return_plot Logical indicating whether to return the ggplot object (TRUE) or print it (FALSE) (default: FALSE).
 #' @param I_stim Matrix of stimulus currents, with rows representing neurons and columns representing sample times. Presumably the one used to generate the traces. Options. If provided, will be added to the bottom of the plot. 
 #' @param window_size Proportion of time steps to use as a moving window for computing spike rate (default: 0.01). 
@@ -1378,9 +1378,173 @@ plot.network.traces <- function(
     }
   }
 
-#' Run Spatial Growth-Transform network simulation
+#' @name plot.network.spikerate.spectrum
+#' @rdname plot-network-spikerate-spectrum
+#' @usage plot.network.spikerate.spectrum(
+#'   network,
+#'   return_plot = FALSE,
+#'   window_size = 0.01,
+#'   detrend     = TRUE,
+#'   max_freq    = NULL
+#' )
+#' @title Fourier Power Spectrum of Population Spike Rate
+#' @description Recomputes the population-average spike rate trace for each cell
+#'   type (using the same moving-window method as \code{plot.network.traces}) and
+#'   plots the one-sided FFT power spectrum (power vs. frequency in Hz) for each
+#'   type.
+#' @param network Network object with BGT simulation traces.
+#' @param return_plot Logical; if \code{TRUE} return the ggplot/patchwork object
+#'   instead of printing it (default: \code{FALSE}).
+#' @param window_size Proportion of total simulation duration to use as the
+#'   moving-window width when computing spike rate (default: 0.01, matching
+#'   \code{plot.network.traces}).
+#' @param detrend Logical; if \code{TRUE} (default) the mean is subtracted from
+#'   each spike-rate trace before the FFT, removing the DC component so that the
+#'   spectrum focuses on oscillatory content.
+#' @param max_freq Optional upper frequency limit (Hz) for the x-axis. If
+#'   \code{NULL} (default) the full range up to the Nyquist frequency is shown.
+#' @return A patchwork/ggplot object (one panel per cell type), or \code{NULL}
+#'   invisibly when \code{return_plot = FALSE}.
+#' @export
+plot.network.spikerate.spectrum <- function(
+    network,
+    return_plot = FALSE,
+    window_size = 0.01,
+    detrend     = TRUE,
+    max_freq    = NULL
+  ) {
+
+  # --- 1. Pull simulation results ---
+  v_traces  <- network$fetch_sim_results()$v_traces
+  ntw       <- network$fetch_network_components(FALSE)
+  n_neurons <- nrow(v_traces)
+  n_time    <- ncol(v_traces)
+
+  # --- 2. Build time vector (ms) ---
+  time_seq <- seq(1, by = ntw$sim_dt, length.out = n_time)
+
+  # --- 3. Detect spikes (same threshold as plot.network.traces) ---
+  jump_threshold <- 20  # mV
+  spike_matrix   <- matrix(FALSE, nrow = n_neurons, ncol = n_time)
+  if (n_time > 1) {
+    col_diffs          <- v_traces[, -1, drop = FALSE] - v_traces[, -n_time, drop = FALSE]
+    spike_matrix[, -1] <- col_diffs > jump_threshold
+  }
+
+  # --- 4. Moving-window parameters ---
+  total_duration  <- max(time_seq) - min(time_seq)
+  window_duration <- window_size * total_duration
+  window_samples  <- max(1L, round(window_duration / ntw$sim_dt))
+  if (window_samples %% 2 == 0) { window_samples <- window_samples + 1L }
+  half_window     <- floor(window_samples / 2)
+
+  # --- 5. Cell types ---
+  neuron_type <- ntw$neuron_type_name
+  cell_types  <- unique(neuron_type)
+
+  # --- 6. Population-average spike rate for each type (spikes/s per neuron) ---
+  spike_rate <- matrix(
+    NA_real_,
+    nrow     = length(cell_types),
+    ncol     = n_time,
+    dimnames = list(cell_types, NULL)
+  )
+
+  for (k in seq_along(cell_types)) {
+    idx               <- which(neuron_type == cell_types[k])
+    population_spikes <- colSums(spike_matrix[idx, , drop = FALSE])
+    n_type_neurons    <- length(idx)
+
+    cs         <- c(0, cumsum(population_spikes))
+    moving_sum <- rep(NA_real_, n_time)
+    centers    <- (half_window + 1):(n_time - half_window)
+
+    if (length(centers) > 0) {
+      left_edges          <- centers - half_window
+      right_edges         <- centers + half_window
+      moving_sum[centers] <- cs[right_edges + 1] - cs[left_edges]
+    }
+
+    spike_rate[k, ] <- moving_sum / (window_samples * ntw$sim_dt / 1000) / n_type_neurons
+  }
+
+  # --- 7. FFT power spectrum per cell type ---
+  # Sampling frequency (Hz): sim_dt is in ms, so fs = 1000 / sim_dt
+  fs <- 1000 / ntw$sim_dt
+
+  label_colors <- .network_label_colors(cell_types)
+  title_size   <- 10
+  axis_size    <- 6
+
+  plots_by_type <- lapply(seq_along(cell_types), function(k) {
+
+    # Use only the valid (non-NA) interior of the spike rate trace
+    sr     <- spike_rate[k, ]
+    valid  <- !is.na(sr)
+    sr_val <- sr[valid]
+    n_val  <- length(sr_val)
+
+    if (n_val < 2L) {
+      # Not enough data, return empty plot with a message
+      return(
+        ggplot2::ggplot() +
+          ggplot2::annotate("text", x = 0.5, y = 0.5,
+                            label = paste0(cell_types[k], ": insufficient data for FFT")) +
+          ggplot2::theme_void()
+      )
+    }
+
+    # Optional mean removal (suppresses DC peak so oscillatory content is clear)
+    if (detrend) { sr_val <- sr_val - mean(sr_val) }
+
+    # One-sided FFT power spectrum
+    fft_out    <- fft(sr_val)
+    n_one_side <- floor(n_val / 2) + 1L
+    power      <- (Mod(fft_out[seq_len(n_one_side)])^2) / n_val
+    # Double non-DC, non-Nyquist bins to conserve total power
+    if (n_one_side > 2L) {
+      power[2:(n_one_side - 1L)] <- power[2:(n_one_side - 1L)] * 2
+    }
+    freqs <- seq(0, fs / 2, length.out = n_one_side)
+
+    spec_df <- data.frame(frequency = freqs, power = power)
+
+    # Apply optional frequency ceiling
+    if (!is.null(max_freq)) {
+      spec_df <- spec_df[spec_df$frequency <= max_freq, , drop = FALSE]
+    }
+
+    ggplot2::ggplot(spec_df, ggplot2::aes(x = frequency, y = power)) +
+      ggplot2::geom_line(linewidth = 0.7, color = label_colors[k]) +
+      ggplot2::theme_minimal() +
+      ggplot2::theme(
+        panel.background = ggplot2::element_rect(fill = "white", colour = NA),
+        plot.background  = ggplot2::element_rect(fill = "white", colour = NA),
+        plot.title       = ggplot2::element_text(hjust = 0.5, size = title_size),
+        axis.title       = ggplot2::element_text(size = axis_size),
+        axis.text        = ggplot2::element_text(size = axis_size)
+      ) +
+      ggplot2::labs(
+        title = cell_types[k],
+        x     = "Frequency (Hz)",
+        y     = "Power"
+      )
+  })
+
+  # --- 8. Stack panels and return ---
+  plt <- patchwork::wrap_plots(plots_by_type, ncol = 1)
+
+  if (return_plot) {
+    return(plt)
+  } else {
+    print(plt)
+    return(invisible(NULL))
+  }
+}
+
+#' Run Biological Growth-Transform network simulation
 #' 
-#' This function uses a Spatial Growth-Transform (SGT) model to run a spike simulation on a given network object for a specified matrix of membrane currents over time. A matrix containing the spike traces of all neurons over time after the simulation (neurons as rows, sample times as columns) is saved in the network object, along with a vector of spike counts for each neuron in the network. Both are returned on the R side in a list.
+#' This function uses a Biological Growth-Transform (BGT) model to run a spike simulation on a given network object for a specified matrix of membrane currents over time. A matrix containing the spike traces of all neurons over time after the simulation (neurons as rows, sample times as columns) is saved in the network object, along with a vector of spike counts for each neuron in the network. Both are returned on the R side in a list.
 #' 
 #' @param network Network object on which to run the simulation.
 #' @param I_stim Matrix of stimulus currents, with rows representing neurons and columns representing sample times.
@@ -1388,12 +1552,12 @@ plot.network.traces <- function(
 #' @param v_initial Initial value for membrane potential, applied to all cells (default: -70 mV).
 #' @return List containing the following elements: \item{v_traces}{Matrix of simulated sub-threshold voltage + spike traces for all neurons over time (neurons as rows, sample times as columns).} \item{spike_counts}{Vector of spike counts for each neuron in the network.} 
 #' @export
-run.SGT <- function(
+run.BGT <- function(
     network,
     I_stim, 
     dt        = 1e-3,  
     v_initial = -70.0
   ) {
-    network$SGT(I_stim, dt, v_initial)
+    network$BGT(I_stim, dt, v_initial)
     return(network$fetch_sim_results())
   }

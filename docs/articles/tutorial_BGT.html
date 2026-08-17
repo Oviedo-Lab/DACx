@@ -136,13 +136,13 @@ each neuron type. While the temporal modulation factor controls membrane
 voltage over time at a <em>single</em> spatial point, the transmission
 velocity parameter determines the rate at which changes in membrane
 voltage <em>propagate between neurons</em>. For this reason, we refer to
-our GT models as <em>spatial GT</em> (SGT) models.</p>
-<p>SGT models thus allow for network topologies that not only capture
+our GT models as <em>biological GT</em> (BGT) models.</p>
+<p>BGT models thus allow for network topologies that not only capture
 connection strengths between neurons, but also the different types of
 neurons and their electrodynamics across both time <em>and space</em>. A
 <a href="tutorial_network_topology.html">separate tutorial</a>
 demonstrates how to build spatially extended network topologies for
-these models from circuit motifs. This tutorial explains SGT models in
+these models from circuit motifs. This tutorial explains BGT models in
 more detail.</p>
 <p>Suppose our network has <span class="math inline">n</span> neurons
 <span class="math inline">N</span>. We want to run a simulation of the
@@ -347,9 +347,9 @@ thresholding: <span class="math inline">I_\mathrm{spike}=0</span> if
 otherwise is equal to the value of the simulation variable <span class="code_variable">I_spike</span> for the cell type.</p>
 <p>The input current induced by synaptic transmission across all
 synapses, <span class="math inline">I_\mathrm{synaptic\;transmission}</span>, is handled
-specially to account for signal transmission lag, as described in <a href="tutorial_SGT.html">the tutorial on spatial GT models</a>. However,
-the basic idea is straightforward: the synaptic current is the synaptic
-conductance times the presynaptic membrane potential <span class="math inline">v</span>.</p>
+specially to account for signal transmission lag, as described in <a href="tutorial_BGT.html">the tutorial on biological GT models</a>.
+However, the basic idea is straightforward: the synaptic current is the
+synaptic conductance times the presynaptic membrane potential <span class="math inline">v</span>.</p>
 <h2>
 Spiking without spikes?
 </h2>

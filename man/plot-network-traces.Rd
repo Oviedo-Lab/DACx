@@ -2,7 +2,7 @@
 % Please edit documentation in R/DACx.R
 \name{plot.network.traces}
 \alias{plot.network.traces}
-\title{Plot spike traces for network from SGT simulation}
+\title{Plot spike traces for network from BGT simulation}
 \usage{
 plot.network.traces(
   network, 
@@ -13,7 +13,7 @@ plot.network.traces(
 )
 }
 \arguments{
-\item{network}{Network object with SGT simulation traces to plot.}
+\item{network}{Network object with BGT simulation traces to plot.}
 
 \item{return_plot}{Logical indicating whether to return the ggplot object (TRUE) or print it (FALSE) (default: FALSE).}
 
@@ -27,5 +27,5 @@ plot.network.traces(
 A ggplot object showing spike traces for all neurons in the network over time.
 }
 \description{
-This function plots spike traces for a network object from a Spatial Growth-Transform (SGT) simulation.
+This function plots spike traces for a network object from a Biological Growth-Transform (BGT) simulation.
 }

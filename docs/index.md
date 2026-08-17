@@ -5,7 +5,7 @@ of the mammalian auditory cortex – a “digital twin”. [Network
 topologies](https://Oviedo-Lab.org/DACx/articles/tutorial_network_topology.md)
 are built from clusters of cells, called *nodes*, arrayed in three
 dimensions and connected using circuit motifs. [Network
-activity](https://Oviedo-Lab.org/DACx/articles/tutorial_SGT) is
+activity](https://Oviedo-Lab.org/DACx/articles/tutorial_BGT) is
 simulated using an expanded version of the growth-transform (GT)
 membrane voltage time derivative introduced by [Gangopadhyay and
 Chakrabartty](https://doi.org/10.3389/fnins.2020.00425).
@@ -42,8 +42,8 @@ t=\sigma:v\rightarrow v that is guaranteed to monotonically decrease
 \mathcal{H} over time. Such a function \sigma is called a *growth
 transform*. Although this derivation of \partial v/\partial t is purely
 mathematical without any reference to the biological phenomenon being
-modeled, the introductory tutorial to [spatial growth-transform
-models](https://Oviedo-Lab.org/DACx/articles/tutorial_SGT) provides a
+modeled, the introductory tutorial to [biological growth-transform
+models](https://Oviedo-Lab.org/DACx/articles/tutorial_BGT) provides a
 biologically interpreted and motivated derivation.
 
 ![Example plot of 3D network topology producable with

@@ -30,9 +30,9 @@ subcortical thalamic inputs. Separate tutorials explain the
 GT models, single-cell [temporal membrane
 dynamics](https://Oviedo-Lab.org/DACx/articles/tutorial_membrane_temporal_dynamics.md)
 in GT models, and the [extension of GT
-models](https://Oviedo-Lab.org/DACx/articles/tutorial_SGT.md) into the
-network topology framework of DACx – what we call *spatial
-growth-transform* models (SGT).
+models](https://Oviedo-Lab.org/DACx/articles/tutorial_BGT.md) into the
+network topology framework of DACx – what we call *biological
+growth-transform* models (BGT).
 
 ## Networks
 
@@ -63,7 +63,7 @@ ACx_mini <- new.network()
 
 The network object class is native to C++ and integrated into DACx (an R
 package) via Rcpp. The object initialized by new.network is a minimal –
-and empty – “single node” network. In this context, “node” does not
+and empty – “single node” network. As we use the term, “node” does not
 necessarily mean a single neuron, but rather a cluster of nearby neurons
 with local recurrent connections. (However, a single neuron can be
 modeled by making a single-node network from a single-cell node; e.g.,
@@ -176,8 +176,8 @@ types in all layers), or a vector the length of the number of cell types
 (which will be used for all layers).
 
 The DACx package predefines some cell types. The process of setting
-additional cell types is discussed in the [tutorial on SGT
-models](https://Oviedo-Lab.org/DACx/articles/tutorial_SGT.md). The
+additional cell types is discussed in the [tutorial on BGT
+models](https://Oviedo-Lab.org/DACx/articles/tutorial_BGT.md). The
 principal class is special, insofar as it’s not a cell type itself, but
 instead points towards the most numerous (i.e., the “principal”) cell
 type in each layer. Known principal-layer combinations can be seen by

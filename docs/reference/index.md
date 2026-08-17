@@ -20,12 +20,12 @@
   : Fetch network components
 - [`apply.circuit.motif()`](https://Oviedo-Lab.org/DACx/reference/apply.circuit.motif.md)
   : Apply circuit motif to network
-- [`run.SGT()`](https://Oviedo-Lab.org/DACx/reference/run.SGT.md) : Run
-  Spatial Growth-Transform network simulation
+- [`run.BGT()`](https://Oviedo-Lab.org/DACx/reference/run.BGT.md) : Run
+  Biological Growth-Transform network simulation
 - [`plot.network()`](https://Oviedo-Lab.org/DACx/reference/plot-network.md)
   : Plot network as directed graph
 - [`plot.network.traces()`](https://Oviedo-Lab.org/DACx/reference/plot-network-traces.md)
-  : Plot spike traces for network from SGT simulation
+  : Plot spike traces for network from BGT simulation
 
 ## Network cell type functions
 
