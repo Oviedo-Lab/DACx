@@ -1,4 +1,8 @@
 
+<div class="figure">
+  <img src="man/figures/Page_Under_Construction.png" alt="" width="65%">
+</div>
+
 # DACx: Digital Auditory Cortex
 
 DACx is an R/C++ package for running biologically realistic simulations of the mammalian auditory cortex -- a "digital twin". [Network topologies](articles/tutorial_network_topology.html) are built from clusters of cells, called *nodes*, arrayed in three dimensions and connected using circuit motifs. [Network activity](articles/tutorial_BGT) is simulated using an expanded version of the growth-transform (GT) membrane voltage time derivative introduced by [Gangopadhyay and Chakrabartty](https://doi.org/10.3389/fnins.2020.00425).

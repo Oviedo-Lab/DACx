@@ -10,6 +10,10 @@ options(width = 10000)
 knitr::opts_chunk$set(class.output = "scroll-output", cache = TRUE)
 ```
 
+<div class="figure">
+  <img src="Page_Under_Construction.png" alt="" width="65%">
+</div>
+
 <h2>Introduction</h2>
 
 The simplest mathematical models of neural networks are built from homogeneous McCulloch-Pitts neurons with atemporal, scalar-weight connections between them. Biological neural networks, such as those in the mammalian brain, are far more complex. They contain different types of neurons each with their own electrical behavior and spatiotemporally extended connections. 

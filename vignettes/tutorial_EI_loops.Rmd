@@ -10,6 +10,10 @@ options(width = 10000)
 knitr::opts_chunk$set(class.output = "scroll-output", cache = TRUE)
 ```
 
+<div class="figure">
+  <img src="Page_Under_Construction.png" alt="" width="65%">
+</div>
+
 <h2>Introduction</h2>
 
 The brain processes information in parallel. For example, when you watch an egg fall and hit the ground, the resulting _splat_ both makes a _sound_ and has an _appearance_. The sound is perceived through your ears and brought to consciousness through processing in one part of your brain, while the appearance is perceived through your eyes and brought to consciousness through a different part of your brain. It use to be thought that these distinct processing streams have to come together in a third part of your brain in order for you to have a unified auditory-visual experience of a splattering egg. Nowadays, it's generally thought that the unification, or "binding", happens instead by synchronizing activity across auditory and visual areas of the brain. That is, the spiking representing the appearance happens at the same time as the spiking representing the sound. 

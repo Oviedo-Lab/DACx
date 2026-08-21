@@ -10,6 +10,10 @@ options(width = 10000)
 knitr::opts_chunk$set(class.output = "scroll-output", cache = TRUE)
 ```
 
+<div class="figure">
+  <img src="Page_Under_Construction.png" alt="" width="65%">
+</div>
+
 <h2>Under construction!</h2>
 
 This tutorial is under construction, but the scratch work below is reasonably up-to-date as-of August 3, 2026.

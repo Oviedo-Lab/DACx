@@ -1,5 +1,7 @@
 # DACx: Digital Auditory Cortex
 
+![](reference/figures/Page_Under_Construction.png)
+
 DACx is an R/C++ package for running biologically realistic simulations
 of the mammalian auditory cortex – a “digital twin”. [Network
 topologies](https://Oviedo-Lab.org/DACx/articles/tutorial_network_topology.md)

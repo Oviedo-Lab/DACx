@@ -59,6 +59,7 @@ reference:
   - run.BGT
   - plot.network
   - plot.network.traces
+  - plot.network.spikerate.spectrum
   
 - title: Network cell type functions 
   navbar: Network cell type functions 

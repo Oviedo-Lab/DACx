@@ -26,6 +26,8 @@
   : Plot network as directed graph
 - [`plot.network.traces()`](https://Oviedo-Lab.org/DACx/reference/plot-network-traces.md)
   : Plot spike traces for network from BGT simulation
+- [`plot.network.spikerate.spectrum()`](https://Oviedo-Lab.org/DACx/reference/plot-network-spikerate-spectrum.md)
+  : Fourier Power Spectrum of Population Spike Rate
 
 ## Network cell type functions
 

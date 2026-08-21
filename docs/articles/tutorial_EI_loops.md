@@ -1,5 +1,7 @@
 # Excitatory-inhibitory feedback loops
 
+![](Page_Under_Construction.png)
+
 ## Introduction
 
 The brain processes information in parallel. For example, when you watch
@@ -184,10 +186,10 @@ modify.cell.type(
     old_type_name  = "neuron",         # Type to use as base
     new_type_name  = "spiny stellate", # If NULL, modify old type in place; else copy old type into new type with this name
     # Membrane kinetics 
-    tau_fast       = 5.0,   # ms, Long for slow responses responses
-    g_leak         = 1.0,   # nS, Low conductance for slow kinetics 
+    tau_fast       = 5.0,     # ms, Long for slow responses responses
+    g_leak         = 1.0,     # nS, Low conductance for slow kinetics 
     # Intercell transmission 
-    spike_velocity = 100,   # microns/ms, slower transmission than PV cells
+    spike_velocity = 100,     # microns/ms, slower transmission than PV cells
     spine_density  = 0.5,     # ineffectual as of v1.1, setting for later
     axon_target    = "spine", # ineffectual as of v1.1, setting for later
     # Membrane characteristics 
@@ -421,7 +423,7 @@ I\_{\mathrm{syn}}=v\_{\mathrm{drive}}g\_{\mathrm{syn}}^{\mathrm{ss}\rightarrow\m
 The leak potential is expected to be
 v\_{\mathrm{leak}}=v-v\_{\mathrm{rest}}=10.0 mV, for a
 I\_{\mathrm{leak}}=v\_{\mathrm{leak}}g\_{\mathrm{leak}}=10.0\times
-1.0=1.0 pA leak current. Each spiny stellate cell has
+1.0=10.0 pA leak current. Each spiny stellate cell has
 N^{\mathrm{ss}\rightarrow\mathrm{ss}}=26 pre-synaptic spiny stellate
 partners. These cells have a spike width of \tau\_{\mathrm{spike}}=1.0
 ms with a post-spike exponential decay of
@@ -435,14 +437,7 @@ expected ratio of spiny stellates spiking at any one time is
 N\_{\mathrm{ss}}r^\prime. Hence I\_{\mathrm{syn
 total}}^+=I\_{\mathrm{syn}}\frac{N^{\mathrm{ss}\rightarrow\mathrm{ss}}}{N\_{\mathrm{ss}}}N\_{\mathrm{ss}}r^\prime=I\_{\mathrm{syn}}N^{\mathrm{ss}\rightarrow\mathrm{ss}}r^\prime=24
 \times 26 \times r^\prime= 1.872 r is the expected total synaptic
-current at any one moment any one moment. Redoing the calculation for
-the inhibitory current, we get:
-r^\prime=\frac{r(\tau\_{\mathrm{spike}}+\int\_{0}^{\infty}
-\mathrm{exp}(-t/\tau\_{\mathrm{spike}})\\dt)}{1000.0}=\frac{r(0.3+6.0)}{1000.0}=0.0063r
-
-I\_{\mathrm{syn
-total}}^-=I\_{\mathrm{syn}}\frac{N^{\mathrm{PV}\rightarrow\mathrm{ss}}}{N\_{\mathrm{PV}}}N\_{\mathrm{PV}}r\_{\mathrm{PV}}^\prime=I\_{\mathrm{syn}}N^{\mathrm{PV}\rightarrow\mathrm{ss}}r^\prime=240
-\times 31 \times r^\prime= 46.872 r
+current at any one moment any one moment.
 
 ``` r
 
@@ -456,6 +451,48 @@ ggplot2::ggplot(df, ggplot2::aes(x, y)) +
 ```
 
 ![](tutorial_EI_loops_files/figure-html/plot_synaptic_current_total-1.png)
+
+``` r
+
+transfer <- function() {
+  # Set up single unconnected spiny stellate cell
+  net <- new.network()
+  net <- set.network.structure(
+    net,
+    neuron_types     = "spiny stellate",
+    neurons_per_node = 1
+  )
+  
+  # Create sweep of 1 sec input currents
+  dt          <- 1e-3          # ms per step
+  n_steps     <- 1000 / dt     # 1000 ms = 1 second
+  currents_pA <- seq(0, 300, by = 20)
+  
+  # Run simulations
+  spike_rates_Hz <- vapply(currents_pA, function(I) {
+    I_stim <- matrix(I, nrow = 1, ncol = n_steps)
+    res    <- run.BGT(net, I_stim, dt)
+    res$spike_counts[1]          # 1-s simulation of spike count == Hz
+  }, numeric(1))
+  
+  # Plot results
+  df <- data.frame(
+      input_current_pA = currents_pA, 
+      spike_rate_Hz = spike_rates_Hz
+    )
+  ggplot2::ggplot(df, ggplot2::aes(input_current_pA, spike_rate_Hz)) +
+    ggplot2::geom_line() +
+    ggplot2::labs(
+      title = "Empirical Estimate of Transfer Function",
+      y     = "Spike rate response (Hz)", 
+      x     = "Input current (pA)"
+    ) + 
+    ggplot2::theme_minimal()
+}
+transfer()
+```
+
+![](tutorial_EI_loops_files/figure-html/empirically_estimate_transfer_function-1.png)
 
 ``` r
 
@@ -551,10 +588,17 @@ the traces, putting all neurons of the same type together.
 plot.network.traces(network.node, I_stim = I_stim, return_plot = TRUE)
 ```
 
-    ## Warning: Removed 172 rows containing missing values or values outside the scale range (`geom_line()`).
-    ## Removed 172 rows containing missing values or values outside the scale range (`geom_line()`).
+    ## Warning: Removed 176 rows containing missing values or values outside the scale range (`geom_line()`).
+    ## Removed 176 rows containing missing values or values outside the scale range (`geom_line()`).
 
 ![](tutorial_EI_loops_files/figure-html/plot_network_traces-1.png)
+
+``` r
+
+plot.network.spikerate.spectrum(network.node, max_freq = 100)
+```
+
+![](tutorial_EI_loops_files/figure-html/plot_network_traces-2.png)
 
 ``` r
 
@@ -611,10 +655,17 @@ sim_results_disconnectedPV <- run.BGT(
 plot.network.traces(network.node_disconnectedPV, I_stim = I_stim)
 ```
 
-    ## Warning: Removed 164 rows containing missing values or values outside the scale range (`geom_line()`).
-    ## Removed 164 rows containing missing values or values outside the scale range (`geom_line()`).
+    ## Warning: Removed 174 rows containing missing values or values outside the scale range (`geom_line()`).
+    ## Removed 174 rows containing missing values or values outside the scale range (`geom_line()`).
 
 ![](tutorial_EI_loops_files/figure-html/sim_rerun_disconnectedPV-1.png)
+
+``` r
+
+plot.network.spikerate.spectrum(network.node_disconnectedPV, max_freq = 100)
+```
+
+![](tutorial_EI_loops_files/figure-html/sim_rerun_disconnectedPV-2.png)
 
 As can be seen, without spike input from the spiny stellates, the PV
 cells show no activity. Note, also, that without the inhibitory feedback

@@ -1,5 +1,7 @@
 # Network topology from circuit motifs
 
+![](Page_Under_Construction.png)
+
 ## Introduction
 
 The mammalian brain has a rich network topology consisting of distinct

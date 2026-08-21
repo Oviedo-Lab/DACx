@@ -1,5 +1,7 @@
 # Customizing cell types
 
+![](Page_Under_Construction.png)
+
 ## Under construction!
 
 This tutorial is under construction, but the scratch work below is

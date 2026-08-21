@@ -10,6 +10,10 @@ options(width = 10000)
 knitr::opts_chunk$set(class.output = "scroll-output", cache = TRUE)
 ```
 
+<div class="figure">
+  <img src="Page_Under_Construction.png" alt="" width="65%">
+</div>
+
 <h2>Introduction</h2>
 
 The mammalian brain has a rich network topology consisting of distinct hemispheres, distinct cortical (outer) and subcortical (inner) regions, as well as distinct cellular layers and columns. Connections within the network take three forms:
