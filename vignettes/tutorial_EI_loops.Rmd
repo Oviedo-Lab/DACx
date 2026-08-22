@@ -96,7 +96,10 @@ modify.cell.type(
     dendrite_branch_count = 20, 
     branch_independence   = 0.75, 
     branch_spread         = 0.75, 
-    apical_target_layer   = "none"
+    apical_target_layer   = "none",
+    dendrite_velocity     = 1e4,   # microns/ms, 1e4 = 10 m/s
+    Ta                    = 0.0,
+    tA                    = 0.0
   )
 ```
 
@@ -132,7 +135,7 @@ modify.cell.type(
     old_type_name  = "neuron",         # Type to use as base
     new_type_name  = "spiny stellate", # If NULL, modify old type in place; else copy old type into new type with this name
     # Membrane kinetics 
-    tau_fast       = 5.0,     # ms, Long for slow responses responses
+    tau_fast       = 5.0,     # ms, Long for slow responses
     g_leak         = 1.0,     # nS, Low conductance for slow kinetics 
     # Intercell transmission 
     spike_velocity = 100,     # microns/ms, slower transmission than PV cells
@@ -282,7 +285,7 @@ transfer <- function() {
   # Create sweep of 1 sec input currents
   dt          <- 1e-3          # ms per step
   n_steps     <- 1000 / dt     # 1000 ms = 1 second
-  currents_pA <- seq(0, 300, by = 20)
+  currents_pA <- seq(0, -300, by = -20)
   
   # Run simulations
   spike_rates_Hz <- vapply(currents_pA, function(I) {
@@ -349,7 +352,7 @@ A final question is how much current to apply. For this simulation, we'll use a 
 
 ```{r set_up_I_stim}
 I_stim <- matrix(0, nrow = n_neurons, ncol = n_steps)
-I_stim[spiny_stellate_mask, stim_start:stim_end] <- 100
+I_stim[spiny_stellate_mask, stim_start:stim_end] <- -100
 for (i in which(spiny_stellate_mask)) {
     I_stim[i, stim_start:(stim_start + sample.int(50/dt, 1))] <- 0
   }

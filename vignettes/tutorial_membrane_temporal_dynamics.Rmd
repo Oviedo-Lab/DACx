@@ -125,7 +125,7 @@ Now, suppose we want our simulation to involve a $20$ms input current to just th
 A final question is how much current to apply. For this simulation, we'll use a constant current of $100$ pico amp ($100\times 10^{-9}$mA) to the spiny stellates during the stimulus period. It might be natural to leave the input current at zero outside of the stimulus period, but there is endogenous background activity even without exogenous input to the network. So, we'll specify a baseline input current of $10$ pico amps ($10\times 10^{-9}$mA) to all neurons throughout the entire stimulation period: 
 
 ```{r set_up_stimulus_current_matrix}
-stim_magnitude <- 100
+stim_magnitude <- -100
 no_stim  <- matrix(0, nrow = 1, ncol = n_steps)
 ```
 
@@ -182,7 +182,10 @@ modify.cell.type(
     dendrite_branch_count = 20, 
     branch_independence   = 0.75, 
     branch_spread         = 0.75, 
-    apical_target_layer   = "none"
+    apical_target_layer   = "none",
+    dendrite_velocity     = 1e4,   # microns/ms, 1e4 = 10 m/s
+    Ta                    = 0.0,
+    tA                    = 0.0
   )
 
 
@@ -570,7 +573,10 @@ modify.cell.type(
   dendrite_branch_count = 20,
   branch_independence   = 0.75,
   branch_spread         = 0.75,
-  apical_target_layer   = "none"
+  apical_target_layer   = "none",
+  dendrite_velocity     = 1e4,   # microns/ms, 1e4 = 10 m/s
+  Ta                    = 0.0,
+  tA                    = 0.0
 )
 nsc_cell <- set.network.structure(
   nsc_cell,
@@ -583,7 +589,7 @@ dt_nsc    <- 1e-3          # ms
 sim_ms    <- 25            # ms (captures first spike)
 n_steps   <- sim_ms / dt_nsc
 I_nsc     <- matrix(0, nrow = 1, ncol = n_steps)
-I_nsc[, round(10 / dt_nsc):n_steps] <- 100  # pA
+I_nsc[, round(10 / dt_nsc):n_steps] <- -100  # pA
 
 # ── 3. Run BGT simulation ──────────────────────────────────────────────────────
 run.BGT(nsc_cell, I_nsc, dt_nsc, v_initial = -70)

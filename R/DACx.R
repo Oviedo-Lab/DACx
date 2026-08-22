@@ -104,6 +104,9 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 #' @param branch_independence Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma.
 #' @param branch_spread Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma.
 #' @param apical_target_layer Character string giving target layer for apical dendrites.
+#' @param dendrite_velocity transmission velocity (microns/ms) along dendrite.
+#' @param Ta Scalar [0, 1] giving the strength of the supra-threshold, sub-additive effect on synaptic integration across dendrites
+#' @param tA Scalar [0, 1] giving the strength of the sub-threshold, supra-additive effect on synaptic integration across dendrites
 #' @return Nothing.
 #' @export
 modify.cell.type <- function(
@@ -138,7 +141,11 @@ modify.cell.type <- function(
     dendrite_branch_count   = NULL,
     branch_independence     = NULL,
     branch_spread           = NULL,
-    apical_target_layer     = NULL
+    apical_target_layer     = NULL,
+    # Dendritic computing 
+    dendrite_velocity       = NULL,
+    Ta                      = NULL,
+    tA                      = NULL
   ) {
     ep <- fetch.cell.type.params(old_type_name)
     # Extract existing parameters
@@ -164,6 +171,9 @@ modify.cell.type <- function(
     if (is.null(branch_independence))    branch_independence   <- ep$branch_independence
     if (is.null(branch_spread))          branch_spread         <- ep$branch_spread
     if (is.null(apical_target_layer))    apical_target_layer   <- ep$apical_target_layer
+    if (is.null(dendrite_velocity))      dendrite_velocity     <- ep$dendrite_velocity
+    if (is.null(Ta))                     Ta                    <- ep$Ta
+    if (is.null(tA))                     tA                    <- ep$tA
     # Special handling for the named lists
     if (is.null(tau_syn)) tau_syn <- ep$tau_syn else if (is.list(tau_syn)) tau_syn <- modifyList(ep$tau_syn, tau_syn)
     if (is.null(g_syn))   g_syn   <- ep$g_syn   else if (is.list(g_syn))   g_syn   <- modifyList(ep$g_syn,   g_syn)
@@ -197,7 +207,10 @@ modify.cell.type <- function(
       dendrite_branch_count  = as.integer(dendrite_branch_count),
       branch_independence    = branch_independence,
       branch_spread          = branch_spread,
-      apical_target_layer    = apical_target_layer
+      apical_target_layer    = apical_target_layer,
+      dendrite_velocity      = dendrite_velocity,
+      Ta                     = Ta,
+      tA                     = tA
     ))
   }
 
