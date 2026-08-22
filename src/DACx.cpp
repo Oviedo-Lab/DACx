@@ -121,16 +121,16 @@ struct Prj {
 
 // Node-tree description of neurite arbors, one structure instance per cell
 struct cell_arbors {
-    Vint              arbor_id;     // arbor_id[i] = unique id for arbor i
-    Vint              axon_idx;     // indices of the arbors which are axons (i.e., the "which" of axon)
-    Vint              motifs = {1}; // motifs[i] = 1 if motif i was used in construction of the arbor, 0 otherwise; initializes with {1} for local connections
-    Vboo              axon;         // axon[i] = whether arbor i is axon (true) or dendrite (false)
-    Vboo              apical;       // apical[i] = whether arbor i is an apical dendrite (true) or not (false)
-    std::vector<Pnt3> coordinates;  // coordinates[i][j] j = coordinates z, y, x of neurite node j on arbor i (including soma coordinates for j = 0)
-    std::vector<Vstr> node_type;    // node_type[i][j] = "soma", "dendrite_shaft", "axon_shaft", or "spine" for node j in arbor i
-    std::vector<Vint> parents;      // parents[i][j] = the node number (idx in coordinates) of the parent of node j in arbor i, with -1 for the soma
-    std::vector<Vint> leafs;        // leafs[i][j] = 1 if node j in arbor i is a leaf, 0 otherwise
-    std::vector<Vint> synapses;     // synapses[i][j] = number of synapses on node j in arbor i, with 0 for non-synaptic nodes
+    Vint              arbor_id;     // arbor_id[i]         = unique id for arbor i
+    Vint              axon_idx;     // indices of the arbors which are axons 
+    Vint              motifs = {1}; // motifs[i]           = 1 if motif i was used in construction of the arbor, 0 otherwise; initializes with {1} for local connections
+    Vboo              axon;         // axon[i]             = whether arbor i is axon (true) or dendrite (false)
+    Vboo              apical;       // apical[i]           = whether arbor i is an apical dendrite (true) or not (false)
+    std::vector<Pnt3> coordinates;  // coordinates[i][j]   = coordinates z, y, x of neurite node j on arbor i (including soma coordinates for j = 0)
+    std::vector<Vstr> node_type;    // node_type[i][j]     = "soma", "dendrite_shaft", "axon_shaft", or "spine" for node j in arbor i
+    std::vector<Vint> parents;      // parents[i][j]       = the node number (idx in coordinates) of the parent of node j in arbor i, with -1 for the soma
+    std::vector<Vint> leafs;        // leafs[i][j]         = 1 if node j in arbor i is a leaf, 0 otherwise
+    std::vector<Vint> synapses;     // synapses[i][j]      = number of synapses on node j in arbor i, with 0 for non-synaptic nodes
   };
 
 // Network structure 
@@ -453,11 +453,11 @@ ArrayXd v_barrier(
     return output;
   } 
 
-// Create lagged voltage trace matrix to simulate transmission delays
+// Create lagged input trace matrix to simulate transmission delays
 ArrayXXd lagged_traces(
     int   n,                          // Current step index
     const ArrayXXi& lag,              // Pairwise lags, in time steps, for signal to get from neuron (row) i to j
-    const ArrayXXd& v                 // Membrane potential traces
+    const ArrayXXd& v                 // Input traces
   ) {
     const int n_neuron = v.rows();
     ArrayXXd v_lagged(n_neuron, n_neuron);
@@ -466,7 +466,7 @@ ArrayXXd lagged_traces(
       for (int i = 0; i < n_neuron; ++i) {
         int time_index = n - lag(i, j);
         if (time_index < 0) time_index = 0; 
-        v_lagged(i, j) = v(i, time_index); // Neuron i's membrane potential as seen by neuron j
+        v_lagged(i, j) = v(i, time_index); // Neuron i's input as seen by neuron j
       }
     }
     return v_lagged;
@@ -2476,7 +2476,7 @@ void network::BGT(
      
       // Advance synaptic (post-synaptic current) gates: a pre-synaptic spike arrival opens receptors (up to 1), which then decay with tau_syn
       // ... arrival(i, j) = pre-synaptic neuron j's (lagged) spike as seen by post-synaptic neuron i
-      ArrayXXd arrival = v_lagged.transpose();
+      ArrayXXd arrival = v_lagged.transpose(); // Just 0 or 1
       S                = (syn_decay * S).max(arrival);
       
       // Compute synaptic and leak currents
