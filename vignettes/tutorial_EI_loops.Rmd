@@ -65,8 +65,8 @@ modify.cell.type(
     tau_fast              = 2.5,   # ms
     tau_slow              = 60.0,  # ms
     tau_Vs                = 100.0, # ms/spike
-    dCdr                  = 0.01,  # concentration/spike
-    dVdr                  = 0.05,  # concentration/spike
+    UC                  = 0.01,  # 1/spike
+    UV                  = 0.05,  # 1/spike
     max_spike_rate        = 0.1,   # spikes/ms
     g_leak                = 5.0,   # nS
     # Intercell transmission
@@ -112,7 +112,7 @@ modify.cell.type(
     # Membrane kinetics
     tau_fast       = 1.0,    # ms, Short for fast responses
     tau_Vs         = 2.5,    # ms/spike, Fast recovery for little adaptation
-    dVdr           = 0.025,  # concentration/spike, Low vesicle rate for fast spiking
+    UV           = 0.025,  # 1/spike, Low vesicle rate for fast spiking
     max_spike_rate = 0.5,    # spikes/ms, High max spike rate
     g_leak         = 10.0,   # nS, Hight leak conductance for fast kinetics
     # Spiking

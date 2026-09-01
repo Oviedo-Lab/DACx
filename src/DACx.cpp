@@ -69,8 +69,8 @@ struct cell_type {
     double      tau_fast;                // time constant (ms) of the fast sodium (Na+) current: time to flow in.[1]
     double      tau_slow;                // time constant (ms) of the slow calcium (Ca2+) current: time to pump out.[1]
     double      tau_Vs;                  // time constant (ms) for restoring pre-synaptic vesicles, i.e., recovery from short-term depression (STD)
-    double      dCdr;                    // slow-current molecule (Ca2+) influx as concentration per spike (concentration/spike).[5]
-    double      dVdr;                    // utilization ratio (concentration/spike) of vesicles per spike
+    double      UC;                    // utilization constant (UC) for slow-current (Ca2+) influx (1/spike).[5]
+    double      UV;                    // utilization constant (UV) for vesicle depletion (1/spike)
     double      max_spike_rate;          // constant (spikes/ms) controlling estimation of spike rate and its max value
     double      g_leak;                  // conductance (nS) controlling the leak current.[2]
     // Intercell transmission
@@ -187,8 +187,8 @@ struct per_nrn_params {
     ArrayXd  tau_fast; 
     ArrayXd  tau_slow; 
     ArrayXd  tau_Vs;                 // vector giving STD recovery time constant, in ms/spike, for each neuron
-    ArrayXd  dCdr; 
-    ArrayXd  dVdr; 
+    ArrayXd  UC; 
+    ArrayXd  UV; 
     ArrayXd  spike_velocity;         // vector giving the transmission velocity (microns/ms) for each neuron
     ArrayXd  dendrite_velocity;      // vector giving the speed of signals traveling along dendrites (microns/ms) for each neuron
     ArrayXd  Ta;                     // vector giving the strength of the supra-threshold, sub-additive effect on synaptic integration across dendrites
@@ -496,10 +496,10 @@ ArrayXXi lagged_last_spike(
 ArrayXd dCdt(
     const ArrayXd& Ca,                  // Vector of intracellular slow-current molecule (e.g., calcium) concentrations, per cell
     const ArrayXd& recent_spike_count,  // Vector of counts of recent spikes, per cell; proxy for spike rate (spikes/ms)
-    const ArrayXd& dCdr,                // vector giving the slow-current molecule (e.g., Ca2+) influx as concentration per spike (concentration/spike)
+    const ArrayXd& UC,                // vector giving the utilization constant (UC) for slow-current (Ca2+) influx (1/spike)
     const ArrayXd& tau_slow             // vector giving time constant for clearing calcium, per cell (ms)
   ) {
-    return dCdr * recent_spike_count - Ca / tau_slow;
+    return UC * recent_spike_count - Ca / tau_slow;
     // Returns concentration/ms
   }
 
@@ -507,10 +507,10 @@ ArrayXd dCdt(
 ArrayXd dVdt(
     const ArrayXd& Vs,                  // Vector of synaptic vesicle concentrations, per cell (ratio, [0,1])
     const ArrayXd& recent_spike_count,  // Vector of counts of recent spikes, per cell; proxy for spike rate (spikes/ms)
-    const ArrayXd& dVdr,                // vector giving the utilization ratio (concentration/spike) of vesicles per spike
+    const ArrayXd& UV,                // vector giving the utilization constant (UV) for vesicle depletion (1/spike)
     const ArrayXd& tau_Vs               // vector giving time constant for recovery from depression, per cell (ms)
   ) {
-    return (1.0 - Vs) / tau_Vs - Vs * recent_spike_count * dVdr;
+    return (1.0 - Vs) / tau_Vs - Vs * recent_spike_count * UV;
     // Returns concentration/ms
   }
 
@@ -573,8 +573,8 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     double      tau_fast                 = 5.0;   // ms
     double      tau_slow                 = 60.0;  // ms
     double      tau_Vs                   = 100.0; // ms
-    double      dCdr                     = 0.01;  // concentration/spike; Default is no bursting; increase to induce bursting (or lower tau_slow)
-    double      dVdr                     = 0.05;  // concentration/spike
+    double      UC                     = 0.01;  // 1/spike; Default is no bursting; increase to induce bursting (or lower tau_slow)
+    double      UV                     = 0.05;  // 1/spike
     double      max_spike_rate           = 0.1;   // spikes/ms
     double      g_leak                   = 10.0;  // nS
     double      spike_velocity           = 1e3;   // microns/ms, 1e3 = 1 m/s
@@ -599,7 +599,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     // Excitatory cells
     ct_map["pyramidal"] = cell_type{ // Slow responders, 10-50 ms, No bursting 
       "pyramidal",
-      tau_fast, tau_slow, tau_Vs, dCdr, dVdr, max_spike_rate, g_leak,
+      tau_fast, tau_slow, tau_Vs, UC, UV, max_spike_rate, g_leak,
       spike_velocity, 0.5, "spine",
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
       v_rest, v_bound, g_syn, tau_syn,
@@ -610,7 +610,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     };
     ct_map["callosal_pyramidal"] = cell_type{ // Slow responders, 10-50 ms, No bursting 
       "callosal_pyramidal", 
-      tau_fast, tau_slow, tau_Vs, dCdr, dVdr, max_spike_rate, g_leak,
+      tau_fast, tau_slow, tau_Vs, UC, UV, max_spike_rate, g_leak,
       spike_velocity, 0.5, "spine",
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
       v_rest, v_bound, g_syn, tau_syn, 
@@ -621,7 +621,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     };
     ct_map["pyramidal_L6"] = cell_type{ // No bursting 
       "pyramidal_L6", 
-      tau_fast, tau_slow, tau_Vs, dCdr, dVdr, max_spike_rate, g_leak,
+      tau_fast, tau_slow, tau_Vs, UC, UV, max_spike_rate, g_leak,
       spike_velocity, 0.5, "spine",
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
       v_rest, v_bound, g_syn, tau_syn, 
@@ -632,7 +632,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     };
     ct_map["spiny_stellate"] = cell_type{ // No bursting 
       "spiny_stellate",
-      tau_fast, tau_slow, tau_Vs, dCdr, dVdr, max_spike_rate, g_leak,
+      tau_fast, tau_slow, tau_Vs, UC, UV, max_spike_rate, g_leak,
       spike_velocity, 0.5, "spine",
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
       v_rest, v_bound, g_syn, tau_syn,
@@ -643,7 +643,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     };
     ct_map["thalmacortical"] = cell_type{ // No bursting, strong STD
       "thalmacortical",
-      tau_fast, tau_slow, tau_Vs * 1.5, dCdr, dVdr * 1.5, max_spike_rate, g_leak,
+      tau_fast, tau_slow, tau_Vs * 1.5, UC, UV * 1.5, max_spike_rate, g_leak,
       spike_velocity, 0.5, "spine",
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
       v_rest, v_bound, g_syn, tau_syn,
@@ -656,7 +656,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     // Inhibitory cells
     ct_map["neurogliaform_cell"] = cell_type{ // bursting, Slower transmission, slow decay (i.e., large tau_slow, see Huang2024a p. 190)
       "neurogliaform_cell",
-      tau_fast, tau_slow * 2.0, tau_Vs, dCdr * 3.5, dVdr, max_spike_rate, g_leak,
+      tau_fast, tau_slow * 2.0, tau_Vs, UC * 3.5, UV, max_spike_rate, g_leak,
       spike_velocity * 0.5, spine_density, axon_target, 
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
       v_rest, v_bound, g_syn, tau_syn,
@@ -667,7 +667,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     };
     ct_map["PV"] = cell_type{ // Faster responders, ~5 ms; No bursting
       "PV", 
-      tau_fast * 0.5, tau_slow, tau_Vs, dCdr, dVdr, max_spike_rate * 3.0, g_leak * 2.0,
+      tau_fast * 0.5, tau_slow, tau_Vs, UC, UV, max_spike_rate * 3.0, g_leak * 2.0,
       spike_velocity, spine_density, "soma",
       I_spike, dHdv_bound, v_spike, 0.3, v_threshold, v_eq,
       v_rest, v_bound, g_syn, tau_syn,
@@ -678,7 +678,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     };
     ct_map["callosal_PV"] = cell_type{ // Faster responders, ~5 ms; No bursting
       "callosal_PV",  
-      tau_fast * 0.5, tau_slow, tau_Vs, dCdr, dVdr, max_spike_rate * 3.0, g_leak * 2.0,
+      tau_fast * 0.5, tau_slow, tau_Vs, UC, UV, max_spike_rate * 3.0, g_leak * 2.0,
       spike_velocity, spine_density, "soma",
       I_spike, dHdv_bound, v_spike, 0.3, v_threshold, v_eq,
       v_rest, v_bound, g_syn, tau_syn,
@@ -689,7 +689,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     };
     ct_map["SST"] = cell_type{ // Slower responders, 10-30 ms
       "SST",  
-      tau_fast, tau_slow, tau_Vs, dCdr * 3.5, dVdr, max_spike_rate, g_leak,
+      tau_fast, tau_slow, tau_Vs, UC * 3.5, UV, max_spike_rate, g_leak,
       spike_velocity, spine_density, axon_target,
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
       v_rest, v_bound, g_syn, tau_syn,
@@ -700,7 +700,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     };
     ct_map["VIP"] = cell_type{ // Slow responders, 15-40 ms
       "VIP", 
-      tau_fast, tau_slow, tau_Vs, dCdr * 3.5, dVdr, max_spike_rate, g_leak,
+      tau_fast, tau_slow, tau_Vs, UC * 3.5, UV, max_spike_rate, g_leak,
       spike_velocity, spine_density, axon_target,
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
       v_rest, v_bound, g_syn, tau_syn,
@@ -713,7 +713,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     // Generic 
     ct_map["neuron"] = cell_type{ 
       "neuron", 
-      tau_fast, tau_slow, tau_Vs, dCdr, dVdr, max_spike_rate, g_leak,
+      tau_fast, tau_slow, tau_Vs, UC, UV, max_spike_rate, g_leak,
       spike_velocity, spine_density, axon_target,
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
       v_rest, v_bound, g_syn, tau_syn,
@@ -738,7 +738,7 @@ std::unordered_map<std::string, cell_type>& get_cell_types() {
      * To use or modify cell types:
      *   const auto& ct = get_cell_types().at("PV");
      *   double cutoff = ct.tau_slow;
-     *   get_cell_types()["PV"].dCdr = 0.03;
+     *   get_cell_types()["PV"].UC = 0.03;
      */
     
   }
@@ -829,8 +829,8 @@ void print_known_celltypes() {
                   << "  Time constant, fast current (ms): "                << ct.tau_fast << std::endl
                   << "  Time constant, slow current (ms): "                << ct.tau_slow << std::endl
                   << "  STD recovery time constant (spikes/ms): "          << ct.tau_Vs << std::endl
-                  << "  Slow current influx (concentration/spike): "       << ct.dCdr << std::endl
-                  << "  Vesicle utilization ratio (concentration/spike): " << ct.dVdr << std::endl
+                  << "  Slow-current utilization constant UC (1/spike): "   << ct.UC << std::endl
+                  << "  Vesicle utilization constant UV (1/spike): "        << ct.UV << std::endl
                   << "  Spike recovery rate (spikes/ms): "                 << ct.max_spike_rate << std::endl
                   << "  Leak conductance (nS): "                           << ct.g_leak << std::endl
                   << "  Axon transmission velocity (micron/ms): "          << ct.spike_velocity << std::endl
@@ -869,8 +869,8 @@ List fetch_cell_type_params(
       Named("tau_fast")              = ct.tau_fast,
       Named("tau_slow")              = ct.tau_slow,
       Named("tau_Vs")                = ct.tau_Vs,
-      Named("dCdr")                  = ct.dCdr,
-      Named("dVdr")                  = ct.dVdr, 
+      Named("UC")                  = ct.UC,
+      Named("UV")                  = ct.UV, 
       Named("max_spike_rate")        = ct.max_spike_rate,
       Named("g_leak")                = ct.g_leak,
       Named("spike_velocity")        = ct.spike_velocity,
@@ -931,8 +931,8 @@ void build_cell_type_from_list(
     ct.tau_fast              = as<double>(     params["tau_fast"]);
     ct.tau_slow              = as<double>(     params["tau_slow"]);
     ct.tau_Vs                = as<double>(     params["tau_Vs"]);
-    ct.dCdr                  = as<double>(     params["dCdr"]);
-    ct.dVdr                  = as<double>(     params["dVdr"]); 
+    ct.UC                  = as<double>(     params["UC"]);
+    ct.UV                  = as<double>(     params["UV"]); 
     ct.max_spike_rate        = as<double>(     params["max_spike_rate"]);
     ct.spike_velocity        = as<double>(     params["spike_velocity"]);
     ct.spine_density         = as<double>(     params["spine_density"]);
@@ -1085,8 +1085,8 @@ void network::set_neuron_params() {
     per_nrn.tau_fast              = ArrayXd(n_neurons); 
     per_nrn.tau_slow              = ArrayXd(n_neurons); 
     per_nrn.tau_Vs                = ArrayXd(n_neurons);
-    per_nrn.dCdr                  = ArrayXd(n_neurons); 
-    per_nrn.dVdr                  = ArrayXd(n_neurons); 
+    per_nrn.UC                  = ArrayXd(n_neurons); 
+    per_nrn.UV                  = ArrayXd(n_neurons); 
     per_nrn.spike_velocity        = ArrayXd(n_neurons);
     per_nrn.dendrite_velocity     = ArrayXd(n_neurons); 
     per_nrn.Ta                    = ArrayXd(n_neurons); 
@@ -1120,8 +1120,8 @@ void network::set_neuron_params() {
         per_nrn.tau_fast(i)          = ct.tau_fast; 
         per_nrn.tau_slow(i)          = ct.tau_slow; 
         per_nrn.tau_Vs(i)            = ct.tau_Vs;
-        per_nrn.dCdr(i)              = ct.dCdr; 
-        per_nrn.dVdr(i)              = ct.dVdr; 
+        per_nrn.UC(i)              = ct.UC; 
+        per_nrn.UV(i)              = ct.UV; 
         per_nrn.spike_velocity(i)    = ct.spike_velocity;
         per_nrn.dendrite_velocity(i) = ct.dendrite_velocity; 
         per_nrn.Ta(i)                = ct.Ta; 
@@ -2642,8 +2642,8 @@ void network::BGT(
       last_spike           = (last_spike - 1).max(0); 
       last_spike_history.col(t % ls_buffer_size) = last_spike;
       // ... update Vs and Ca
-      Vs                  += dVdt(Vs, spike_counts_recent, per_nrn.dVdr, per_nrn.tau_Vs)   * dt; 
-      Ca                  += dCdt(Ca, spike_counts_recent, per_nrn.dCdr, per_nrn.tau_slow) * dt;
+      Vs                  += dVdt(Vs, spike_counts_recent, per_nrn.UV, per_nrn.tau_Vs)   * dt; 
+      Ca                  += dCdt(Ca, spike_counts_recent, per_nrn.UC, per_nrn.tau_slow) * dt;
       // ... and slow-current trigger 
       for (int i = 0; i < n_neurons; ++i) {
         if (slow_current(i)) {

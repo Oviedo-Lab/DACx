@@ -151,8 +151,8 @@ modify.cell.type(
     tau_fast              = 1.0,   # ms
     tau_slow              = 60.0,  # ms
     tau_Vs                = 100.0, # ms/spike
-    dCdr                  = 0.01,  # concentration/spike
-    dVdr                  = 0.05,  # concentration/spike
+    UC                  = 0.01,  # 1/spike
+    UV                  = 0.05,  # 1/spike
     max_spike_rate        = 0.1,   # spikes/ms
     g_leak                = 1.0,   # nS
     # Intercell transmission
@@ -227,7 +227,7 @@ bursting_cell <- new.network()
 modify.cell.type(
     "leaky integrator", 
     "bursting cell",
-    dCdr = 0.09, # up from 0.01, to induce bursting
+    UC = 0.09, # up from 0.01, to induce bursting
   )
 
 bursting_cell <- set.network.structure(
@@ -322,7 +322,7 @@ modify.cell.type(
 modify.cell.type(
     "leaky integrator", 
     "slow drain",
-    dVdr = 0.01 # down from 0.05
+    UV = 0.01 # down from 0.05
   )
 network_both <- new.network()
 network_both <- set.network.structure(
@@ -394,7 +394,7 @@ theta_low  <- 0.1
 theta_high <- 0.9
 theta_n    <- theta_low^4   # places Hill midpoint at Ca = theta_high
 tau_slow   <- 60            # ms, Ca2+ decay time constant
-dCdr_eff   <- 0.05          # Ca2+ influx per unit tau_slow_effect
+UC_eff   <- 0.05          # Ca2+ influx per unit tau_slow_effect
 dt_plot    <- 0.1           # ms, step size for this illustrative simulation
 
 # Analytical curves: tau_slow_effect vs Ca2+ for each Schmitt trigger state
@@ -421,7 +421,7 @@ for (t in 2:n_sim) {
   Ca_n     <- (as.numeric(sc) - Ca)^4
   tau_se   <- as.numeric(sc) * Ca_n / (Ca_n + theta_n)
   tau_sim[t - 1] <- tau_se
-  Ca_new   <- Ca + (dCdr_eff * tau_se - Ca / tau_slow) * dt_plot
+  Ca_new   <- Ca + (UC_eff * tau_se - Ca / tau_slow) * dt_plot
   Ca_sim[t] <- max(0, Ca_new)
   if      ( sc && Ca_new >= theta_high) sc_sim[t] <- FALSE
   else if (!sc && Ca_new <= theta_low)  sc_sim[t] <- TRUE
@@ -552,8 +552,8 @@ modify.cell.type(
   tau_fast              = 1.0,    # ms
   tau_slow              = 60.0,   # ms
   tau_Vs                = 100.0,  # ms/spike
-  dCdr                  = 0.01,   # concentration/spike
-  dVdr                  = 0.05,   # concentration/spike
+  UC                  = 0.01,   # 1/spike
+  UV                  = 0.05,   # 1/spike
   max_spike_rate        = 0.1,    # spikes/ms
   g_leak                = 1.0,    # nS
   spike_velocity        = 500,    # microns/ms

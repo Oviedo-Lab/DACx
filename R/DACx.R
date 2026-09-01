@@ -82,8 +82,8 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 #' @param tau_fast Time constant (ms) of the fast sodium (Na+) current (Na+ influx is inward, i.e. negative under the outward-positive convention; time to flow in).
 #' @param tau_slow Time constant (ms) of the slow calcium (Ca2+) current (Ca2+ influx is inward, i.e. negative under the outward-positive convention; time to pump out).
 #' @param tau_Vs Time constant (ms) for restoring presynaptic vesicles, i.e., recovery from short-term depression (STD).
-#' @param dCdr Slow-current molecule (Ca2+) influx as concentration per spike (concentration/spike).
-#' @param dVdr Utilization ratio (concentration/spike) of vesicles per spike.
+#' @param UC Utilization constant (UC) for slow-current (Ca2+) influx (1/spike).
+#' @param UV Utilization constant (UV) for vesicle depletion (1/spike).
 #' @param max_spike_rate Constant (spikes/ms) controlling estimation of spike rate and its maximum value.
 #' @param g_leak Conductance controlling the leak current, \code{I_leak = g_leak * (v - v_rest)} (outward-positive), in nS.
 #' @param spike_velocity Transmission velocity (in microns/ms) along axon, for each neuron type.
@@ -116,8 +116,8 @@ modify.cell.type <- function(
     tau_fast                = NULL,
     tau_slow                = NULL,
     tau_Vs                  = NULL,
-    dCdr                    = NULL, 
-    dVdr                    = NULL, 
+    UC                    = NULL, 
+    UV                    = NULL, 
     max_spike_rate          = NULL,
     g_leak                  = NULL,
     # Intercell transmission
@@ -152,8 +152,8 @@ modify.cell.type <- function(
     if (is.null(tau_fast))               tau_fast              <- ep$tau_fast
     if (is.null(tau_slow))               tau_slow              <- ep$tau_slow
     if (is.null(tau_Vs))                 tau_Vs                <- ep$tau_Vs
-    if (is.null(dCdr))                   dCdr                  <- ep$dCdr
-    if (is.null(dVdr))                   dVdr                  <- ep$dVdr
+    if (is.null(UC))                   UC                  <- ep$UC
+    if (is.null(UV))                   UV                  <- ep$UV
     if (is.null(max_spike_rate))         max_spike_rate        <- ep$max_spike_rate
     if (is.null(spike_velocity))         spike_velocity        <- ep$spike_velocity
     if (is.null(spine_density))          spine_density         <- ep$spine_density
@@ -189,8 +189,8 @@ modify.cell.type <- function(
       tau_fast               = tau_fast, 
       tau_slow               = tau_slow, 
       tau_Vs                 = tau_Vs, 
-      dCdr                   = dCdr, 
-      dVdr                   = dVdr, 
+      UC                   = UC, 
+      UV                   = UV, 
       max_spike_rate         = max_spike_rate,
       spike_velocity         = spike_velocity,
       spine_density          = spine_density,
