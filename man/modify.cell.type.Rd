@@ -10,8 +10,8 @@ modify.cell.type(
   tau_fast = NULL,
   tau_slow = NULL,
   tau_Vs = NULL,
-  dCdr = NULL,
-  dVdr = NULL,
+  UC = NULL,
+  UV = NULL,
   max_spike_rate = NULL,
   g_leak = NULL,
   spike_velocity = NULL,
@@ -34,7 +34,15 @@ modify.cell.type(
   apical_target_layer = NULL,
   dendrite_velocity = NULL,
   Ta = NULL,
-  tA = NULL
+  tA = NULL,
+  R_m = NULL,
+  R_i = NULL,
+  C_m = NULL,
+  apical_radius = NULL,
+  basal_radius = NULL,
+  axon_radius = NULL,
+  radius_taper = NULL,
+  min_radius = NULL
 )
 }
 \arguments{
@@ -48,9 +56,9 @@ modify.cell.type(
 
 \item{tau_Vs}{Time constant (ms) for restoring presynaptic vesicles, i.e., recovery from short-term depression (STD).}
 
-\item{dCdr}{Slow-current molecule (Ca2+) influx as concentration per spike (concentration/spike).}
+\item{UC}{Utilization constant (UC) for slow-current (Ca2+) influx (1/spike).}
 
-\item{dVdr}{Utilization ratio (concentration/spike) of vesicles per spike.}
+\item{UV}{Utilization constant (UV) for vesicle depletion (1/spike).}
 
 \item{max_spike_rate}{Constant (spikes/ms) controlling estimation of spike rate and its maximum value.}
 
@@ -97,6 +105,22 @@ modify.cell.type(
 \item{Ta}{Scalar [0, 1] giving the strength of the supra-threshold, sub-additive effect on synaptic integration across dendrites}
 
 \item{tA}{Scalar [0, 1] giving the strength of the sub-threshold, supra-additive effect on synaptic integration across dendrites}
+
+\item{R_m}{Specific membrane resistance (kOhm*cm^2). Default from Zador et al. (1995).}
+
+\item{R_i}{Axial (cytoplasmic) resistivity (Ohm*cm). Default from Zador et al. (1995).}
+
+\item{C_m}{Specific membrane capacitance (uF/cm^2). Default from Zador et al. (1995).}
+
+\item{apical_radius}{Base radius (microns) of apical dendrites at the soma; apical dendrites form the thick, tapering trunk.}
+
+\item{basal_radius}{Base radius (microns) of basal dendrites at the soma; thinner than apical.}
+
+\item{axon_radius}{Radius (microns) assigned to axon nodes.}
+
+\item{radius_taper}{Taper length constant (microns): node radius = base_radius * exp(-distance_from_soma / radius_taper), floored at min_radius.}
+
+\item{min_radius}{Floor radius (microns) for the finest processes.}
 }
 \value{
 Nothing.

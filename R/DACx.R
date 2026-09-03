@@ -107,6 +107,14 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 #' @param dendrite_velocity transmission velocity (microns/ms) along dendrite.
 #' @param Ta Scalar [0, 1] giving the strength of the supra-threshold, sub-additive effect on synaptic integration across dendrites
 #' @param tA Scalar [0, 1] giving the strength of the sub-threshold, supra-additive effect on synaptic integration across dendrites
+#' @param R_m Specific membrane resistance (kOhm*cm^2). Default from Zador et al. (1995).
+#' @param R_i Axial (cytoplasmic) resistivity (Ohm*cm). Default from Zador et al. (1995).
+#' @param C_m Specific membrane capacitance (uF/cm^2). Default from Zador et al. (1995).
+#' @param apical_radius Base radius (microns) of apical dendrites at the soma; apical dendrites form the thick, tapering trunk.
+#' @param basal_radius Base radius (microns) of basal dendrites at the soma; thinner than apical.
+#' @param axon_radius Radius (microns) assigned to axon nodes.
+#' @param radius_taper Taper length constant (microns): node radius = base_radius * exp(-distance_from_soma / radius_taper), floored at min_radius.
+#' @param min_radius Floor radius (microns) for the finest processes.
 #' @return Nothing.
 #' @export
 modify.cell.type <- function(
@@ -145,7 +153,16 @@ modify.cell.type <- function(
     # Dendritic computing 
     dendrite_velocity       = NULL,
     Ta                      = NULL,
-    tA                      = NULL
+    tA                      = NULL,
+    # Cable biophysics and diameter-assignment rule
+    R_m                     = NULL,
+    R_i                     = NULL,
+    C_m                     = NULL,
+    apical_radius           = NULL,
+    basal_radius            = NULL,
+    axon_radius             = NULL,
+    radius_taper            = NULL,
+    min_radius              = NULL
   ) {
     ep <- fetch.cell.type.params(old_type_name)
     # Extract existing parameters
@@ -174,6 +191,14 @@ modify.cell.type <- function(
     if (is.null(dendrite_velocity))      dendrite_velocity     <- ep$dendrite_velocity
     if (is.null(Ta))                     Ta                    <- ep$Ta
     if (is.null(tA))                     tA                    <- ep$tA
+    if (is.null(R_m))                    R_m                   <- ep$R_m
+    if (is.null(R_i))                    R_i                   <- ep$R_i
+    if (is.null(C_m))                    C_m                   <- ep$C_m
+    if (is.null(apical_radius))          apical_radius         <- ep$apical_radius
+    if (is.null(basal_radius))           basal_radius          <- ep$basal_radius
+    if (is.null(axon_radius))            axon_radius           <- ep$axon_radius
+    if (is.null(radius_taper))           radius_taper          <- ep$radius_taper
+    if (is.null(min_radius))             min_radius            <- ep$min_radius
     # Special handling for the named lists
     if (is.null(tau_syn)) tau_syn <- ep$tau_syn else if (is.list(tau_syn)) tau_syn <- modifyList(ep$tau_syn, tau_syn)
     if (is.null(g_syn))   g_syn   <- ep$g_syn   else if (is.list(g_syn))   g_syn   <- modifyList(ep$g_syn,   g_syn)
@@ -210,7 +235,15 @@ modify.cell.type <- function(
       apical_target_layer    = apical_target_layer,
       dendrite_velocity      = dendrite_velocity,
       Ta                     = Ta,
-      tA                     = tA
+      tA                     = tA,
+      R_m                    = R_m,
+      R_i                    = R_i,
+      C_m                    = C_m,
+      apical_radius          = apical_radius,
+      basal_radius           = basal_radius,
+      axon_radius            = axon_radius,
+      radius_taper           = radius_taper,
+      min_radius             = min_radius
     ))
   }
 
@@ -260,7 +293,7 @@ principal.neurons <- function(print_nicely = FALSE) {
 #' @param max_pch_shift_up Same as \code{max_col_shift_up}, but for secondary columnar axis "patch". 
 #' @param max_pch_shift_down Same as \code{max_col_shift_down}, but for secondary columnar axis "patch". 
 #' @param hem_shift Hemisphere shift for the projection: 0 = same hemisphere (default), 1 = contralateral hemisphere. Ignored when the network has only one hemisphere.
-#' @via_apical Boolean specifying whether the \code{presynaptic_type} cell connects to the \code{postsynaptic_type} cell via the \code{postsynaptic_type}'s apical dendrite.
+#' @param via_apical Boolean specifying whether the \code{presynaptic_type} cell connects to the \code{postsynaptic_type} cell via the \code{postsynaptic_type}'s apical dendrite.
 #' @return The updated motif object with the new projection loaded.
 #' @export
 load.projection.into.motif <- function(
@@ -645,6 +678,81 @@ apply.circuit.motif <- function(
     label_colors
   }
 
+# Build tapered-ribbon polygons for arbor segments (2D "cylinder" view).
+# ... each segment becomes a trapezoid whose half-widths are the segment's start/end radii,
+#     offset perpendicular to the segment direction in the (x, y) plane.
+# Returns a data frame with columns x, y, seg_id (one polygon per segment), and grp (color group).
+.arbor_ribbons_2d <- function(edges, edge_color) {
+    dx  <- edges$x_end - edges$x_start
+    dy  <- edges$y_end - edges$y_start
+    len <- sqrt(dx^2 + dy^2)
+    keep <- is.finite(len) & len > 0
+    edges <- edges[keep, , drop = FALSE]
+    dx <- dx[keep]; dy <- dy[keep]; len <- len[keep]
+    # Unit perpendicular to each segment
+    px <- -dy / len
+    py <-  dx / len
+    r0 <- edges$radius_start
+    r1 <- edges$radius_end
+    m  <- nrow(edges)
+    if (m == 0) return(data.frame(x = numeric(0), y = numeric(0), seg_id = integer(0), grp = character(0)))
+    # Four corners per segment, column-major (one column per segment)
+    cx <- rbind(edges$x_start + px * r0, edges$x_end + px * r1, edges$x_end - px * r1, edges$x_start - px * r0)
+    cy <- rbind(edges$y_start + py * r0, edges$y_end + py * r1, edges$y_end - py * r1, edges$y_start - py * r0)
+    data.frame(
+      x      = as.vector(cx),
+      y      = as.vector(cy),
+      seg_id = rep(seq_len(m), each = 4),
+      grp    = rep(as.character(edges[[edge_color]]), each = 4)
+    )
+  }
+
+# Build 3D cylinder (frustum) meshes for arbor segments, grouped by color.
+# ... each segment becomes a tube: rings of n_around vertices around the segment axis at the
+#     start (radius_start) and end (radius_end), triangulated into a side surface.
+# Returns a named list (names = color groups); each element has vertex coords x, y, z (raw arbor
+# coordinates) and 0-based triangle indices i, j, k for plotly::mesh3d.
+.arbor_cylinders_3d <- function(edges, edge_color, n_around = 12L) {
+    groups <- as.character(edges[[edge_color]])
+    theta  <- seq(0, 2 * pi, length.out = n_around + 1L)[-(n_around + 1L)]
+    ct     <- cos(theta); st <- sin(theta)
+    j0     <- 0:(n_around - 1L)
+    j1     <- c(seq_len(n_around - 1L), 0L)
+    out    <- list()
+    for (g in unique(groups)) {
+      idx <- which(groups == g)
+      Vx <- numeric(0); Vy <- numeric(0); Vz <- numeric(0)
+      Fi <- integer(0); Fj <- integer(0); Fk <- integer(0)
+      voff <- 0L
+      for (s in idx) {
+        p0 <- c(edges$x_start[s], edges$y_start[s], edges$z_start[s])
+        p1 <- c(edges$x_end[s],   edges$y_end[s],   edges$z_end[s])
+        r0 <- edges$radius_start[s]; r1 <- edges$radius_end[s]
+        a  <- p1 - p0
+        len <- sqrt(sum(a^2))
+        if (!is.finite(len) || len == 0) next
+        u <- a / len
+        # Two unit vectors spanning the plane perpendicular to the segment axis
+        h  <- if (abs(u[3]) < 0.9) c(0, 0, 1) else c(1, 0, 0)
+        v1 <- c(u[2] * h[3] - u[3] * h[2], u[3] * h[1] - u[1] * h[3], u[1] * h[2] - u[2] * h[1])
+        v1 <- v1 / sqrt(sum(v1^2))
+        v2 <- c(u[2] * v1[3] - u[3] * v1[2], u[3] * v1[1] - u[1] * v1[3], u[1] * v1[2] - u[2] * v1[1])
+        Vx <- c(Vx, p0[1] + r0 * (ct * v1[1] + st * v2[1]), p1[1] + r1 * (ct * v1[1] + st * v2[1]))
+        Vy <- c(Vy, p0[2] + r0 * (ct * v1[2] + st * v2[2]), p1[2] + r1 * (ct * v1[2] + st * v2[2]))
+        Vz <- c(Vz, p0[3] + r0 * (ct * v1[3] + st * v2[3]), p1[3] + r1 * (ct * v1[3] + st * v2[3]))
+        base0 <- voff
+        base1 <- voff + n_around
+        # Two triangles per quad around the ring
+        Fi <- c(Fi, base0 + j0, base0 + j0)
+        Fj <- c(Fj, base0 + j1, base1 + j1)
+        Fk <- c(Fk, base1 + j1, base1 + j0)
+        voff <- voff + 2L * n_around
+      }
+      if (length(Vx) > 0) out[[g]] <- list(x = Vx, y = Vy, z = Vz, i = Fi, j = Fj, k = Fk)
+    }
+    out
+  }
+
 #' Plot network as directed graph
 #' 
 #' This function plots a network object using ggplot2. Nodes represent neurons. Can plot either connections as edges, or neuron arbors. Can also be in 2D (collapsing the patch axis) or 3D. 
@@ -662,6 +770,7 @@ apply.circuit.motif <- function(
 #'  arbor_cell_type       = "all",
 #'  plot_motif            = "all", 
 #'  reconstruct_arbors    = TRUE,
+#'  show_arbor_diameter   = FALSE,
 #'  edge_color            = "pre_type", 
 #'  soma_color            = "layer", 
 #'  soma_size_factor      = 0.5, 
@@ -678,6 +787,7 @@ apply.circuit.motif <- function(
 #' @param arbor_cell_type Character string specifying which cell type(s) to include when selecting cells for arbor plotting; options include "all" for all cell types, or the name (or character vector of names) of a specific cell type (default: "all").
 #' @param plot_motif Character string specifying which motif to plot; options include "all" for all, "local connections" for local connections within each node, or the name of a long-range projection motif (default: "all").
 #' @param reconstruct_arbors Logical indicating whether to reconstruct axonal and dendritic arbors for the neurons in the plot, or whether to instead show synaptic connections as straight edges (default: \code{TRUE}, but can be computationally intensive).
+#' @param show_arbor_diameter Logical; when \code{TRUE}, arbor segments are drawn as tubes/cylinders scaled to each segment's diameter (from the per-node radii) rather than as single lines. In 2D each segment becomes a tapered ribbon (with a fixed aspect ratio so widths are true to scale); in 3D each segment becomes a triangulated cylinder. Requires \code{reconstruct_arbors = TRUE}. Note that true anatomical diameters are small relative to arbor extent, so you may need to zoom in to see them (default: \code{FALSE}).
 #' @param edge_color Character string specifying how to color the edges; options include "pre_type" to color by presynaptic neuron type, "post_type" to color by postsynaptic neuron type, "motif" to color by motif type, and "is_axon" to color by whether a reconstructed arbor is an axon or dendrite (default: "pre_type"). Cannot use "post_type" or "motif" when reconstructing arbors, as arbor edges can be defined by multiple postsynaptic neuron types and motifs. Cannot use "is_axon" when not reconstructing arbors, as edges are not defined by axonal vs. dendritic processes.
 #' @param soma_color Character string specifying how to color the nodes; options include "layer" to color by layer index or "type" to color by neuron type (default: "layer").
 #' @param soma_size_factor Numeric value controlling how cell size in the plot scales to the number of cells (default: 0.5). 
@@ -696,6 +806,7 @@ plot.network <- function(
     arbor_cell_type       = "all",
     plot_motif            = "all",
     reconstruct_arbors    = TRUE,
+    show_arbor_diameter   = FALSE,
     edge_color            = "pre_type",
     soma_color            = "layer",
     soma_size_factor      = 0.5,
@@ -733,6 +844,10 @@ plot.network <- function(
     if (!(soma_color %in% c("layer", "type"))) {
       stop("soma_color must be one of: 'layer' or 'type'.")
     }
+    if (show_arbor_diameter && !reconstruct_arbors) {
+      stop("show_arbor_diameter = TRUE requires reconstruct_arbors = TRUE.")
+    }
+    use_cyl <- isTRUE(show_arbor_diameter) && reconstruct_arbors
    
     # Find range of possible neurons for arbor plotting, based on cell type if specified
     celltype_mask <- rep(TRUE,  ntw$n_neurons)
@@ -967,25 +1082,73 @@ plot.network <- function(
       soma$layer         <- factor(soma$layer,         levels = level_names, labels = level_names)
       edges[,edge_color] <- factor(edges[,edge_color], levels = level_names, labels = level_names) 
       
-      # Make long version of edges for faster ploting in plotly
-      edges_long <- data.frame(
-        x     = c(rbind(edges$x_start, edges$x_end, NA)),
-        y     = c(rbind(edges$y_start, edges$y_end, NA)),
-        z     = c(rbind(edges$z_start, edges$z_end, NA)),
-        group = rep(edges[[edge_color]], each = 3)
-      )
-      
-      # Initialize plotly plot with edges
-      plt <- plotly::plot_ly(
-        edges_long,
-        x      = ~x,
-        y      = ~z,
-        z      = ~y,
-        type   = "scatter3d",
-        mode   = "lines",
-        color  = ~factor(group),
-        colors = hex
-      )
+      if (use_cyl) {
+        
+        # Draw each arbor segment as a triangulated cylinder scaled to its diameter
+        # ... coordinate mapping matches the line version below (plot y = data z, plot z = data y)
+        # ... the meshes are suppressed from the legend (showlegend = FALSE); zero-length proxy
+        #     line traces below supply the original line-style color legend
+        hex_by_label <- stats::setNames(hex, names(label_colors))
+        cyl          <- .arbor_cylinders_3d(edges, edge_color)
+        plt          <- plotly::plot_ly()
+        for (g in names(cyl)) {
+          gcol <- hex_by_label[[g]]
+          if (is.null(gcol) || is.na(gcol)) gcol <- "gray50"
+          m   <- cyl[[g]]
+          plt <- plt |>
+            plotly::add_trace(
+              type      = "mesh3d",
+              x         = m$x, y = m$z, z = m$y,
+              i         = m$i, j = m$j, k = m$k,
+              facecolor = rep(gcol, length(m$i)),
+              name      = g,
+              legendgroup = g,
+              showlegend = FALSE,
+              hoverinfo  = "name"
+            )
+        }
+        for (g in names(cyl)) {
+          gcol <- hex_by_label[[g]]
+          if (is.null(gcol) || is.na(gcol)) gcol <- "gray50"
+          # Zero-length (invisible) line at the soma location, purely to carry a line-style legend key
+          plt <- plt |>
+            plotly::add_trace(
+              type        = "scatter3d",
+              mode        = "lines",
+              x           = rep(soma$x[1], 2),
+              y           = rep(soma$y[1], 2),
+              z           = rep(soma$z[1], 2),
+              line        = list(color = gcol),
+              name        = g,
+              legendgroup = g,
+              showlegend  = TRUE,
+              hoverinfo   = "skip"
+            )
+        }
+        
+      } else {
+        
+        # Make long version of edges for faster ploting in plotly
+        edges_long <- data.frame(
+          x     = c(rbind(edges$x_start, edges$x_end, NA)),
+          y     = c(rbind(edges$y_start, edges$y_end, NA)),
+          z     = c(rbind(edges$z_start, edges$z_end, NA)),
+          group = rep(edges[[edge_color]], each = 3)
+        )
+        
+        # Initialize plotly plot with edges
+        plt <- plotly::plot_ly(
+          edges_long,
+          x      = ~x,
+          y      = ~z,
+          z      = ~y,
+          type   = "scatter3d",
+          mode   = "lines",
+          color  = ~factor(group),
+          colors = hex
+        )
+        
+      }
       
       # Add soma as points
       plt <- plt |>
@@ -1025,6 +1188,7 @@ plot.network <- function(
           plot_bgcolor  = "white",
           font          = list(color = "black"),
           scene         = list(
+            aspectmode = if (use_cyl) "data" else "auto",
             xaxis = list(title = "Cortical Columns", color = "black", backgroundcolor = "white"),
             zaxis = list(title = "Cortical Layers",  color = "black", backgroundcolor = "white"),
             yaxis = list(title = "Cortical Patches", color = "black", backgroundcolor = "white")
@@ -1047,12 +1211,39 @@ plot.network <- function(
       
       plt <- ggplot2::ggplot() +
         # soma as points
-        ggplot2::geom_point(data = soma, size = soma_size, ggplot2::aes(x = x, y = y, color = .data[[soma_color]])) +
+        ggplot2::geom_point(data = soma, size = soma_size, ggplot2::aes(x = x, y = y, color = .data[[soma_color]]))
+      if (use_cyl) {
+        # arbor segments as tapered ribbons scaled to each segment's diameter
+        # ... ribbons are filled by group but suppressed from the legend (show.legend = FALSE);
+        #     a set of zero-length proxy segments supplies the original line-style color legend
+        ribbons      <- .arbor_ribbons_2d(edges, edge_color)
+        legend_proxy <- data.frame(
+          x   = soma$x[1],
+          y   = soma$y[1],
+          grp = unique(as.character(edges[[edge_color]]))
+        )
+        plt <- plt +
+          ggplot2::geom_polygon(
+            data        = ribbons,
+            ggplot2::aes(x = x, y = y, group = seg_id, fill = grp),
+            show.legend = FALSE
+          ) +
+          ggplot2::scale_fill_manual(values = label_colors, guide = "none") +
+          ggplot2::geom_segment(
+            data = legend_proxy,
+            ggplot2::aes(x = x, y = y, xend = x, yend = y, color = grp),
+            na.rm = TRUE
+          ) +
+          ggplot2::coord_fixed()
+      } else {
         # edges as arrows
-        ggplot2::geom_segment(
-          data = edges,
-          ggplot2::aes(x = x_start, y = y_start, xend = x_end, yend = y_end, color = .data[[edge_color]])
-        ) +
+        plt <- plt +
+          ggplot2::geom_segment(
+            data = edges,
+            ggplot2::aes(x = x_start, y = y_start, xend = x_end, yend = y_end, color = .data[[edge_color]])
+          )
+      }
+      plt <- plt +
         ggplot2::theme_minimal() +
         ggplot2::labs(
           title = title, 

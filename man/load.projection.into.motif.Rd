@@ -41,6 +41,8 @@ load.projection.into.motif(
 \item{max_pch_shift_down}{Same as \code{max_col_shift_down}, but for secondary columnar axis "patch".}
 
 \item{hem_shift}{Hemisphere shift for the projection: 0 = same hemisphere (default), 1 = contralateral hemisphere. Ignored when the network has only one hemisphere.}
+
+\item{via_apical}{Boolean specifying whether the \code{presynaptic_type} cell connects to the \code{postsynaptic_type} cell via the \code{postsynaptic_type}'s apical dendrite.}
 }
 \value{
 The updated motif object with the new projection loaded.

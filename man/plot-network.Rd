@@ -15,6 +15,7 @@ plot.network(
  arbor_cell_type       = "all",
  plot_motif            = "all", 
  reconstruct_arbors    = TRUE,
+ show_arbor_diameter   = FALSE,
  edge_color            = "pre_type", 
  soma_color            = "layer", 
  soma_size_factor      = 0.5, 
@@ -42,6 +43,8 @@ plot.network(
 \item{plot_motif}{Character string specifying which motif to plot; options include "all" for all, "local connections" for local connections within each node, or the name of a long-range projection motif (default: "all").}
 
 \item{reconstruct_arbors}{Logical indicating whether to reconstruct axonal and dendritic arbors for the neurons in the plot, or whether to instead show synaptic connections as straight edges (default: \code{TRUE}, but can be computationally intensive).}
+
+\item{show_arbor_diameter}{Logical; when \code{TRUE}, arbor segments are drawn as tubes/cylinders scaled to each segment's diameter (from the per-node radii) rather than as single lines. In 2D each segment becomes a tapered ribbon (with a fixed aspect ratio so widths are true to scale); in 3D each segment becomes a triangulated cylinder. Requires \code{reconstruct_arbors = TRUE}. Note that true anatomical diameters are small relative to arbor extent, so you may need to zoom in to see them (default: \code{FALSE}).}
 
 \item{edge_color}{Character string specifying how to color the edges; options include "pre_type" to color by presynaptic neuron type, "post_type" to color by postsynaptic neuron type, "motif" to color by motif type, and "is_axon" to color by whether a reconstructed arbor is an axon or dendrite (default: "pre_type"). Cannot use "post_type" or "motif" when reconstructing arbors, as arbor edges can be defined by multiple postsynaptic neuron types and motifs. Cannot use "is_axon" when not reconstructing arbors, as edges are not defined by axonal vs. dendritic processes.}
 

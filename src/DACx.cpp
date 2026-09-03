@@ -99,6 +99,16 @@ struct cell_type {
     double      dendrite_velocity;       // transmission velocity (microns/ms) along dendrite
     double      Ta;                      // scalar [0, 1] giving the strength of the supra-threshold, sub-additive effect on synaptic integration across dendrites
     double      tA;                      // scalar [0, 1] giving the strength of the sub-threshold, supra-additive effect on synaptic integration across dendrites
+    // Cable biophysics (Zador et al. 1995 defaults)
+    double      R_m;                     // specific membrane resistance (kOhm*cm^2)
+    double      R_i;                     // axial (cytoplasmic) resistivity (Ohm*cm)
+    double      C_m;                     // specific membrane capacitance (uF/cm^2)
+    // Dendrite diameter-assignment rule (thick, tapering apical trunk; thinner basal dendrites)
+    double      apical_radius;           // base radius (microns) of apical dendrites at the soma
+    double      basal_radius;            // base radius (microns) of basal dendrites at the soma
+    double      axon_radius;             // radius (microns) assigned to axon nodes
+    double      radius_taper;            // taper length constant (microns): radius = base * exp(-dist_from_soma / radius_taper), floored at min_radius
+    double      min_radius;              // floor radius (microns) for the finest processes
     
     /*
      * Comments: 
@@ -129,6 +139,7 @@ struct cell_arbors {
     Vboo              axon;         // axon[i]             = whether arbor i is axon (true) or dendrite (false)
     Vboo              apical;       // apical[i]           = whether arbor i is an apical dendrite (true) or not (false)
     std::vector<Pnt3> coordinates;  // coordinates[i][j]   = coordinates z, y, x of neurite node j on arbor i (including soma coordinates for j = 0)
+    std::vector<Vdbl> radius;       // radius[i][j]        = radius (microns) of neurite node j on arbor i (parallel to coordinates)
     std::vector<Vstr> node_type;    // node_type[i][j]     = "soma", "dendrite_shaft", "axon_shaft", or "spine" for node j in arbor i
     std::vector<Vint> parents;      // parents[i][j]       = the node number (idx in coordinates) of the parent of node j in arbor i, with -1 for the soma
     std::vector<Vint> leafs;        // leafs[i][j]         = 1 if node j in arbor i is a leaf, 0 otherwise
@@ -581,6 +592,16 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     double      dendrite_velocity        = 1e4;   // microns/ms, 1e4 = 10 m/s
     double      Ta                       = 0.0;
     double      tA                       = 0.0; 
+    // Cable biophysics (Zador et al. 1995 defaults)
+    double      R_m                      = 20.0;  // kOhm*cm^2
+    double      R_i                      = 100.0; // Ohm*cm
+    double      C_m                      = 1.0;   // uF/cm^2
+    // Dendrite diameter-assignment rule
+    double      apical_radius            = 1.0;   // microns; thick apical trunk at soma
+    double      basal_radius             = 0.4;   // microns; thinner basal dendrites at soma
+    double      axon_radius              = 0.3;   // microns; axon caliber
+    double      radius_taper             = 500.0; // microns; radius = base * exp(-dist/radius_taper)
+    double      min_radius               = 0.1;   // microns; floor for finest processes
     double      spine_density            = 0.0;
     std::string axon_target              = "dendrite_shaft";
     double      I_spike                  = 1e3;   // pA
@@ -595,7 +616,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     double      branch_independence      = 0.5;
     double      branch_spread            = 0.5;
     std::string apical_target_layer      = "none";
-   
+
     // Excitatory cells
     ct_map["pyramidal"] = cell_type{ // Slow responders, 10-50 ms, No bursting 
       "pyramidal",
@@ -606,7 +627,9 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count, dendrite_branch_count,
       branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
       "L1", // Harris2013a, for cells in L2, L3, and L5
-      dendrite_velocity, Ta, tA
+      dendrite_velocity, Ta, tA,
+      R_m, R_i, C_m,
+      apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
     ct_map["callosal_pyramidal"] = cell_type{ // Slow responders, 10-50 ms, No bursting 
       "callosal_pyramidal", 
@@ -617,7 +640,9 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count * 2, dendrite_branch_count,
       branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
       "L1", // Harris2013a, for cells in L2, L3, and L5
-      dendrite_velocity, Ta, tA
+      dendrite_velocity, Ta, tA,
+      R_m, R_i, C_m,
+      apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
     ct_map["pyramidal_L6"] = cell_type{ // No bursting 
       "pyramidal_L6", 
@@ -628,7 +653,9 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count, dendrite_branch_count,
       branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
       "L4", // Harris2013a
-      dendrite_velocity, Ta, tA
+      dendrite_velocity, Ta, tA,
+      R_m, R_i, C_m,
+      apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
     ct_map["spiny_stellate"] = cell_type{ // No bursting 
       "spiny_stellate",
@@ -639,7 +666,9 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count, dendrite_branch_count,
       branch_independence * 1.5, branch_spread * 1.5, // Increased branching
       apical_target_layer,
-      dendrite_velocity, Ta, tA
+      dendrite_velocity, Ta, tA,
+      R_m, R_i, C_m,
+      apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
     ct_map["thalmacortical"] = cell_type{ // No bursting, strong STD
       "thalmacortical",
@@ -650,9 +679,11 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       static_cast<int>(std::round(axon_branch_count * 0.5)), dendrite_branch_count,
       0.1, 0.9,
       apical_target_layer,
-      dendrite_velocity, Ta, tA
+      dendrite_velocity, Ta, tA,
+      R_m, R_i, C_m,
+      apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
-    
+
     // Inhibitory cells
     ct_map["neurogliaform_cell"] = cell_type{ // bursting, Slower transmission, slow decay (i.e., large tau_slow, see Huang2024a p. 190)
       "neurogliaform_cell",
@@ -663,7 +694,9 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count, dendrite_branch_count,
       branch_independence * 1.5, branch_spread * 1.5, // Increased branching
       apical_target_layer,
-      dendrite_velocity, Ta, tA
+      dendrite_velocity, Ta, tA,
+      R_m, R_i, C_m,
+      apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
     ct_map["PV"] = cell_type{ // Faster responders, ~5 ms; No bursting
       "PV", 
@@ -674,7 +707,9 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count, dendrite_branch_count,
       branch_independence * 1.25, branch_spread * 1.25, // Increased branching
       apical_target_layer,
-      dendrite_velocity, Ta, tA
+      dendrite_velocity, Ta, tA,
+      R_m, R_i, C_m,
+      apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
     ct_map["callosal_PV"] = cell_type{ // Faster responders, ~5 ms; No bursting
       "callosal_PV",  
@@ -685,7 +720,9 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count * 2, dendrite_branch_count,
       branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
       apical_target_layer,
-      dendrite_velocity, Ta, tA
+      dendrite_velocity, Ta, tA,
+      R_m, R_i, C_m,
+      apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
     ct_map["SST"] = cell_type{ // Slower responders, 10-30 ms
       "SST",  
@@ -696,7 +733,9 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count, dendrite_branch_count,
       branch_independence * 1.5, branch_spread * 1.5, // Increased branching
       apical_target_layer,
-      dendrite_velocity, Ta, tA
+      dendrite_velocity, Ta, tA,
+      R_m, R_i, C_m,
+      apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
     ct_map["VIP"] = cell_type{ // Slow responders, 15-40 ms
       "VIP", 
@@ -707,9 +746,11 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count, dendrite_branch_count,
       branch_independence * 1.25, branch_spread * 1.25, // Increased branching
       apical_target_layer,
-      dendrite_velocity, Ta, tA
+      dendrite_velocity, Ta, tA,
+      R_m, R_i, C_m,
+      apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
-    
+
     // Generic 
     ct_map["neuron"] = cell_type{ 
       "neuron", 
@@ -720,7 +761,9 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count, dendrite_branch_count,
       branch_independence, branch_spread,
       apical_target_layer,
-      dendrite_velocity, Ta, tA
+      dendrite_velocity, Ta, tA,
+      R_m, R_i, C_m,
+      apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
    
     return ct_map;
@@ -850,7 +893,15 @@ void print_known_celltypes() {
                   << "  Dendrite branch count: "                           << ct.dendrite_branch_count << std::endl
                   << "  Branch independence: "                             << ct.branch_independence << std::endl
                   << "  Branch spread: "                                   << ct.branch_spread << std::endl
-                  << "  Apical target layer: "                             << ct.apical_target_layer << std::endl;
+                  << "  Apical target layer: "                             << ct.apical_target_layer << std::endl
+                  << "  Membrane resistance R_m (kOhm*cm^2): "             << ct.R_m << std::endl
+                  << "  Axial resistivity R_i (Ohm*cm): "                  << ct.R_i << std::endl
+                  << "  Membrane capacitance C_m (uF/cm^2): "              << ct.C_m << std::endl
+                  << "  Apical base radius (microns): "                    << ct.apical_radius << std::endl
+                  << "  Basal base radius (microns): "                     << ct.basal_radius << std::endl
+                  << "  Axon radius (microns): "                           << ct.axon_radius << std::endl
+                  << "  Radius taper length (microns): "                   << ct.radius_taper << std::endl
+                  << "  Min radius (microns): "                            << ct.min_radius << std::endl;
     }
   }
 
@@ -892,6 +943,14 @@ List fetch_cell_type_params(
     return_list["dendrite_velocity"]     = ct.dendrite_velocity;
     return_list["Ta"]                    = ct.Ta; 
     return_list["tA"]                    = ct.tA; 
+    return_list["R_m"]                   = ct.R_m;
+    return_list["R_i"]                   = ct.R_i;
+    return_list["C_m"]                   = ct.C_m;
+    return_list["apical_radius"]         = ct.apical_radius;
+    return_list["basal_radius"]          = ct.basal_radius;
+    return_list["axon_radius"]           = ct.axon_radius;
+    return_list["radius_taper"]          = ct.radius_taper;
+    return_list["min_radius"]            = ct.min_radius;
     // Extract and convert named list elements
     List ct_tau_syn;
     List ct_g_syn; 
@@ -953,6 +1012,14 @@ void build_cell_type_from_list(
     ct.dendrite_velocity     = as<double>(     params["dendrite_velocity"]);
     ct.Ta                    = as<double>(     params["Ta"]);
     ct.tA                    = as<double>(     params["tA"]); 
+    ct.R_m                   = as<double>(     params["R_m"]);
+    ct.R_i                   = as<double>(     params["R_i"]);
+    ct.C_m                   = as<double>(     params["C_m"]);
+    ct.apical_radius         = as<double>(     params["apical_radius"]);
+    ct.basal_radius          = as<double>(     params["basal_radius"]);
+    ct.axon_radius           = as<double>(     params["axon_radius"]);
+    ct.radius_taper          = as<double>(     params["radius_taper"]);
+    ct.min_radius            = as<double>(     params["min_radius"]); 
     
     // Synaptic conductance: if provided, use it; otherwise will be initialized as zero
     if (params.containsElementNamed("g_syn")) {
@@ -979,6 +1046,12 @@ void build_cell_type_from_list(
       Rcpp::stop("branch_independence must be between 0 and 1");
     if (ct.branch_spread < 0.0 || ct.branch_spread > 1.0)
       Rcpp::stop("branch_spread must be between 0 and 1");
+    if (ct.min_radius <= 0.0)
+      Rcpp::stop("min_radius must be positive");
+    if (ct.radius_taper <= 0.0)
+      Rcpp::stop("radius_taper must be positive");
+    if (ct.apical_radius <= 0.0 || ct.basal_radius <= 0.0 || ct.axon_radius <= 0.0)
+      Rcpp::stop("apical_radius, basal_radius, and axon_radius must be positive");
     
     // Add new cell type 
     get_cell_types()[type_name] = ct;
@@ -1398,6 +1471,12 @@ void network::make_arbor_branch(
     int n_segments        = n_segments_radius;
     if (n_segments < 2) { n_segments = 2; }
     
+    // Base radius for this branch under the diameter-assignment rule
+    // ... apical dendrites form a thick trunk, basal dendrites are thinner, axons use their own caliber
+    const cell_type& ct_radius = neuron_types[per_nrn.neuron_type_num[cell_idx]];
+    double base_radius = is_axon ? ct_radius.axon_radius
+                                 : (is_apical ? ct_radius.apical_radius : ct_radius.basal_radius);
+    
     // Set parent flag 
     bool has_parent = parent_branch_idx >= 0;
     
@@ -1439,6 +1518,7 @@ void network::make_arbor_branch(
       arbors[cell_idx].parents.push_back({-1});             // ... and initialize new vector to track node parents
       arbors[cell_idx].leafs.push_back({0});                // ... and initialize leafs vector and mark that this first point is not a leaf 
       arbors[cell_idx].synapses.push_back({0});             // ... and initialize synapses vector and mark that this first point is not a synapse
+      arbors[cell_idx].radius.push_back({base_radius});     // ... and initialize radius vector; soma node takes the base radius (no taper at dist 0)
       parent_branch_idx = arbors[cell_idx].axon.size() - 1; // ... set as parent branch 
       parent_idx = 0;                                       // ... and set initial parent node idx 
     }
@@ -1556,6 +1636,12 @@ void network::make_arbor_branch(
       
       // Mark that this node is not a synapse 
       arbors[cell_idx].synapses[parent_branch_idx].push_back(0);
+      
+      // Assign radius by the diameter-assignment rule: taper from base radius with straight-line distance from soma
+      double dist_from_soma = (new_node - soma_coordinates).norm();
+      double node_radius    = base_radius * std::exp(-dist_from_soma / ct_radius.radius_taper);
+      if (node_radius < ct_radius.min_radius) { node_radius = ct_radius.min_radius; }
+      arbors[cell_idx].radius[parent_branch_idx].push_back(node_radius);
       
       // Check distance to attractor point 
       if (use_attractor && bias_component_magnitude < attractor_boundary_distance) { break; }
@@ -1879,6 +1965,8 @@ double network::find_synapse(
           arbors[idx_pre].leafs[ax].push_back(1);
           // ... and mark new node as synapse
           arbors[idx_pre].synapses[ax].push_back(1);
+          // ... and record its radius (axon caliber of the pre-synaptic cell)
+          arbors[idx_pre].radius[ax].push_back(neuron_types[per_nrn.neuron_type_num[idx_pre]].axon_radius);
           
           // Find signal travel distances to/from this synapse 
           per_nrn.pre_syn_travel(idx_post, idx_pre)  = integrate_along_arbor_to_soma(arbors[idx_pre].coordinates[ax].size() - 1, ax, idx_pre); 
@@ -2239,10 +2327,10 @@ List network::fetch_network_components(
       }
       
       // Create matrix to hold arbor data, and a per-neuron synapse count vector
-      arbor_matrix           = NumericMatrix(n_segments - n_roots, 13);
+      arbor_matrix           = NumericMatrix(n_segments - n_roots, 15);
       colnames(arbor_matrix) = CharacterVector::create(
         "neuron_idx", "arbor_id", "is_axon", "node_type", "parent_idx", "is_leaf", "is_synapse", 
-        "z_start", "y_start", "x_start", "z_end", "y_end", "x_end"
+        "z_start", "y_start", "x_start", "z_end", "y_end", "x_end", "radius_start", "radius_end"
       );
       synapse_counts         = IntegerVector(n_neurons, 0);
       
@@ -2289,6 +2377,8 @@ List network::fetch_network_components(
             arbor_matrix(seg_idx, 10) = arbors[n].coordinates[a][i][0];          // z_end
             arbor_matrix(seg_idx, 11) = arbors[n].coordinates[a][i][1];          // y_end
             arbor_matrix(seg_idx, 12) = arbors[n].coordinates[a][i][2];          // x_end
+            arbor_matrix(seg_idx, 13) = arbors[n].radius[a][parent_idx];         // radius at segment start (parent node)
+            arbor_matrix(seg_idx, 14) = arbors[n].radius[a][i];                  // radius at segment end (this node)
             seg_idx++;
           }
         }
@@ -2512,9 +2602,7 @@ void network::BGT(
       ArrayXXd S_excess = (S - 1.0).max(0.0);
       S = (S - S_excess) + S_excess.colwise() * per_nrn.tA;
       
-      // Compute synaptic and leak currents
-      ArrayXXd v_drive = -(per_nrn.v_eq.colwise() - v_sub.col(t - 1));
-      ArrayXXd I_syn   = v_drive * g_syn * S; 
+      // Compute leak current
       ArrayXd  I_leak  = per_nrn.g_leak * (v_sub.col(t - 1) - per_nrn.v_rest);
       
       /*
@@ -2523,11 +2611,15 @@ void network::BGT(
        *      S is incremented by 1 at each spike arrival (onset only), held during the spike width, then decays with syn_decay.
        *      Dependence on distance from soma is built in via adjustment of tau_syn, so that the supra-additive
        *      effect is strongest furthest from soma and gone near soma. 
-       *  2. To handle different site, same-time supra-additive effect: after updating 
-       *      dendrite_states[i].row(ds_now(i)) = I_syn.row(i), multiply row by a scalar determined by 
-       *      the number of active synapses and distance from soma. per_nrn.tA is applied. 
-       *  3. sublinear, supra-threshold effect: distance-dependent decay term based on recent spike count, applied 
-       *      per pre-synaptic neuron as dendritice currents are accumulated. per_nrn.Ta is applied. 
+       *  2. Different-site, same-time supra-additive effect: dendrite_states[i].row(ds_now(i)) stores g_syn*S (conductance
+       *      × gating, NOT current), scaled by a distance-dependent supra-additive factor determined by the number of
+       *      co-active synapses. per_nrn.tA is applied. 
+       *  3. Sublinear, supra-threshold effect: distance-dependent decay term based on recent spike count, applied 
+       *      per pre-synaptic neuron as dendritic conductances are accumulated. per_nrn.Ta is applied. 
+       *  4. Driving force: applied at retrieval time using the lagged soma voltage attenuated toward v_rest by the
+       *      normalised dendritic distance (passive-cable approximation of local dendritic voltage). This ensures that
+       *      both the temporal origin of the conductance and the spatial location of the synapse are reflected in the
+       *      current that ultimately reaches the soma.
        */
       
       // Apply dendritic computing to I_syn to find input "felt" at the soma
@@ -2535,14 +2627,15 @@ void network::BGT(
       // For each post-synaptic neuron i ...
       for (int i = 0; i < n_neurons; ++i) {
         
-        // Get number of active synapses
-        double n_syn_on = static_cast<double>((I_syn.row(i) != 0).count());
+        // Get number of active synapses (based on conductance × gating; avoids missing synapses when v_soma == v_eq)
+        double n_syn_on = static_cast<double>(((g_syn * S).row(i) != 0).count());
         // Compute super-additive effect 
         double tAe      = per_nrn.tA(i) * n_syn_on > 1.0 ? (n_syn_on - 1.0) / static_cast<double>(n_neurons) : 0.0;
         // Adjust for distance from soma and add 1
         auto   sae_adj  = (post_syn_travel_norm.row(i) * tAe + 1.0).eval();
-        // Update dendrite state, with distance-adjusted supra-additive effect 
-        dendrite_states[i].row(ds_now(i)) = I_syn.row(i) * sae_adj; 
+        // Store synaptic conductance × gating (not current) in the dendrite buffer, with distance-adjusted supra-additive effect applied.
+        // Driving force will be computed at retrieval time using the lagged, distance-attenuated local voltage.
+        dendrite_states[i].row(ds_now(i)) = (g_syn * S).row(i) * sae_adj; 
         
         // Scale calcium concentration by distance to soma to estimate calcium at synapse
         auto Ca_adj = (Ca(i) * (1.0 - post_syn_travel_norm.row(i))).eval();
@@ -2557,8 +2650,21 @@ void network::BGT(
           // Double-modulo ensures a non-negative result even when ds_felt(j) < 0
           // (i.e., during the first max_post_lags steps before the buffer has full history)
           ds_felt(j) = ((ds_felt(j) % max_post_lags(i)) + max_post_lags(i)) % max_post_lags(i);
-          // Add felt synaptic current from this synapse
-          I_syn_effective(i) += dendrite_states[i](ds_felt(j), j) * Tae(j);
+          // Compute driving force at the local dendritic synapse site, at the time the conductance was generated.
+          // t_gen: the time step at which this conductance was stored (lag_j steps before the current step t);
+          //        clamped to 0 during the first lag_j steps when full history is unavailable.
+          int    lag_j      = post_syn_lags(i, j);
+          int    t_gen      = std::max(0, t - 1 - lag_j);
+          // Local dendritic voltage approximated as a linear blend of soma voltage and v_rest,
+          // weighted by normalised dendritic distance d (0 = soma, 1 = most distal):
+          //   v_local = v_soma * (1 - d) + v_rest * d
+          // This follows passive-cable intuition: voltage attenuates toward rest with distance.
+          double v_soma_gen = v_sub(i, t_gen);
+          double d          = post_syn_travel_norm(i, j);
+          double v_local    = v_soma_gen * (1.0 - d) + per_nrn.v_rest(i) * d;
+          double drive_j    = v_local - per_nrn.v_eq(i, j);
+          // Accumulate effective synaptic current at soma (conductance × local driving force × sub-additive scaling)
+          I_syn_effective(i) += dendrite_states[i](ds_felt(j), j) * drive_j * Tae(j);
         }
       }
       // Advance ds_now, modulo max_post_lags 
@@ -2569,9 +2675,10 @@ void network::BGT(
       
       /*
        * Have: 
-       * ... g_syn(i, j)                 = conductance from neuron j to neuron i
-       * ... ls_lagged(i, j) = last_spike of pre-syn j as seen by post-syn i at this time step
-       * ... so, row-wise sum of I_syn gives power dissipation from input into i
+       * ... g_syn(i, j)          = conductance from neuron j to neuron i
+       * ... ls_lagged(i, j)      = last_spike of pre-syn j as seen by post-syn i at this time step
+       * ... I_syn_effective(i)   = total synaptic current felt at soma of i, summed over all pre-syn j,
+       *                            using lagged conductances weighted by local-dendritic driving forces
        */
       
       // Compute rate of change for total metabolic power dissipation in the network, w.r.t. each neuron
