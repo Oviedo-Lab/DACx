@@ -104,7 +104,6 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 #' @param branch_independence Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma.
 #' @param branch_spread Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma.
 #' @param apical_target_layer Character string giving target layer for apical dendrites.
-#' @param dendrite_velocity transmission velocity (microns/ms) along dendrite.
 #' @param Ta Scalar [0, 1] giving the strength of the supra-threshold, sub-additive effect on synaptic integration across dendrites
 #' @param tA Scalar [0, 1] giving the strength of the sub-threshold, supra-additive effect on synaptic integration across dendrites
 #' @param R_m Specific membrane resistance (kOhm*cm^2). Default from Zador et al. (1995).
@@ -150,8 +149,9 @@ modify.cell.type <- function(
     branch_independence     = NULL,
     branch_spread           = NULL,
     apical_target_layer     = NULL,
-    # Dendritic computing 
-    dendrite_velocity       = NULL,
+    # Dendritic computing
+    # [Claude Sonnet 4.6, 2026-09-03] dendrite_velocity removed; dendritic propagation
+    # delay is now computed from R_m, R_i, C_m via the DC MET (Zador et al. 1995).
     Ta                      = NULL,
     tA                      = NULL,
     # Cable biophysics and diameter-assignment rule
@@ -188,7 +188,6 @@ modify.cell.type <- function(
     if (is.null(branch_independence))    branch_independence   <- ep$branch_independence
     if (is.null(branch_spread))          branch_spread         <- ep$branch_spread
     if (is.null(apical_target_layer))    apical_target_layer   <- ep$apical_target_layer
-    if (is.null(dendrite_velocity))      dendrite_velocity     <- ep$dendrite_velocity
     if (is.null(Ta))                     Ta                    <- ep$Ta
     if (is.null(tA))                     tA                    <- ep$tA
     if (is.null(R_m))                    R_m                   <- ep$R_m
@@ -233,7 +232,6 @@ modify.cell.type <- function(
       branch_independence    = branch_independence,
       branch_spread          = branch_spread,
       apical_target_layer    = apical_target_layer,
-      dendrite_velocity      = dendrite_velocity,
       Ta                     = Ta,
       tA                     = tA,
       R_m                    = R_m,

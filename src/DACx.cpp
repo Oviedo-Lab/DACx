@@ -95,8 +95,7 @@ struct cell_type {
     double      branch_independence;     // scale controlling branch independence: zero means all branches connect to soma from single segment, one means all branches connect directly to soma
     double      branch_spread;           // scale controlling branch spread: zero means no tendency to extend away from soma, one means straight line away from soma
     std::string apical_target_layer;     // layer to which apical dendrite is expected to grow, if any; if none, "none"
-    // Dendritic computing 
-    double      dendrite_velocity;       // transmission velocity (microns/ms) along dendrite
+    // Dendritic computing
     double      Ta;                      // scalar [0, 1] giving the strength of the supra-threshold, sub-additive effect on synaptic integration across dendrites
     double      tA;                      // scalar [0, 1] giving the strength of the sub-threshold, supra-additive effect on synaptic integration across dendrites
     // Cable biophysics (Zador et al. 1995 defaults)
@@ -201,13 +200,33 @@ struct per_nrn_params {
     ArrayXd  UC; 
     ArrayXd  UV; 
     ArrayXd  spike_velocity;         // vector giving the transmission velocity (microns/ms) for each neuron
-    ArrayXd  dendrite_velocity;      // vector giving the speed of signals traveling along dendrites (microns/ms) for each neuron
     ArrayXd  Ta;                     // vector giving the strength of the supra-threshold, sub-additive effect on synaptic integration across dendrites
     ArrayXd  tA;                     // vector giving the strength of the sub-threshold, supra-additive effect on synaptic integration across dendrites
     ArrayXXd v_eq;                   // array giving the equilibrium potential (mV) for each post-synaptic cell (rows), given each pre-synaptic cell's type (columns)
     ArrayXXd tau_syn;                // array giving the PSC decay time constant (ms) for each post-synaptic cell (rows), given each pre-synaptic cell's type (columns)
     ArrayXXd pre_syn_travel;         // array giving the distance (microns) along each pre-synaptic cell's axons (rows) between the post-synaptic cell's synapse (columns) and the post-synaptic soma
     ArrayXXd post_syn_travel;        // array giving the distance (microns) along each post-synaptic cell's dendrites (rows) between the pre-synaptic cell's synapse (columns) and the post-synaptic soma
+    // [Claude Sonnet 4.6, 2026-09-03] DC Morphoelectrotonic Transform (MET) fields.
+    // Computed once by compute_MET_attenuation() (Koch & Poggio 1985; Zador et al. 1995).
+    //
+    // post_syn_L: centrifugal (soma→synapse) log-attenuation L_ij (dimensionless).
+    //   Derived from Koch 1985 Rules I/II (Pass 1: G_load recursion) and Zador 1995 Eq. 9
+    //   (Pass 2: ΔL = log(cosh(L_seg) + G_L/G∞ · sinh(L_seg)) accumulated from soma).
+    //   Somatic efficacy factor: exp(-post_syn_L(i,j)).  0 = soma synapse (no attenuation).
+    //
+    // post_syn_P: MET propagation delay P_ij (ms).
+    //   Per Zador 1995 Eq. 13 (derived via Taylor expansion of γ(ω); see compute_MET_attenuation):
+    //   ΔP = L_seg · τ_m / 2 per segment, where θ = 2λ/τ_m is the centrifugal propagation velocity.
+    //   τ_m = R_m [kΩ·cm²] · C_m [µF/cm²] in ms.  Independent of boundary conditions.
+    //   Replaces the heuristic post_syn_travel / dendrite_velocity lag.
+    //
+    // post_syn_arbor_idx / post_syn_node_idx: synapse location in the arbor tree.
+    //   Set by find_synapse(); used by compute_MET_attenuation() to look up L_acc[node]
+    //   and P_acc[node] after the two-pass recursion.  -1 = no synapse.
+    ArrayXXd post_syn_L;          // DC MET centrifugal log-attenuation, soma → synapse (dimensionless)
+    ArrayXXd post_syn_P;          // DC MET propagation delay, soma → synapse (ms)
+    ArrayXXi post_syn_arbor_idx;  // arbor index of synapse node; -1 = no synapse
+    ArrayXXi post_syn_node_idx;   // node index within that arbor; -1 = no synapse
   };
 
 // Network edges (connections), per motif
@@ -366,6 +385,10 @@ class network {
     
     // BGT simulations 
     double integrate_along_arbor_to_soma(int node_idx, int arbor_idx, int cell_idx);
+    // [Claude Sonnet 4.6, 2026-09-03] DC MET: two-pass cable recursion (Koch & Poggio 1985;
+    // Zador, Segev & Agmon-Snir 1995). Fills per_nrn.post_syn_L and per_nrn.post_syn_P.
+    // Called once at the start of BGT() after all synapses are formed.
+    void   compute_MET_attenuation();
     void   BGT(const NumericMatrix& I_stim_R, double dt, double v_initial);
     
     // Fetch for R
@@ -589,7 +612,6 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     double      max_spike_rate           = 0.1;   // spikes/ms
     double      g_leak                   = 10.0;  // nS
     double      spike_velocity           = 1e3;   // microns/ms, 1e3 = 1 m/s
-    double      dendrite_velocity        = 1e4;   // microns/ms, 1e4 = 10 m/s
     double      Ta                       = 0.0;
     double      tA                       = 0.0; 
     // Cable biophysics (Zador et al. 1995 defaults)
@@ -627,7 +649,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count, dendrite_branch_count,
       branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
       "L1", // Harris2013a, for cells in L2, L3, and L5
-      dendrite_velocity, Ta, tA,
+      Ta, tA,
       R_m, R_i, C_m,
       apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
@@ -640,7 +662,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count * 2, dendrite_branch_count,
       branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
       "L1", // Harris2013a, for cells in L2, L3, and L5
-      dendrite_velocity, Ta, tA,
+      Ta, tA,
       R_m, R_i, C_m,
       apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
@@ -653,7 +675,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count, dendrite_branch_count,
       branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
       "L4", // Harris2013a
-      dendrite_velocity, Ta, tA,
+      Ta, tA,
       R_m, R_i, C_m,
       apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
@@ -666,7 +688,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count, dendrite_branch_count,
       branch_independence * 1.5, branch_spread * 1.5, // Increased branching
       apical_target_layer,
-      dendrite_velocity, Ta, tA,
+      Ta, tA,
       R_m, R_i, C_m,
       apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
@@ -679,7 +701,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       static_cast<int>(std::round(axon_branch_count * 0.5)), dendrite_branch_count,
       0.1, 0.9,
       apical_target_layer,
-      dendrite_velocity, Ta, tA,
+      Ta, tA,
       R_m, R_i, C_m,
       apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
@@ -694,7 +716,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count, dendrite_branch_count,
       branch_independence * 1.5, branch_spread * 1.5, // Increased branching
       apical_target_layer,
-      dendrite_velocity, Ta, tA,
+      Ta, tA,
       R_m, R_i, C_m,
       apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
@@ -707,7 +729,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count, dendrite_branch_count,
       branch_independence * 1.25, branch_spread * 1.25, // Increased branching
       apical_target_layer,
-      dendrite_velocity, Ta, tA,
+      Ta, tA,
       R_m, R_i, C_m,
       apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
@@ -720,7 +742,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count * 2, dendrite_branch_count,
       branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
       apical_target_layer,
-      dendrite_velocity, Ta, tA,
+      Ta, tA,
       R_m, R_i, C_m,
       apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
@@ -733,7 +755,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count, dendrite_branch_count,
       branch_independence * 1.5, branch_spread * 1.5, // Increased branching
       apical_target_layer,
-      dendrite_velocity, Ta, tA,
+      Ta, tA,
       R_m, R_i, C_m,
       apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
@@ -746,7 +768,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count, dendrite_branch_count,
       branch_independence * 1.25, branch_spread * 1.25, // Increased branching
       apical_target_layer,
-      dendrite_velocity, Ta, tA,
+      Ta, tA,
       R_m, R_i, C_m,
       apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
@@ -761,7 +783,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       axon_branch_count, dendrite_branch_count,
       branch_independence, branch_spread,
       apical_target_layer,
-      dendrite_velocity, Ta, tA,
+      Ta, tA,
       R_m, R_i, C_m,
       apical_radius, basal_radius, axon_radius, radius_taper, min_radius
     };
@@ -877,7 +899,6 @@ void print_known_celltypes() {
                   << "  Spike recovery rate (spikes/ms): "                 << ct.max_spike_rate << std::endl
                   << "  Leak conductance (nS): "                           << ct.g_leak << std::endl
                   << "  Axon transmission velocity (micron/ms): "          << ct.spike_velocity << std::endl
-                  << "  Dendrite transmission velocity (micron/ms): "      << ct.dendrite_velocity << std::endl
                   << "  Supra-threshold, sub-additive integration: "       << ct.Ta << std::endl
                   << "  Sub-threshold, supra-additive integration: "       << ct.tA << std::endl
                   << "  Spine density: "                                   << ct.spine_density << std::endl
@@ -940,7 +961,6 @@ List fetch_cell_type_params(
     return_list["branch_spread"]         = ct.branch_spread;
     return_list["apical_target_layer"]   = ct.apical_target_layer;
     return_list["v_bound"]               = ct.v_bound;
-    return_list["dendrite_velocity"]     = ct.dendrite_velocity;
     return_list["Ta"]                    = ct.Ta; 
     return_list["tA"]                    = ct.tA; 
     return_list["R_m"]                   = ct.R_m;
@@ -1009,7 +1029,6 @@ void build_cell_type_from_list(
     ct.branch_independence   = as<double>(     params["branch_independence"]);
     ct.branch_spread         = as<double>(     params["branch_spread"]);
     ct.apical_target_layer   = as<std::string>(params["apical_target_layer"]);
-    ct.dendrite_velocity     = as<double>(     params["dendrite_velocity"]);
     ct.Ta                    = as<double>(     params["Ta"]);
     ct.tA                    = as<double>(     params["tA"]); 
     ct.R_m                   = as<double>(     params["R_m"]);
@@ -1161,7 +1180,6 @@ void network::set_neuron_params() {
     per_nrn.UC                  = ArrayXd(n_neurons); 
     per_nrn.UV                  = ArrayXd(n_neurons); 
     per_nrn.spike_velocity        = ArrayXd(n_neurons);
-    per_nrn.dendrite_velocity     = ArrayXd(n_neurons); 
     per_nrn.Ta                    = ArrayXd(n_neurons); 
     per_nrn.tA                    = ArrayXd(n_neurons); 
     per_nrn.v_eq                  = ArrayXXd(n_neurons, n_neurons); 
@@ -1196,7 +1214,6 @@ void network::set_neuron_params() {
         per_nrn.UC(i)              = ct.UC; 
         per_nrn.UV(i)              = ct.UV; 
         per_nrn.spike_velocity(i)    = ct.spike_velocity;
-        per_nrn.dendrite_velocity(i) = ct.dendrite_velocity; 
         per_nrn.Ta(i)                = ct.Ta; 
         per_nrn.tA(i)                = ct.tA; 
         per_nrn.v_eq.row(i)          = temp_ep.row(per_nrn.neuron_type_num[i]);
@@ -1435,6 +1452,14 @@ void network::set_network_structure(
     // Resize arbor path distance matrices
     per_nrn.pre_syn_travel  = ArrayXXd::Constant(n_neurons, n_neurons, -1.0);
     per_nrn.post_syn_travel = ArrayXXd::Constant(n_neurons, n_neurons, 0.0);
+    // [Claude Sonnet 4.6, 2026-09-03] Initialize DC MET matrices.
+    // Filled by compute_MET_attenuation() after all synapses are formed.
+    // Sentinels: post_syn_L/P = 0 (no attenuation/delay for non-synaptic pairs);
+    //   post_syn_arbor_idx/node_idx = -1 (no synapse recorded yet).
+    per_nrn.post_syn_L         = ArrayXXd::Constant(n_neurons, n_neurons, 0.0);
+    per_nrn.post_syn_P         = ArrayXXd::Constant(n_neurons, n_neurons, 0.0);
+    per_nrn.post_syn_arbor_idx = ArrayXXi::Constant(n_neurons, n_neurons, -1);
+    per_nrn.post_syn_node_idx  = ArrayXXi::Constant(n_neurons, n_neurons, -1);
     
     // Resize network coordinate components 
     coords.spatial = MatrixXd::Zero(n_neurons, 3); 
@@ -1970,7 +1995,13 @@ double network::find_synapse(
           
           // Find signal travel distances to/from this synapse 
           per_nrn.pre_syn_travel(idx_post, idx_pre)  = integrate_along_arbor_to_soma(arbors[idx_pre].coordinates[ax].size() - 1, ax, idx_pre); 
-          per_nrn.post_syn_travel(idx_post, idx_pre) = integrate_along_arbor_to_soma(neighbor_idx[1], dd, idx_post); 
+          per_nrn.post_syn_travel(idx_post, idx_pre) = integrate_along_arbor_to_soma(neighbor_idx[1], dd, idx_post);
+          // [Claude Sonnet 4.6, 2026-09-03] Record synapse location for the DC MET two-pass recursion.
+          // compute_MET_attenuation() needs the arbor index (dd) and node index (neighbor_idx[1])
+          // to look up L_acc[node] and P_acc[node] after Pass 2 of the Koch 1985 algorithm.
+          // dd = dendrite arbor index on idx_post; neighbor_idx[1] = dendritic node receiving synapse.
+          per_nrn.post_syn_arbor_idx(idx_post, idx_pre) = dd;
+          per_nrn.post_syn_node_idx(idx_post, idx_pre)  = neighbor_idx[1];
          
           // Find and return default synaptic conductance
           return neuron_types[
@@ -2472,6 +2503,303 @@ double network::integrate_along_arbor_to_soma(
     return dist;
   }
 
+// [Claude Sonnet 4.6, 2026-09-03]
+// compute_MET_attenuation()
+// ─────────────────────────────────────────────────────────────────────────────
+// Computes the DC (steady-state, ω = 0) Morphoelectrotonic Transform (MET) for
+// every dendritic synapse in the network.  Fills:
+//   per_nrn.post_syn_L  – centrifugal log-attenuation L_ij (dimensionless)
+//   per_nrn.post_syn_P  – MET propagation delay P_ij (ms)
+//
+// THEORY (Koch & Poggio 1985; Zador, Segev & Agmon-Snir 1995):
+//
+//   ── Cable parameters per segment from parent p to child c ───────────────────
+//     d_µm    = mean diameter = r_c + r_p  (µm; mean diameter = sum of radii)
+//     λ [µm]  = 1e4 · sqrt(d_cm · R_m_Ω / (4·R_i))
+//               where d_cm = d_µm·1e-4, R_m_Ω = R_m_kΩ·1e3  [Koch 1985 Eq. 7, ω=0]
+//     G∞ [S]  = π·d_cm² / (4·R_i·λ_cm)   characteristic admittance  [Koch 1985 Eq. 9]
+//     L_seg   = l_µm / λ_µm               electrotonic segment length (dimensionless)
+//     τ_m [ms]= R_m [kΩ·cm²] · C_m [µF/cm²]   (unit check: kΩ·cm²·µF/cm² = ms)
+//
+//   ── Pass 1: leaves → soma  (Koch 1985 Rules I & II) ────────────────────────
+//     For j = N-1 down to 1  (reverse FIFO order: children before parents):
+//
+//       G_load[j] = aggregate admittance at j from all daughter branches,
+//                   accumulated via G_load[parent[j]] += G_in[j] (Rule II below).
+//
+//       G_in[j] = G∞ · (G_load[j] + G∞·tanh(L_seg)) / (G∞ + G_load[j]·tanh(L_seg))
+//
+//         Derivation [Koch 1985 Rule I, Eq. 10, converted to admittances]:
+//           Variables:
+//             γ(ω) — frequency-dependent propagation constant [cm⁻¹],
+//                    γ(ω)² = z_a(ω)/z_m(ω) where z_a is axial and z_m membrane impedance
+//                    per unit length.  At DC (ω = 0): z_a(0) = r_a, z_m(0) = r_m, so
+//                    γ(0) = sqrt(r_a/r_m) = 1/λ.  We compute the DC MET throughout,
+//                    so every γ(ω)·l below is evaluated at ω = 0: γ(0)·l = l/λ = L_seg.
+//             Z_c   = z_a(0)/γ(0) = r_a·λ = 1/G∞ — DC characteristic impedance [Ω]
+//             Z_l   = 1/G_load[j]  — impedance of whatever is connected at the distal
+//                     end of this segment [Ω]; NOT necessarily a leaf termination
+//             L_seg ≡ l/λ  — electrotonic segment length (dimensionless); defined as
+//                     physical length divided by space constant (Rall 1959).  Since
+//                     γ(0) = 1/λ, the substitution γ(0)·l = l/λ = L_seg follows directly.
+//           Koch's Rule I gives the input impedance Z at the proximal end of a finite
+//           cable segment for ANY value of the distal boundary load G_load[j]:
+//             Z = Z_c · (Z_l·cosh(γ(ω)·l) + Z_c·sinh(γ(ω)·l))
+//                      / (Z_l·sinh(γ(ω)·l) + Z_c·cosh(γ(ω)·l))
+//           Substituting ω = 0, so γ(0)·l = L_seg and Z_c = 1/G∞:
+//             Z = Z_c · (Z_l·cosh(L_seg) + Z_c·sinh(L_seg))
+//                      / (Z_l·sinh(L_seg) + Z_c·cosh(L_seg))
+//           For an interior node, G_load[j] is the sum of G_in from all daughters
+//           (Rule II, accumulated by the time j is reached in the reverse loop).
+//           For a leaf, G_load[j] = 0 (sealed end, Z_l → ∞).
+//           Inverting Z to admittance G_in = 1/Z and dividing numerator and denominator
+//           by cosh(L_seg) yields G_in = G∞·(G_load[j] + G∞·tanh(L_seg))
+//                                              / (G∞ + G_load[j]·tanh(L_seg)).
+//           Special case — sealed-end leaf (G_load[j] = 0, Z_l → ∞):
+//             G_in = G∞·tanh(L_seg).
+//
+//       G_load[parent[j]] += G_in[j]
+//         [Koch 1985 Rule II: at a branch point, admittances of daughter branches sum]
+//
+//   ── Pass 2: soma → leaves (Zador 1995) ────────────────────────────────────
+//     For j = 1 to N-1  (forward order: parents before children):
+//
+//     (a) Centrifugal log-attenuation increment:
+//       ΔL = log( cosh(L_seg) + (G_load[j]/G∞)·sinh(L_seg) )
+//
+//         Derivation from the DC cable equation:
+//           The cable equation general solution is V(x) = A·cosh(γ(ω)·x) + B·sinh(γ(ω)·x).
+//           At DC (ω = 0): γ(0) = 1/λ, so the solution becomes
+//             V(x) = A·cosh(x/λ) + B·sinh(x/λ).
+//           Boundary condition at x = 0 (proximal/parent end):
+//             V(0) = A = V_parent  — fixed by upstream soma drive (the key condition).
+//           Boundary condition at x = l (distal/child end), terminal load G_load[j]:
+//             axial current exiting cable = current into load:
+//             −G∞·(A·sinh(L_seg) + B·cosh(L_seg)) = G_load[j]·(A·cosh(L_seg) + B·sinh(L_seg))
+//             where G∞ = γ(0)/r_a = 1/(r_a·λ) is the DC characteristic admittance.
+//           Solving for B and substituting into V(l) = A·cosh(L_seg) + B·sinh(L_seg):
+//             V(l) = A · (cosh²(L_seg) − sinh²(L_seg))
+//                        / (cosh(L_seg) + (G_load[j]/G∞)·sinh(L_seg))
+//                  = V_parent / (cosh(L_seg) + (G_load[j]/G∞)·sinh(L_seg))
+//             [using the identity cosh² − sinh² = 1]
+//           Therefore:
+//             V_parent/V_child = cosh(L_seg) + (G_load[j]/G∞)·sinh(L_seg)
+//             ΔL = log(V_parent/V_child) = log(cosh(L_seg) + (G_load[j]/G∞)·sinh(L_seg))
+//           Note: V_parent cancels, so ΔL depends ONLY on G_load[j] (distal load),
+//           not on any proximal boundary condition — structural invariance, Zador 1995
+//           Property 4.
+//           Limits:
+//             G_load → 0 (sealed tip): ΔL = log(cosh(L_seg)) < L_seg — boundary reduces attenuation.
+//             G_load → ∞ (leaky end):  ΔL ≈ L_seg + log(G_load/G∞) — heavy load increases it.
+//
+//       L_acc[j] = L_acc[parent[j]] + ΔL
+//
+//     (b) Centrifugal propagation delay increment:
+//       ΔP = L_seg · τ_m / 2   [ms]
+//
+//         Derivation from Zador 1995 Eq. 13:
+//           P_ij = ∫ dx / θ(x),  θ(x) = local propagation velocity of voltage centroid.
+//           For a passive membrane segment, θ is found by Taylor-expanding the propagation
+//           constant γ(ω) around ω = 0:
+//             γ(ω)² = z_a / z_m = r_a · (1 + iω·τ_m) / r_m
+//             γ(ω) = (1/λ) · sqrt(1 + iω·τ_m) ≈ 1/λ + iω·τ_m/(2λ) + O(ω²)
+//           The imaginary part of γ(ω) is iω·τ_m/(2λ), giving a phase shift per unit
+//           length of τ_m/(2λ).  The group delay per unit length is therefore τ_m/(2λ),
+//           so the centrifugal propagation velocity is θ = 2λ/τ_m.  Substituting into
+//           Zador Eq. 13 for a segment of length l:
+//             ΔP = l / θ = l · τ_m / (2λ) = L_seg · τ_m / 2
+//           Unlike ΔL, ΔP does not depend on G_load — it is purely local.
+//
+//       P_acc[j] = P_acc[parent[j]] + ΔP
+//
+//   ── Somatic efficacy ────────────────────────────────────────────────────────
+//     A synapse at node j with accumulated log-attenuation L_acc[j] has somatic
+//     efficacy factor exp(−L_acc[j]).  This is the ratio by which the somatic response
+//     to a unit current at j is reduced compared to the same current injected at the soma
+//     (Zador 1995 p. 1676).
+// ─────────────────────────────────────────────────────────────────────────────
+void network::compute_MET_attenuation() {
+   
+    for (int cell_idx = 0; cell_idx < n_neurons; ++cell_idx) {
+   
+      const cell_type& ct = neuron_types[per_nrn.neuron_type_num[cell_idx]];
+      // Unit-consistent cable parameters:
+      //   R_m in kΩ·cm², R_i in Ω·cm, C_m in µF/cm²
+      //   τ_m [ms] = R_m · C_m   (kΩ·cm² × µF/cm² = ms; see Zador 1995 defaults: 20 × 1 = 20 ms)
+      const double R_m   = ct.R_m;
+      const double R_i   = ct.R_i;
+      const double tau_m = ct.R_m * ct.C_m;   // membrane time constant (ms)
+     
+      const int n_arbors = static_cast<int>(arbors[cell_idx].coordinates.size());
+     
+      for (int arb = 0; arb < n_arbors; ++arb) {
+       
+        // Skip axon arbors — dendritic synapses only
+        if (arbors[cell_idx].axon[arb]) continue;
+        
+        const int N = static_cast<int>(arbors[cell_idx].coordinates[arb].size());
+        if (N < 2) continue;   // soma-only arbor; nothing to traverse
+       
+        // Per-node working arrays for this arbor
+        std::vector<double> G_load(N, 0.0);  // distal load conductance (S) aggregated from daughters
+        std::vector<double> G_in(N, 0.0);    // input conductance seen from proximal end (S)
+        std::vector<double> L_acc(N, 0.0);   // accumulated centrifugal log-attenuation from soma
+        std::vector<double> P_acc(N, 0.0);   // accumulated MET propagation delay from soma (ms)
+        
+        // ── Helper lambda: λ (µm) and G∞ (S) from mean segment diameter ──────────────────────
+        // λ (space constant):
+        //   Koch 1985 Eq. 7 (ω = 0) gives γ(0)² = z_a(0)/z_m(0) = r_a/r_m, where r_a and
+        //   r_m are the DC axial and membrane impedances per unit length.  Their expressions
+        //   in terms of the specific parameters R_i, R_m, and diameter d follow from the
+        //   geometry of a cylindrical cable (Koch 1985 p. 310, citing Jack et al. 1975):
+        //
+        //     r_a = R_i / A_cross  = R_i / (π·(d/2)²) = 4·R_i / (π·d²)  [Ω/cm]
+        //       — specific axial resistivity R_i [Ω·cm] divided by the cross-sectional area
+        //         of the cylinder, giving resistance per unit length along the axis.
+        //
+        //     r_m = R_m / (π·d)   [Ω·cm]
+        //       — specific membrane resistance R_m [Ω·cm²] divided by the circumferential
+        //         surface area per unit length (perimeter π·d [cm]), giving membrane
+        //         resistance × unit-length (conventionally written [Ω·cm]).
+        //
+        //   Substituting into γ(0)² = r_a/r_m:
+        //     γ(0)² = [4·R_i/(π·d²)] / [R_m/(π·d)] = 4·R_i / (R_m·d)
+        //   And: λ = 1/γ(0) = sqrt(R_m·d / (4·R_i))   [d in cm, R_m in Ω·cm², R_i in Ω·cm]
+        //
+        // G∞ (characteristic admittance):
+        //   Koch 1985 Eq. 9 is Z_c(ω) = z_a(ω)/γ(ω) — characteristic impedance equals
+        //   axial impedance per unit length divided by the propagation constant.
+        //   At DC (ω = 0): z_a(0) = r_a = 4·R_i/(π·d²)  and  γ(0) = 1/λ, so:
+        //     Z_c = r_a · λ = [4·R_i/(π·d²)] · λ   [Ω]
+        //   Inverting to admittance:
+        //     G∞ = 1/Z_c = π·d² / (4·R_i·λ)   [S]
+        //
+        // Unit conversions folded in once so the computation stays in µm throughout:
+        //   d_cm = d_µm·1e-4,   R_m_Ω = R_m_kΩ·1e3,   λ_µm = λ_cm·1e4
+        //
+        //   λ_µm = 1e4 · sqrt(d_µm·1e-4 · R_m·1e3 / (4·R_i))
+        //        = 1e4 · sqrt(d_µm · R_m · 1e-1 / (4·R_i))
+        //        = sqrt(1e8 · d_µm · R_m / (40·R_i))
+        //        = sqrt(d_µm · R_m · 2.5e6 / R_i)
+        //
+        //   G∞   = π·(d_µm·1e-4)² / (4·R_i · λ_µm·1e-4)
+        //        = π · d_µm²·1e-8 / (4·R_i · λ_µm·1e-4)
+        //        = π · d_µm²·1e-4 / (4·R_i · λ_µm)
+        auto seg_params = [&](double d_µm, double& lambda_µm, double& G_inf) {
+          lambda_µm = std::sqrt(d_µm * R_m * 2.5e6 / R_i);
+          G_inf     = (M_PI * d_µm * d_µm * 1e-4) / (4.0 * R_i * lambda_µm);
+        };
+       
+        // ── Pass 1: leaves → soma ─────────────────────────────────────────────────────────────
+        // Node indices are in FIFO insertion order (parent index < child index), so iterating
+        // in reverse guarantees each child is processed before its parent.
+        // Implements Koch & Poggio (1985) Rules I and II.
+        for (int j = N - 1; j >= 1; --j) {
+          const int parent_j = arbors[cell_idx].parents[arb][j];
+          if (parent_j < 0) continue;   // soma node (parent = -1); skip
+         
+          const Vector3d c_j  = arbors[cell_idx].coordinates[arb][j];
+          const Vector3d c_p  = arbors[cell_idx].coordinates[arb][parent_j];
+          const double   l_µm = (c_j - c_p).norm();
+          if (l_µm < 1e-12) continue;   // degenerate zero-length segment; skip
+         
+          // Mean diameter = r_j + r_p (diameter = 2 × radius; mean d = r_j + r_p)
+          const double d_µm = arbors[cell_idx].radius[arb][j]
+                            + arbors[cell_idx].radius[arb][parent_j];
+         
+          double lambda_µm, G_inf;
+          seg_params(d_µm, lambda_µm, G_inf);
+          if (G_inf < 1e-30 || lambda_µm < 1e-12) continue;   // pathological; skip
+         
+          const double L_seg = l_µm / lambda_µm;
+          const double GL    = G_load[j];   // distal load already aggregated from daughters of j
+          const double tanhL = std::tanh(L_seg);
+         
+          // Koch 1985 Rule I (Eq. 10, admittance form):
+          //   G_in = G∞ · (GL + G∞·tanh L) / (G∞ + GL·tanh L)
+          //   Leaf (GL = 0, sealed end): G_in = G∞·tanh(L_seg)
+          G_in[j] = G_inf * (GL + G_inf * tanhL) / (G_inf + GL * tanhL);
+         
+          // Koch 1985 Rule II: admittances sum at a branch point
+          G_load[parent_j] += G_in[j];
+        }
+       
+        // ── Pass 2: soma → leaves ─────────────────────────────────────────────────────────────
+        // Forward order (j = 1, 2, …, N-1): parent is always processed before its children
+        // because parent index < child index (FIFO property).
+        L_acc[0] = 0.0;   // soma: zero centrifugal attenuation from itself
+        P_acc[0] = 0.0;   // soma: zero propagation delay from itself
+       
+        for (int j = 1; j < N; ++j) {
+          const int parent_j = arbors[cell_idx].parents[arb][j];
+          if (parent_j < 0) { continue; }
+         
+          const Vector3d c_j  = arbors[cell_idx].coordinates[arb][j];
+          const Vector3d c_p  = arbors[cell_idx].coordinates[arb][parent_j];
+          const double   l_µm = (c_j - c_p).norm();
+          
+          if (l_µm < 1e-12) {
+            // Zero-length segment: inherit parent values unchanged
+            L_acc[j] = L_acc[parent_j];
+            P_acc[j] = P_acc[parent_j];
+            continue;
+          }
+         
+          const double d_µm = arbors[cell_idx].radius[arb][j]
+                            + arbors[cell_idx].radius[arb][parent_j];
+         
+          double lambda_µm, G_inf;
+          seg_params(d_µm, lambda_µm, G_inf);
+          // +0 continue: degenerate segment with near-zero diameter.
+          // When d_µm → 0, λ → 0 and G_inf → 0, making L_seg = l/λ → ∞ and
+          // the ratio G_load/G_inf in the ΔL formula undefined.  Rather than
+          // propagate NaN or ∞, we treat the segment as contributing ΔL = 0
+          // and ΔP = 0 (inheriting parent values unchanged).  In practice this
+          // guard should never fire because the min_radius floor keeps d_µm
+          // well above zero for all valid morphologies.
+          if (G_inf < 1e-30 || lambda_µm < 1e-12) {
+            L_acc[j] = L_acc[parent_j];
+            P_acc[j] = P_acc[parent_j];
+            continue;
+          }
+         
+          const double L_seg = l_µm / lambda_µm;
+          const double GL    = G_load[j];   // distal load at j (from Pass 1)
+          
+          // Centrifugal log-attenuation increment (derived from DC cable equation; see
+          // function header for full derivation — not directly from Zador 1995 Eq. 9,
+          // which is the corresponding integral form L_ij = ∫dx/λ_eff):
+          //   ΔL = log( cosh(L_seg) + (GL/G∞)·sinh(L_seg) )
+          //   GL → 0 (sealed tip): ΔL = log(cosh L) < L  — boundary reduces attenuation.
+          //   GL → ∞ (leaky/loaded): ΔL ≈ L + log(GL/G∞)  — heavy load increases attenuation.
+          const double dL = std::log(std::cosh(L_seg) + (GL / G_inf) * std::sinh(L_seg));
+          L_acc[j] = L_acc[parent_j] + dL;
+         
+          // MET propagation delay increment (Zador 1995 Eq. 13; see function header for
+          // derivation via Taylor expansion of γ(ω) around ω = 0):
+          //   ΔP = L_seg · τ_m / 2   [ms]
+          //   Centrifugal propagation velocity θ = 2λ/τ_m → ΔP = l/θ = L_seg·τ_m/2.
+          //   Unlike ΔL, ΔP does not depend on boundary conditions (G_load).
+          //   Thinner segments (smaller λ → larger L_seg per µm) accumulate more delay.
+          const double dP = L_seg * tau_m / 2.0;
+          P_acc[j] = P_acc[parent_j] + dP;
+        }
+       
+        // ── Write results for each synapse on this cell whose arbor matches arb ──────────────
+        for (int pre = 0; pre < n_neurons; ++pre) {
+          if (per_nrn.post_syn_arbor_idx(cell_idx, pre) == arb) {
+            const int node = per_nrn.post_syn_node_idx(cell_idx, pre);
+            if (node >= 0 && node < N) {
+              per_nrn.post_syn_L(cell_idx, pre) = L_acc[node];
+              per_nrn.post_syn_P(cell_idx, pre) = P_acc[node];
+            }
+          }
+        }
+       
+      }  // end arbor loop
+    }  // end cell loop
+  }
+
 // Simulate network responses to input current using Growth Transform model
 void network::BGT(
     const NumericMatrix& I_stim_R, // matrix of stimulus currents in pA, n_neurons x n_steps
@@ -2496,9 +2824,20 @@ void network::BGT(
     ArrayXXd g_syn = ArrayXXd::Zero(n_neurons, n_neurons);
     for (const auto& m : edges.g_syn) { g_syn += m; }
     
-    // Convert travel time matrices into time-step lags 
-    ArrayXXi pre_syn_lags  = (per_nrn.pre_syn_travel.colwise()  / per_nrn.spike_velocity    / dt).round().cast<int>();   // rows as pre-synaptic, cols as post-synaptic, i.e., pre_syn_lags.col(j) = steps back needed for signal from i
-    ArrayXXi post_syn_lags = (per_nrn.post_syn_travel.colwise() / per_nrn.dendrite_velocity / dt).round().cast<int>();   // rows as post-synaptic, cols as pre-synaptic, i.e., post_syn_lags.row(i) = steps back needed for signal from j
+    // Convert travel time matrices into time-step lags
+    // Axonal lag: geometric distance / spike_velocity (unchanged)
+    ArrayXXi pre_syn_lags  = (per_nrn.pre_syn_travel.colwise() / per_nrn.spike_velocity / dt).round().cast<int>();   // rows as pre-synaptic, cols as post-synaptic
+    // [Claude Sonnet 4.6, 2026-09-03] DC MET: compute attenuation (post_syn_L) and
+    // propagation delay (post_syn_P) for all dendritic synapses.
+    // Implements the two-pass cable recursion from Koch & Poggio (1985) using Rules I, II,
+    // and IV, generalized to arbitrary branching trees per Zador et al. (1995).
+    // Must be called after all synapse formation (make_local_nodes + apply_circuit_motif).
+    compute_MET_attenuation();
+    // MET dendritic lag (ms → simulation steps, rounded to nearest integer).
+    // post_syn_P = Σ_segments L_seg·τ_m/2, accumulated by compute_MET_attenuation().
+    // Replaces heuristic post_syn_travel / dendrite_velocity: thin distal dendrites
+    // (large L_seg per µm of path) correctly accumulate more delay than thick proximal ones.
+    ArrayXXi post_syn_lags = (per_nrn.post_syn_P / dt).round().cast<int>();   // rows as post-synaptic, cols as pre-synaptic
    
     // Resize matrix to hold simulated spike traces (membrane potential plus spike)
     v_traces.resize(n_neurons, n_steps);
@@ -2558,15 +2897,35 @@ void network::BGT(
     
     // Initialize synaptic (post-synaptic current) gating matrix and its per-step decay factor
     // ... S(i, j) = fraction of open post-synaptic receptors on neuron i due to pre-synaptic neuron j
-    ArrayXXd S                    = ArrayXXd::Zero(n_neurons, n_neurons); 
-    // Normalize post_syn_travel
-    // ... note: will be pathologically degenerate if only a few synapses very close to soma
-    ArrayXd  travel_row_max       = per_nrn.post_syn_travel.rowwise().maxCoeff();
-             travel_row_max       = (travel_row_max == 0.0).select(ArrayXd::Ones(n_neurons), travel_row_max);
-    ArrayXXd post_syn_travel_norm = per_nrn.post_syn_travel.colwise() / travel_row_max;
-    // Set syn_decay with tau_syn adjusted for normalized distance from soma 
-    // ... tau_syn -> 0 gives a per-step decay of 0, recovering an instantaneous (boxcar) post-synaptic current
-    ArrayXXd syn_decay            = (-dt / (per_nrn.tau_syn * post_syn_travel_norm)).exp(); 
+    ArrayXXd S = ArrayXXd::Zero(n_neurons, n_neurons);
+    // [Claude Sonnet 4.6, 2026-09-03] Replace geometric post_syn_travel_norm with DC MET
+    // centrifugal log-attenuation (Zador et al. 1995), computed by compute_MET_attenuation().
+    //
+    // post_syn_L_norm: row-wise normalisation of L_ij to [0, 1].
+    //   Used as a dimensionless electrotonic-distance proxy in the Ta/tA nonlinear terms
+    //   and in the local voltage blend v_local = v_soma·(1-d) + v_rest·d below.
+    //   Grounded in cable theory rather than raw geometric path length.
+    //
+    // met_atten: true MET somatic efficacy factor exp(-L_ij) (Zador 1995 p. 1676).
+    //   Applied element-wise to I_syn_effective to convert dendritic synaptic current
+    //   into its somatic equivalent.  Non-synaptic pairs: L=0 → factor=1, g_syn=0, no effect.
+    //
+    // syn_decay: per-step PSC decay factor.  tau_syn stretched by L_norm approximates
+    //   distance-dependent membrane filtering of PSC shape (more distal → slower decay).
+    //   tau_syn → 0 recovers an instantaneous (boxcar) PSC regardless of L_norm.
+    //   ⚠ POTENTIAL DOUBLE-COUNTING: this stretching partly mimics propagation delay
+    //     (distal → slower apparent decay → signal seems delayed). Now that propagation
+    //     delay is captured rigorously by post_syn_P / post_syn_lags (MET, Zador 1995
+    //     Eq. 13), the tau_syn stretching represents only the residual effect of
+    //     membrane filtering on PSC *shape* — theoretically distinct from group delay,
+    //     but not entirely orthogonal in practice. A future revision could set
+    //     post_syn_L_norm ≡ 1 here (no tau_syn stretching) for maximal fidelity.
+    ArrayXd  L_row_max       = per_nrn.post_syn_L.rowwise().maxCoeff();
+             L_row_max       = (L_row_max == 0.0).select(ArrayXd::Ones(n_neurons), L_row_max);
+    ArrayXXd post_syn_L_norm = per_nrn.post_syn_L.colwise() / L_row_max;
+    ArrayXXd met_atten       = (-per_nrn.post_syn_L).exp();   // exp(-L_ij): somatic efficacy
+    // tau_syn → 0 gives per-step decay of 0, recovering an instantaneous (boxcar) PSC
+    ArrayXXd syn_decay       = (-dt / (per_nrn.tau_syn * post_syn_L_norm)).exp();
     
     // Initialize vector of arrays to hold each cell's current dendrite state 
     std::vector<ArrayXXd> dendrite_states(n_neurons);
@@ -2631,14 +2990,16 @@ void network::BGT(
         double n_syn_on = static_cast<double>(((g_syn * S).row(i) != 0).count());
         // Compute super-additive effect 
         double tAe      = per_nrn.tA(i) * n_syn_on > 1.0 ? (n_syn_on - 1.0) / static_cast<double>(n_neurons) : 0.0;
-        // Adjust for distance from soma and add 1
-        auto   sae_adj  = (post_syn_travel_norm.row(i) * tAe + 1.0).eval();
+        // [Claude Sonnet 4.6, 2026-09-03] Use DC MET log-attenuation norm (post_syn_L_norm)
+        // as the electrotonic distance proxy for Ta/tA effects, replacing geometric norm.
+        auto   sae_adj  = (post_syn_L_norm.row(i) * tAe + 1.0).eval();
         // Store synaptic conductance × gating (not current) in the dendrite buffer, with distance-adjusted supra-additive effect applied.
         // Driving force will be computed at retrieval time using the lagged, distance-attenuated local voltage.
         dendrite_states[i].row(ds_now(i)) = (g_syn * S).row(i) * sae_adj; 
         
-        // Scale calcium concentration by distance to soma to estimate calcium at synapse
-        auto Ca_adj = (Ca(i) * (1.0 - post_syn_travel_norm.row(i))).eval();
+        // Scale calcium concentration by electrotonic distance to estimate calcium at synapse
+        // [Claude Sonnet 4.6, 2026-09-03] post_syn_L_norm (MET) replaces geometric norm.
+        auto Ca_adj = (Ca(i) * (1.0 - post_syn_L_norm.row(i))).eval();
         // Find distant-dependent somatic-calcium supra-threshold sub-additive effect 
         auto Tae    = (1.0 - per_nrn.Ta(i) * Ca_adj).eval();
         
@@ -2660,11 +3021,21 @@ void network::BGT(
           //   v_local = v_soma * (1 - d) + v_rest * d
           // This follows passive-cable intuition: voltage attenuates toward rest with distance.
           double v_soma_gen = v_sub(i, t_gen);
-          double d          = post_syn_travel_norm(i, j);
+          // [Claude Sonnet 4.6, 2026-09-03] Local dendritic voltage at the synapse, from
+          // passive cable centrifugal attenuation (Zador 1995 Eq. 9):
+          //   V_j ≈ exp(-L_ij) · V_soma + (1 - exp(-L_ij)) · V_rest
+          // Using d = 1 - exp(-L_ij) rather than the linear proxy L_norm ensures this term
+          // captures only the driving-force reduction at the synapse, cleanly separated from
+          // met_atten (which handles the centripetal cable-transfer efficiency).  The two
+          // factors then represent non-overlapping physics: local voltage ≠ cable transfer.
+          double d          = 1.0 - std::exp(-per_nrn.post_syn_L(i, j));
           double v_local    = v_soma_gen * (1.0 - d) + per_nrn.v_rest(i) * d;
           double drive_j    = v_local - per_nrn.v_eq(i, j);
-          // Accumulate effective synaptic current at soma (conductance × local driving force × sub-additive scaling)
-          I_syn_effective(i) += dendrite_states[i](ds_felt(j), j) * drive_j * Tae(j);
+          // [Claude Sonnet 4.6, 2026-09-03] Apply DC MET somatic efficacy factor exp(-L_ij).
+          // met_atten(i,j) = exp(-post_syn_L(i,j)) converts dendritic synaptic current to
+          // somatic equivalent (Zador 1995 p. 1676; Koch & Poggio 1985 Rule III derivation).
+          // For non-synaptic pairs: L=0 → factor=1, but g_syn=0, so no net contribution.
+          I_syn_effective(i) += dendrite_states[i](ds_felt(j), j) * drive_j * Tae(j) * met_atten(i, j);
         }
       }
       // Advance ds_now, modulo max_post_lags 
