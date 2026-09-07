@@ -32,7 +32,6 @@ modify.cell.type(
   branch_independence = NULL,
   branch_spread = NULL,
   apical_target_layer = NULL,
-  dendrite_velocity = NULL,
   Ta = NULL,
   tA = NULL,
   R_m = NULL,
@@ -99,8 +98,6 @@ modify.cell.type(
 \item{branch_spread}{Scale between 0 and 1; 0 = no tendency to extend away from soma, 1 = straight line away from soma.}
 
 \item{apical_target_layer}{Character string giving target layer for apical dendrites.}
-
-\item{dendrite_velocity}{transmission velocity (microns/ms) along dendrite.}
 
 \item{Ta}{Scalar [0, 1] giving the strength of the supra-threshold, sub-additive effect on synaptic integration across dendrites}
 

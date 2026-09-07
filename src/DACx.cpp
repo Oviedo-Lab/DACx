@@ -2674,20 +2674,20 @@ void network::compute_MET_attenuation() {
         //   Inverting to admittance:
         //     G∞ = 1/Z_c = π·d² / (4·R_i·λ)   [S]
         //
-        // Unit conversions folded in once so the computation stays in µm throughout:
-        //   d_cm = d_µm·1e-4,   R_m_Ω = R_m_kΩ·1e3,   λ_µm = λ_cm·1e4
-        //
-        //   λ_µm = 1e4 · sqrt(d_µm·1e-4 · R_m·1e3 / (4·R_i))
-        //        = 1e4 · sqrt(d_µm · R_m · 1e-1 / (4·R_i))
-        //        = sqrt(1e8 · d_µm · R_m / (40·R_i))
-        //        = sqrt(d_µm · R_m · 2.5e6 / R_i)
-        //
-        //   G∞   = π·(d_µm·1e-4)² / (4·R_i · λ_µm·1e-4)
-        //        = π · d_µm²·1e-8 / (4·R_i · λ_µm·1e-4)
-        //        = π · d_µm²·1e-4 / (4·R_i · λ_µm)
+        // Implementation: d is converted to cm at the start so that λ and G∞ are computed
+        // with the formulas exactly as written above (which assume cm). λ is then converted
+        // back to µm for use in L_seg = l_µm / λ_µm. G∞ comes out in S directly from the
+        // cm formula and needs no further conversion.
+        //   d_cm   = d_µm · 1e-4          [cm]
+        //   R_m_Ω  = R_m_kΩ · 1e3        [Ω·cm²]  (Koch formula assumes Ω, not kΩ)
+        //   lam_cm = sqrt(d_cm·R_m_Ω / (4·R_i))   [cm]
+        //   λ_µm   = lam_cm · 1e4         [µm]
+        //   G∞     = π·d_cm² / (4·R_i·lam_cm)     [S]  (no further conversion needed)
         auto seg_params = [&](double d_µm, double& lambda_µm, double& G_inf) {
-          lambda_µm = std::sqrt(d_µm * R_m * 2.5e6 / R_i);
-          G_inf     = (M_PI * d_µm * d_µm * 1e-4) / (4.0 * R_i * lambda_µm);
+          const double d_cm   = d_µm * 1e-4;
+          const double lam_cm = std::sqrt(d_cm * R_m * 1e3 / (4.0 * R_i));
+          lambda_µm = lam_cm * 1e4;
+          G_inf     = (M_PI * d_cm * d_cm) / (4.0 * R_i * lam_cm);
         };
        
         // ── Pass 1: leaves → soma ─────────────────────────────────────────────────────────────
@@ -2908,24 +2908,37 @@ void network::BGT(
     //
     // met_atten: true MET somatic efficacy factor exp(-L_ij) (Zador 1995 p. 1676).
     //   Applied element-wise to I_syn_effective to convert dendritic synaptic current
-    //   into its somatic equivalent.  Non-synaptic pairs: L=0 → factor=1, g_syn=0, no effect.
+    //   into its somatic equivalent. Non-synaptic pairs: L=0 → factor=1, g_syn=0, no effect.
     //
     // syn_decay: per-step PSC decay factor.  tau_syn stretched by L_norm approximates
     //   distance-dependent membrane filtering of PSC shape (more distal → slower decay).
     //   tau_syn → 0 recovers an instantaneous (boxcar) PSC regardless of L_norm.
-    //   ⚠ POTENTIAL DOUBLE-COUNTING: this stretching partly mimics propagation delay
-    //     (distal → slower apparent decay → signal seems delayed). Now that propagation
-    //     delay is captured rigorously by post_syn_P / post_syn_lags (MET, Zador 1995
-    //     Eq. 13), the tau_syn stretching represents only the residual effect of
-    //     membrane filtering on PSC *shape* — theoretically distinct from group delay,
-    //     but not entirely orthogonal in practice. A future revision could set
-    //     post_syn_L_norm ≡ 1 here (no tau_syn stretching) for maximal fidelity.
+    //   DOUBLE-COUNTING (resolved just below): a longer decay tail drags the conductance
+    //     centroid later, duplicating part of the MET group delay already carried by
+    //     post_syn_lags (post_syn_P is a centroid/first-moment delay — see
+    //     compute_MET_attenuation() Eq. 13 derivation). The instantaneous jump and the
+    //     spike-width plateau are distance-independent and do NOT overlap with the
+    //     distance-scaling group delay; only the decay tail does. We therefore subtract
+    //     the tail's onset-to-centroid offset from post_syn_lags below, leaving syn_decay
+    //     to carry only PSC dispersion (shape) and post_syn_lags only the group delay.
     ArrayXd  L_row_max       = per_nrn.post_syn_L.rowwise().maxCoeff();
              L_row_max       = (L_row_max == 0.0).select(ArrayXd::Ones(n_neurons), L_row_max);
     ArrayXXd post_syn_L_norm = per_nrn.post_syn_L.colwise() / L_row_max;
     ArrayXXd met_atten       = (-per_nrn.post_syn_L).exp();   // exp(-L_ij): somatic efficacy
     // tau_syn → 0 gives per-step decay of 0, recovering an instantaneous (boxcar) PSC
-    ArrayXXd syn_decay       = (-dt / (per_nrn.tau_syn * post_syn_L_norm)).exp();
+    ArrayXXd tau_eff         = per_nrn.tau_syn * post_syn_L_norm;   // effective PSC decay time constant per (i,j), ms
+    ArrayXXd syn_decay       = (-dt / tau_eff).exp();
+    // Delay-neutralisation (removes the tail-centroid double-count described above).
+    // PSC shape at each synapse: instantaneous jump → plateau of width w (spike width) →
+    // exponential decay with time constant tau_eff. Its center of mass, measured from
+    // onset, is (w²/2 + tau_eff² + w·tau_eff)/(w + tau_eff). Relative to the tau_eff→0
+    // boxcar (centroid w/2), the distance-dependent shift the decay tail introduces is
+    //   Δ = tau_eff·(w/2 + tau_eff)/(w + tau_eff)   [ms].
+    // Subtracting Δ (in steps) from post_syn_lags leaves it carrying only the MET group
+    // delay. w is the presynaptic spike width, so it varies by column j (cf. tau_onset).
+    ArrayXXd w_spike         = per_nrn.tau_spike.transpose().replicate(n_neurons, 1);
+    ArrayXXd centroid_shift  = tau_eff * (0.5 * w_spike + tau_eff) / (w_spike + tau_eff);
+    post_syn_lags            = (post_syn_lags - (centroid_shift / dt).round().cast<int>()).max(0);
     
     // Initialize vector of arrays to hold each cell's current dendrite state 
     std::vector<ArrayXXd> dendrite_states(n_neurons);
@@ -2962,7 +2975,7 @@ void network::BGT(
       S = (S - S_excess) + S_excess.colwise() * per_nrn.tA;
       
       // Compute leak current
-      ArrayXd  I_leak  = per_nrn.g_leak * (v_sub.col(t - 1) - per_nrn.v_rest);
+      ArrayXd  I_leak   = per_nrn.g_leak * (v_sub.col(t - 1) - per_nrn.v_rest);
       
       /*
        * Dendritic computing model: 
@@ -2992,10 +3005,10 @@ void network::BGT(
         double tAe      = per_nrn.tA(i) * n_syn_on > 1.0 ? (n_syn_on - 1.0) / static_cast<double>(n_neurons) : 0.0;
         // [Claude Sonnet 4.6, 2026-09-03] Use DC MET log-attenuation norm (post_syn_L_norm)
         // as the electrotonic distance proxy for Ta/tA effects, replacing geometric norm.
-        auto   sae_adj  = (post_syn_L_norm.row(i) * tAe + 1.0).eval();
+        auto   tAe_adj  = (post_syn_L_norm.row(i) * tAe + 1.0).eval();
         // Store synaptic conductance × gating (not current) in the dendrite buffer, with distance-adjusted supra-additive effect applied.
         // Driving force will be computed at retrieval time using the lagged, distance-attenuated local voltage.
-        dendrite_states[i].row(ds_now(i)) = (g_syn * S).row(i) * sae_adj; 
+        dendrite_states[i].row(ds_now(i)) = (g_syn * S).row(i) * tAe_adj; 
         
         // Scale calcium concentration by electrotonic distance to estimate calcium at synapse
         // [Claude Sonnet 4.6, 2026-09-03] post_syn_L_norm (MET) replaces geometric norm.
@@ -3025,10 +3038,20 @@ void network::BGT(
           // passive cable centrifugal attenuation (Zador 1995 Eq. 9):
           //   V_j ≈ exp(-L_ij) · V_soma + (1 - exp(-L_ij)) · V_rest
           // Using d = 1 - exp(-L_ij) rather than the linear proxy L_norm ensures this term
-          // captures only the driving-force reduction at the synapse, cleanly separated from
-          // met_atten (which handles the centripetal cable-transfer efficiency).  The two
-          // factors then represent non-overlapping physics: local voltage ≠ cable transfer.
-          double d          = 1.0 - std::exp(-per_nrn.post_syn_L(i, j));
+          // captures only the driving-force reduction at the synapse, distinct from
+          // met_atten (which handles the centripetal cable-transfer efficiency).
+          // NOT double-counting despite exp(-L_ij) appearing here (via 1 - d) and again as
+          // met_atten below: the two are separate legs of a physical round trip. V_soma leaks
+          // OUT to the synapse (soma→dend voltage attenuation) to set the local driving force,
+          // then the resulting current flows back IN to the soma (dend→soma current transfer).
+          // The compounded exp(-2·L_ij) on the V_soma term is therefore correct: it is the
+          // effective distal-shunt gain, not a redundant factor.
+          // Reusing the SAME exp(-L_ij) for both legs is licensed by the cable reciprocity
+          // theorem (symmetric transfer impedance K_ij = K_ji; Carnevale & Johnston 1986):
+          // current transfer dend→soma equals voltage attenuation soma→dend. The asymmetric
+          // partner (voltage attenuation dend→soma) never enters this term, so post_syn_L's
+          // centrifugal direction is the correct and sufficient quantity for both uses.
+          double d          = 1.0 - met_atten(i, j);
           double v_local    = v_soma_gen * (1.0 - d) + per_nrn.v_rest(i) * d;
           double drive_j    = v_local - per_nrn.v_eq(i, j);
           // [Claude Sonnet 4.6, 2026-09-03] Apply DC MET somatic efficacy factor exp(-L_ij).
