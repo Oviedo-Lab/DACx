@@ -26,7 +26,8 @@ modify.cell.type(
   v_rest = NULL,
   v_bound = NULL,
   g_syn = NULL,
-  tau_syn = NULL,
+  tau_syn_fast = NULL,
+  tau_syn_slow = NULL,
   axon_branch_count = NULL,
   dendrite_branch_count = NULL,
   branch_independence = NULL,
@@ -87,7 +88,9 @@ modify.cell.type(
 
 \item{g_syn}{Conductance (nS) of this cell type's synapses, treating this cell type as postsynaptic and indexing by the type of each possible presynaptic cell. Can be a single number (applied uniformly to every presynaptic type), a numeric vector ordered as in \code{print.known.celltypes()}, or a named list keyed by presynaptic type name, e.g. \code{list(pyramidal = 0.xx, PV = 0.yy)}.}
 
-\item{tau_syn}{Decay time constant (ms) of the postsynaptic current evoked by the neurotransmitter of each possible presynaptic cell type (e.g., faster for AMPA, slower for GABA_A). A larger value makes the current outlast the presynaptic spike; 0 recovers an instantaneous (boxcar) current. Accepts the same formats as \code{g_syn}.}
+\item{tau_syn_fast}{Fast decay time constant (ms) of the emitted postsynaptic conductance evoked by the neurotransmitter of each possible presynaptic cell type (e.g., AMPA-like ~2 ms, GABA_A-like ~6 ms). This is the only trace emitted as conductance and is distance-independent; 0 recovers an instantaneous (boxcar) conductance. Accepts the same formats as \code{g_syn}.}
+
+\item{tau_syn_slow}{Slow decay time constant (ms) of the distance-stretched summation trace (NMDA/GABA_B-like) that drives the distance-dependent supra-additive effect. It is never emitted as conductance directly. Accepts the same formats as \code{g_syn}.}
 
 \item{axon_branch_count}{Expected number of axon branches.}
 

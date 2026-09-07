@@ -98,7 +98,8 @@ fetch.cell.type.params <- function(type_name) fetch_cell_type_params(type_name)
 #' @param v_rest Resting potential, in mV; absolute value plus a little bit used as \code{v_bound}.
 #' @param v_bound Multiplier on the absolute value of \code{v_rest} giving the membrane potential barrier (mirrors \code{dHdv_bound}). Increase to allow hyperpolarization below rest.
 #' @param g_syn Conductance (nS) of this cell type's synapses, treating this cell type as postsynaptic and indexing by the type of each possible presynaptic cell. Can be a single number (applied uniformly to every presynaptic type), a numeric vector ordered as in \code{print.known.celltypes()}, or a named list keyed by presynaptic type name, e.g. \code{list(pyramidal = 0.xx, PV = 0.yy)}.
-#' @param tau_syn Decay time constant (ms) of the postsynaptic current evoked by the neurotransmitter of each possible presynaptic cell type (e.g., faster for AMPA, slower for GABA_A). A larger value makes the current outlast the presynaptic spike; 0 recovers an instantaneous (boxcar) current. Accepts the same formats as \code{g_syn}.
+#' @param tau_syn_fast Fast decay time constant (ms) of the emitted postsynaptic conductance evoked by the neurotransmitter of each possible presynaptic cell type (e.g., AMPA-like ~2 ms, GABA_A-like ~6 ms). This is the only trace emitted as conductance and is distance-independent; 0 recovers an instantaneous (boxcar) conductance. Accepts the same formats as \code{g_syn}.
+#' @param tau_syn_slow Slow decay time constant (ms) of the distance-stretched summation trace (NMDA/GABA_B-like) that drives the distance-dependent supra-additive effect. It is never emitted as conductance directly. Accepts the same formats as \code{g_syn}.
 #' @param axon_branch_count Expected number of axon branches.
 #' @param dendrite_branch_count Expected number of dendrite branches.
 #' @param branch_independence Scale between 0 and 1; 0 = all branches connect to soma from single segment, 1 = all branches connect directly to soma.
@@ -142,7 +143,8 @@ modify.cell.type <- function(
     v_rest                  = NULL,
     v_bound                 = NULL,
     g_syn                   = NULL,
-    tau_syn                 = NULL,
+    tau_syn_fast            = NULL,
+    tau_syn_slow            = NULL,
     # Neurite structure 
     axon_branch_count       = NULL,
     dendrite_branch_count   = NULL,
@@ -199,7 +201,8 @@ modify.cell.type <- function(
     if (is.null(radius_taper))           radius_taper          <- ep$radius_taper
     if (is.null(min_radius))             min_radius            <- ep$min_radius
     # Special handling for the named lists
-    if (is.null(tau_syn)) tau_syn <- ep$tau_syn else if (is.list(tau_syn)) tau_syn <- modifyList(ep$tau_syn, tau_syn)
+    if (is.null(tau_syn_fast)) tau_syn_fast <- ep$tau_syn_fast else if (is.list(tau_syn_fast)) tau_syn_fast <- modifyList(ep$tau_syn_fast, tau_syn_fast)
+    if (is.null(tau_syn_slow)) tau_syn_slow <- ep$tau_syn_slow else if (is.list(tau_syn_slow)) tau_syn_slow <- modifyList(ep$tau_syn_slow, tau_syn_slow)
     if (is.null(g_syn))   g_syn   <- ep$g_syn   else if (is.list(g_syn))   g_syn   <- modifyList(ep$g_syn,   g_syn)
     if (is.null(v_eq))    v_eq    <- ep$v_eq    else if (is.list(v_eq))    v_eq    <- modifyList(ep$v_eq,    v_eq)
     # Check if this is a new type
@@ -209,7 +212,8 @@ modify.cell.type <- function(
       type_name              = type_name,
       g_syn                  = g_syn,
       v_eq                   = v_eq,
-      tau_syn                = tau_syn,
+      tau_syn_fast           = tau_syn_fast,
+      tau_syn_slow           = tau_syn_slow,
       tau_fast               = tau_fast, 
       tau_slow               = tau_slow, 
       tau_Vs                 = tau_Vs, 

@@ -88,7 +88,7 @@ modify.cell.type(
     g_syn                 = list(  # nS
       "spiny stellate" = 0.1,
       "PV"             = 0.1), 
-    tau_syn               = list(  # ms
+    tau_syn_fast          = list(  # ms
       "spiny stellate" = 2.0,   # Excitatory glutamate channels close quickly
       "PV"             = 6.0),  # Inhibitory GABA channels stay open longer
     # Neurite structure 

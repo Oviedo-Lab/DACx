@@ -88,7 +88,8 @@ struct cell_type {
     double      v_rest;                  // resting potential (mV)
     double      v_bound;                 // multiplier on abs(v_rest) giving the membrane potential barrier (mirrors dHdv_bound).[4]
     Vdbl        g_syn;                   // conductance of cell's synapses to neurotransmitters of each possible pre-synaptic cell type
-    Vdbl        tau_syn;                 // decay time constant (ms) of the post-synaptic current, given the neurotransmitter of each possible pre-synaptic cell type
+    Vdbl        tau_syn_fast;            // fast decay time constant (ms) of the post-synaptic conductance (AMPA/GABA_A-like), per possible pre-synaptic cell type
+    Vdbl        tau_syn_slow;            // slow decay time constant (ms) of the distance-stretched summation trace (NMDA/GABA_B-like), per possible pre-synaptic cell type
     // Neurite structure
     int         axon_branch_count;       // expected number of axon branches
     int         dendrite_branch_count;   // expected number of dendrite branches
@@ -203,7 +204,8 @@ struct per_nrn_params {
     ArrayXd  Ta;                     // vector giving the strength of the supra-threshold, sub-additive effect on synaptic integration across dendrites
     ArrayXd  tA;                     // vector giving the strength of the sub-threshold, supra-additive effect on synaptic integration across dendrites
     ArrayXXd v_eq;                   // array giving the equilibrium potential (mV) for each post-synaptic cell (rows), given each pre-synaptic cell's type (columns)
-    ArrayXXd tau_syn;                // array giving the PSC decay time constant (ms) for each post-synaptic cell (rows), given each pre-synaptic cell's type (columns)
+    ArrayXXd tau_syn_fast;           // array giving the fast PSC decay time constant (ms) for each post-synaptic cell (rows), given each pre-synaptic cell's type (columns)
+    ArrayXXd tau_syn_slow;           // array giving the slow summation-trace decay time constant (ms) for each post-synaptic cell (rows), given each pre-synaptic cell's type (columns)
     ArrayXXd pre_syn_travel;         // array giving the distance (microns) along each pre-synaptic cell's axons (rows) between the post-synaptic cell's synapse (columns) and the post-synaptic soma
     ArrayXXd post_syn_travel;        // array giving the distance (microns) along each post-synaptic cell's dendrites (rows) between the pre-synaptic cell's synapse (columns) and the post-synaptic soma
     // [Claude Sonnet 4.6, 2026-09-03] DC Morphoelectrotonic Transform (MET) fields.
@@ -575,7 +577,7 @@ Vstr& get_all_type_names() {
      * This list is *not* fixed: new cell types (added via build_cell_type_from_list(),
      *   through R's modify.cell.type()) are appended to it as they are encountered, via 
      *   register_type_name() below. This allows user-defined cell types to be referenced by 
-     *   name (e.g. in g_syn, v_eq, or tau_syn lists), including forward references to cell 
+     *   name (e.g. in g_syn, v_eq, or tau_syn_fast/tau_syn_slow lists), including forward references to cell 
      *   types that will be created later in the same session.
      *   
      * register_type_name() is defined just below get_cell_types(), since it needs to extend 
@@ -600,8 +602,11 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
     Vdbl v_eq(n_all_types, 0.0);                                    // Default to excitatory, 0 mV
     for (int i = 5; i < n_all_types - 1; ++i) { v_eq[i] = - 70; }   // Set pre-synaptic inhibitory cells to -70mV
     // ... synaptic (post-synaptic current) decay time constants per pre-synaptic type
-    Vdbl tau_syn(n_all_types, 2.0);                                 // Default excitatory (AMPA-like), 2 ms
-    for (int i = 5; i < n_all_types - 1; ++i) { tau_syn[i] = 6.0; } // Set pre-synaptic inhibitory cells (GABA_A-like) to 6 ms
+    Vdbl tau_syn_fast(n_all_types, 2.0);                                // Default excitatory fast (AMPA-like), 2 ms
+    for (int i = 5; i < n_all_types - 1; ++i) { tau_syn_fast[i] = 6.0; } // Pre-synaptic inhibitory cells fast (GABA_A-like), 6 ms
+    // ... slow summation-trace decay constants per pre-synaptic type (tunable biophysical defaults)
+    Vdbl tau_syn_slow(n_all_types, 50.0);                              // Default excitatory slow (NMDA-like), 50 ms
+    for (int i = 5; i < n_all_types - 1; ++i) { tau_syn_slow[i] = 100.0; } // Pre-synaptic inhibitory cells slow (GABA_B-like), 100 ms
    
     // Default shared values
     double      tau_fast                 = 5.0;   // ms
@@ -645,7 +650,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       tau_fast, tau_slow, tau_Vs, UC, UV, max_spike_rate, g_leak,
       spike_velocity, 0.5, "spine",
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
-      v_rest, v_bound, g_syn, tau_syn,
+      v_rest, v_bound, g_syn, tau_syn_fast, tau_syn_slow,
       axon_branch_count, dendrite_branch_count,
       branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
       "L1", // Harris2013a, for cells in L2, L3, and L5
@@ -658,7 +663,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       tau_fast, tau_slow, tau_Vs, UC, UV, max_spike_rate, g_leak,
       spike_velocity, 0.5, "spine",
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
-      v_rest, v_bound, g_syn, tau_syn, 
+      v_rest, v_bound, g_syn, tau_syn_fast, tau_syn_slow, 
       axon_branch_count * 2, dendrite_branch_count,
       branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
       "L1", // Harris2013a, for cells in L2, L3, and L5
@@ -671,7 +676,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       tau_fast, tau_slow, tau_Vs, UC, UV, max_spike_rate, g_leak,
       spike_velocity, 0.5, "spine",
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
-      v_rest, v_bound, g_syn, tau_syn, 
+      v_rest, v_bound, g_syn, tau_syn_fast, tau_syn_slow, 
       axon_branch_count, dendrite_branch_count,
       branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
       "L4", // Harris2013a
@@ -684,7 +689,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       tau_fast, tau_slow, tau_Vs, UC, UV, max_spike_rate, g_leak,
       spike_velocity, 0.5, "spine",
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
-      v_rest, v_bound, g_syn, tau_syn,
+      v_rest, v_bound, g_syn, tau_syn_fast, tau_syn_slow,
       axon_branch_count, dendrite_branch_count,
       branch_independence * 1.5, branch_spread * 1.5, // Increased branching
       apical_target_layer,
@@ -697,7 +702,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       tau_fast, tau_slow, tau_Vs * 1.5, UC, UV * 1.5, max_spike_rate, g_leak,
       spike_velocity, 0.5, "spine",
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
-      v_rest, v_bound, g_syn, tau_syn,
+      v_rest, v_bound, g_syn, tau_syn_fast, tau_syn_slow,
       static_cast<int>(std::round(axon_branch_count * 0.5)), dendrite_branch_count,
       0.1, 0.9,
       apical_target_layer,
@@ -712,7 +717,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       tau_fast, tau_slow * 2.0, tau_Vs, UC * 3.5, UV, max_spike_rate, g_leak,
       spike_velocity * 0.5, spine_density, axon_target, 
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
-      v_rest, v_bound, g_syn, tau_syn,
+      v_rest, v_bound, g_syn, tau_syn_fast, tau_syn_slow,
       axon_branch_count, dendrite_branch_count,
       branch_independence * 1.5, branch_spread * 1.5, // Increased branching
       apical_target_layer,
@@ -725,7 +730,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       tau_fast * 0.5, tau_slow, tau_Vs, UC, UV, max_spike_rate * 3.0, g_leak * 2.0,
       spike_velocity, spine_density, "soma",
       I_spike, dHdv_bound, v_spike, 0.3, v_threshold, v_eq,
-      v_rest, v_bound, g_syn, tau_syn,
+      v_rest, v_bound, g_syn, tau_syn_fast, tau_syn_slow,
       axon_branch_count, dendrite_branch_count,
       branch_independence * 1.25, branch_spread * 1.25, // Increased branching
       apical_target_layer,
@@ -738,7 +743,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       tau_fast * 0.5, tau_slow, tau_Vs, UC, UV, max_spike_rate * 3.0, g_leak * 2.0,
       spike_velocity, spine_density, "soma",
       I_spike, dHdv_bound, v_spike, 0.3, v_threshold, v_eq,
-      v_rest, v_bound, g_syn, tau_syn,
+      v_rest, v_bound, g_syn, tau_syn_fast, tau_syn_slow,
       axon_branch_count * 2, dendrite_branch_count,
       branch_independence * 0.5, branch_spread * 0.5, // Reduced branching
       apical_target_layer,
@@ -751,7 +756,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       tau_fast, tau_slow, tau_Vs, UC * 3.5, UV, max_spike_rate, g_leak,
       spike_velocity, spine_density, axon_target,
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
-      v_rest, v_bound, g_syn, tau_syn,
+      v_rest, v_bound, g_syn, tau_syn_fast, tau_syn_slow,
       axon_branch_count, dendrite_branch_count,
       branch_independence * 1.5, branch_spread * 1.5, // Increased branching
       apical_target_layer,
@@ -764,7 +769,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       tau_fast, tau_slow, tau_Vs, UC * 3.5, UV, max_spike_rate, g_leak,
       spike_velocity, spine_density, axon_target,
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
-      v_rest, v_bound, g_syn, tau_syn,
+      v_rest, v_bound, g_syn, tau_syn_fast, tau_syn_slow,
       axon_branch_count, dendrite_branch_count,
       branch_independence * 1.25, branch_spread * 1.25, // Increased branching
       apical_target_layer,
@@ -779,7 +784,7 @@ static std::unordered_map<std::string, cell_type> make_default_cell_types() {
       tau_fast, tau_slow, tau_Vs, UC, UV, max_spike_rate, g_leak,
       spike_velocity, spine_density, axon_target,
       I_spike, dHdv_bound, v_spike, tau_spike, v_threshold, v_eq,
-      v_rest, v_bound, g_syn, tau_syn,
+      v_rest, v_bound, g_syn, tau_syn_fast, tau_syn_slow,
       axon_branch_count, dendrite_branch_count,
       branch_independence, branch_spread,
       apical_target_layer,
@@ -824,13 +829,14 @@ void register_type_name(
     for (auto& pair : get_cell_types()) {
       pair.second.g_syn.push_back(0.0);   // default: no synaptic connection (0) 
       pair.second.v_eq.push_back(0.0);    // default: excitatory cell (0) 
-      pair.second.tau_syn.push_back(0.0); // default: Instantaneous (boxcar) post-synaptic current with no decay
+      pair.second.tau_syn_fast.push_back(0.0); // default: Instantaneous (boxcar) post-synaptic conductance with no decay
+      pair.second.tau_syn_slow.push_back(0.0); // default: no slow summation trace
     }
     
     /*
      * Register a (possibly new) cell type name in the canonical registry. If the 
      *   name is not yet known, it is appended to get_all_type_names(), and 
-     *   every already-registered cell type's g_syn, v_eq, and tau_syn vectors 
+     *   every already-registered cell type's g_syn, v_eq, and tau_syn_fast/tau_syn_slow vectors 
      *   are extended by one slot (defaulting to 0.0) so that positional 
      *   indexing into those vectors stays consistent with the (now longer) name 
      *   list. A no-op if the name is already registered.
@@ -972,21 +978,25 @@ List fetch_cell_type_params(
     return_list["radius_taper"]          = ct.radius_taper;
     return_list["min_radius"]            = ct.min_radius;
     // Extract and convert named list elements
-    List ct_tau_syn;
+    List ct_tau_syn_fast;
+    List ct_tau_syn_slow;
     List ct_g_syn; 
     List ct_v_eq;
     CharacterVector cell_type_names = Rcpp::wrap(get_all_type_names()); 
     int n_cell_types = static_cast<int>(cell_type_names.size()); 
-    if (ct.tau_syn.size() != n_cell_types) { Rcpp::stop("Mismatch between length of cell type names and length of tau_syn"); }
+    if (ct.tau_syn_fast.size() != n_cell_types) { Rcpp::stop("Mismatch between length of cell type names and length of tau_syn_fast"); }
+    if (ct.tau_syn_slow.size() != n_cell_types) { Rcpp::stop("Mismatch between length of cell type names and length of tau_syn_slow"); }
     if (ct.g_syn.size()   != n_cell_types) { Rcpp::stop("Mismatch between length of cell type names and length of g_syn"); }
     if (ct.v_eq.size()    != n_cell_types) { Rcpp::stop("Mismatch between length of cell type names and length of v_eq"); }
     for (int i = 0; i < n_cell_types; ++i) {
-      String ctn      = cell_type_names[i]; 
-      ct_tau_syn[ctn] = ct.tau_syn[i];
-      ct_g_syn[ctn]   = ct.g_syn[i]; 
-      ct_v_eq[ctn]    = ct.v_eq[i]; 
+      String ctn           = cell_type_names[i]; 
+      ct_tau_syn_fast[ctn] = ct.tau_syn_fast[i];
+      ct_tau_syn_slow[ctn] = ct.tau_syn_slow[i];
+      ct_g_syn[ctn]        = ct.g_syn[i]; 
+      ct_v_eq[ctn]         = ct.v_eq[i]; 
     }
-    return_list["tau_syn"]               = ct_tau_syn;
+    return_list["tau_syn_fast"]          = ct_tau_syn_fast;
+    return_list["tau_syn_slow"]          = ct_tau_syn_slow;
     return_list["g_syn"]                 = ct_g_syn;
     return_list["v_eq"]                  = ct_v_eq;
     return return_list;
@@ -1047,9 +1057,13 @@ void build_cell_type_from_list(
     }
     
     // Synaptic decay time constant: if provided, use it; otherwise left empty and defaults apply
-    if (params.containsElementNamed("tau_syn")) {
-      SEXP ts_param = params["tau_syn"];
-      ct.tau_syn    = parse_pre(ts_param); 
+    if (params.containsElementNamed("tau_syn_fast")) {
+      SEXP ts_param   = params["tau_syn_fast"];
+      ct.tau_syn_fast = parse_pre(ts_param); 
+    }
+    if (params.containsElementNamed("tau_syn_slow")) {
+      SEXP ts_param   = params["tau_syn_slow"];
+      ct.tau_syn_slow = parse_pre(ts_param); 
     }
     
     // Equilibrium potential: if provided, use it; otherwise will be initialized with defaults
@@ -1183,16 +1197,19 @@ void network::set_neuron_params() {
     per_nrn.Ta                    = ArrayXd(n_neurons); 
     per_nrn.tA                    = ArrayXd(n_neurons); 
     per_nrn.v_eq                  = ArrayXXd(n_neurons, n_neurons); 
-    per_nrn.tau_syn               = ArrayXXd(n_neurons, n_neurons); 
+    per_nrn.tau_syn_fast          = ArrayXXd(n_neurons, n_neurons); 
+    per_nrn.tau_syn_slow          = ArrayXXd(n_neurons, n_neurons); 
     
-    // Create temporary equilibrium potential and tau_syn decay time constant matrices
+    // Create temporary equilibrium potential and tau_syn_fast/tau_syn_slow decay time constant matrices
     int n_types = static_cast<int>(neuron_types.size());
-    ArrayXXd temp_ep = ArrayXXd(n_types, n_neurons); 
-    ArrayXXd temp_ts = ArrayXXd(n_types, n_neurons); 
+    ArrayXXd temp_ep      = ArrayXXd(n_types, n_neurons); 
+    ArrayXXd temp_ts_fast = ArrayXXd(n_types, n_neurons); 
+    ArrayXXd temp_ts_slow = ArrayXXd(n_types, n_neurons); 
     for (int i = 0; i < n_neurons; ++i) {
       for (int j = 0; j < n_types; ++j) {
-        temp_ep(j, i) = neuron_types[j].v_eq[per_nrn.neuron_type_num[i]];
-        temp_ts(j, i) = neuron_types[j].tau_syn[per_nrn.neuron_type_num[i]];
+        temp_ep(j, i)      = neuron_types[j].v_eq[per_nrn.neuron_type_num[i]];
+        temp_ts_fast(j, i) = neuron_types[j].tau_syn_fast[per_nrn.neuron_type_num[i]];
+        temp_ts_slow(j, i) = neuron_types[j].tau_syn_slow[per_nrn.neuron_type_num[i]];
       }
     }
     
@@ -1217,7 +1234,8 @@ void network::set_neuron_params() {
         per_nrn.Ta(i)                = ct.Ta; 
         per_nrn.tA(i)                = ct.tA; 
         per_nrn.v_eq.row(i)          = temp_ep.row(per_nrn.neuron_type_num[i]);
-        per_nrn.tau_syn.row(i)       = temp_ts.row(per_nrn.neuron_type_num[i]);
+        per_nrn.tau_syn_fast.row(i)  = temp_ts_fast.row(per_nrn.neuron_type_num[i]);
+        per_nrn.tau_syn_slow.row(i)  = temp_ts_slow.row(per_nrn.neuron_type_num[i]);
     }
   }
 
@@ -1306,7 +1324,7 @@ void network::set_network_structure(
       neuron_type_names.push_back(nts);
     }
     
-    // Prune each local cell type's g_syn, v_eq, and tau_syn vectors 
+    // Prune each local cell type's g_syn, v_eq, and tau_syn_fast/tau_syn_slow vectors 
     /*
      * They are currently indexed by position in the global type registry) down to only the types present in
      * this network, reordered to match local indexing. This lets find_synapse() and any other per-network
@@ -1318,10 +1336,12 @@ void network::set_network_structure(
     for (int i = 0; i < n_local; ++i) {
       const Vdbl fullsc = neuron_types[i].g_syn;  // copy before overwrite
       const Vdbl fullep = neuron_types[i].v_eq;
-      const Vdbl fullts = neuron_types[i].tau_syn; 
+      const Vdbl fullts_fast = neuron_types[i].tau_syn_fast; 
+      const Vdbl fullts_slow = neuron_types[i].tau_syn_slow; 
       Vdbl prunedsc(n_local, 0.0);
       Vdbl prunedep(n_local, 0.0); 
-      Vdbl prunedts(n_local, 0.0); 
+      Vdbl prunedts_fast(n_local, 0.0); 
+      Vdbl prunedts_slow(n_local, 0.0); 
       for (int j = 0; j < n_local; ++j) {
         int g = find_first(global_names, neuron_type_names[j]);
         if (g >= 0 && g < static_cast<int>(fullsc.size())) {
@@ -1340,18 +1360,20 @@ void network::set_network_structure(
             neuron_type_names[i].c_str(), neuron_type_names[j].c_str()
           );
         }
-        if (g >= 0 && g < static_cast<int>(fullts.size())) {
-          prunedts[j] = fullts[g];
+        if (g >= 0 && g < static_cast<int>(fullts_fast.size())) {
+          prunedts_fast[j] = fullts_fast[g];
+          prunedts_slow[j] = fullts_slow[g];
         } else {
           Rcpp::warning(
-            "Cell type '%s' has no defined tau_syn for '%s' inputs; defaulting to 0",
+            "Cell type '%s' has no defined tau_syn_fast/tau_syn_slow for '%s' inputs; defaulting to 0",
             neuron_type_names[i].c_str(), neuron_type_names[j].c_str()
           );
         }
       }
-      neuron_types[i].g_syn   = prunedsc;
-      neuron_types[i].v_eq    = prunedep;
-      neuron_types[i].tau_syn = prunedts;
+      neuron_types[i].g_syn        = prunedsc;
+      neuron_types[i].v_eq         = prunedep;
+      neuron_types[i].tau_syn_fast = prunedts_fast;
+      neuron_types[i].tau_syn_slow = prunedts_slow;
     }
     
     // Check dimensions of nrn_per_node
@@ -2895,9 +2917,11 @@ void network::BGT(
     // ... last_spike_lagged == tau_onset identifies the first step of a spike arriving at synapse (i,j)
     ArrayXXi tau_onset = (tau_spike - 1).transpose().replicate(n_neurons, 1);
     
-    // Initialize synaptic (post-synaptic current) gating matrix and its per-step decay factor
-    // ... S(i, j) = fraction of open post-synaptic receptors on neuron i due to pre-synaptic neuron j
-    ArrayXXd S = ArrayXXd::Zero(n_neurons, n_neurons);
+    // Initialize the two synaptic gating matrices (fast conductance + slow summation trace).
+    // ... S_fast(i,j) = fraction of open post-synaptic receptors on neuron i due to pre-synaptic neuron j (emitted)
+    // ... S_slow(i,j) = slow, distance-stretched summation trace that gates the supra-additive effect (not emitted)
+    ArrayXXd S_fast = ArrayXXd::Zero(n_neurons, n_neurons);
+    ArrayXXd S_slow = ArrayXXd::Zero(n_neurons, n_neurons);
     // [Claude Sonnet 4.6, 2026-09-03] Replace geometric post_syn_travel_norm with DC MET
     // centrifugal log-attenuation (Zador et al. 1995), computed by compute_MET_attenuation().
     //
@@ -2910,35 +2934,25 @@ void network::BGT(
     //   Applied element-wise to I_syn_effective to convert dendritic synaptic current
     //   into its somatic equivalent. Non-synaptic pairs: L=0 → factor=1, g_syn=0, no effect.
     //
-    // syn_decay: per-step PSC decay factor.  tau_syn stretched by L_norm approximates
-    //   distance-dependent membrane filtering of PSC shape (more distal → slower decay).
-    //   tau_syn → 0 recovers an instantaneous (boxcar) PSC regardless of L_norm.
-    //   DOUBLE-COUNTING (resolved just below): a longer decay tail drags the conductance
-    //     centroid later, duplicating part of the MET group delay already carried by
-    //     post_syn_lags (post_syn_P is a centroid/first-moment delay — see
-    //     compute_MET_attenuation() Eq. 13 derivation). The instantaneous jump and the
-    //     spike-width plateau are distance-independent and do NOT overlap with the
-    //     distance-scaling group delay; only the decay tail does. We therefore subtract
-    //     the tail's onset-to-centroid offset from post_syn_lags below, leaving syn_decay
-    //     to carry only PSC dispersion (shape) and post_syn_lags only the group delay.
+    // syn_decay_fast / syn_decay_slow: per-step decay factors for the two synaptic gating
+    //   traces, mirroring the somatic tau_fast / tau_slow split.
+    //   - FAST (tau_syn_fast): distance-INDEPENDENT decay. S_fast is the only trace emitted
+    //     as conductance, so PSC shape stays decoupled from the MET group delay (post_syn_lags)
+    //     — no centroid double-count, and no centroid correction needed.
+    //   - SLOW (tau_syn_slow × L_norm): distance-STRETCHED decay. Drives the slow summation
+    //     trace S_slow, which supplies the distance-dependent supra-additive effect only and
+    //     is never emitted, so its slow tail cannot leak into the group delay.
     ArrayXd  L_row_max       = per_nrn.post_syn_L.rowwise().maxCoeff();
              L_row_max       = (L_row_max == 0.0).select(ArrayXd::Ones(n_neurons), L_row_max);
     ArrayXXd post_syn_L_norm = per_nrn.post_syn_L.colwise() / L_row_max;
     ArrayXXd met_atten       = (-per_nrn.post_syn_L).exp();   // exp(-L_ij): somatic efficacy
-    // tau_syn → 0 gives per-step decay of 0, recovering an instantaneous (boxcar) PSC
-    ArrayXXd tau_eff         = per_nrn.tau_syn * post_syn_L_norm;   // effective PSC decay time constant per (i,j), ms
-    ArrayXXd syn_decay       = (-dt / tau_eff).exp();
-    // Delay-neutralisation (removes the tail-centroid double-count described above).
-    // PSC shape at each synapse: instantaneous jump → plateau of width w (spike width) →
-    // exponential decay with time constant tau_eff. Its center of mass, measured from
-    // onset, is (w²/2 + tau_eff² + w·tau_eff)/(w + tau_eff). Relative to the tau_eff→0
-    // boxcar (centroid w/2), the distance-dependent shift the decay tail introduces is
-    //   Δ = tau_eff·(w/2 + tau_eff)/(w + tau_eff)   [ms].
-    // Subtracting Δ (in steps) from post_syn_lags leaves it carrying only the MET group
-    // delay. w is the presynaptic spike width, so it varies by column j (cf. tau_onset).
-    ArrayXXd w_spike         = per_nrn.tau_spike.transpose().replicate(n_neurons, 1);
-    ArrayXXd centroid_shift  = tau_eff * (0.5 * w_spike + tau_eff) / (w_spike + tau_eff);
-    post_syn_lags            = (post_syn_lags - (centroid_shift / dt).round().cast<int>()).max(0);
+    // Fast branch: distance-INDEPENDENT PSC decay → clean emitted conductance shape.
+    // tau_syn_fast → 0 gives a per-step decay of 0, recovering an instantaneous (boxcar) PSC.
+    ArrayXXd syn_decay_fast  = (-dt / per_nrn.tau_syn_fast).exp();
+    // Slow branch: distance-STRETCHED decay (tau_syn_slow × L_norm) → drives S_slow, the
+    // summation trace behind the distance-dependent supra-additive effect. Soma (L_norm→0):
+    // instant decay, no summation. Distal (L_norm→1): slow decay, strong summation.
+    ArrayXXd syn_decay_slow  = (-dt / (per_nrn.tau_syn_slow * post_syn_L_norm)).exp();
     
     // Initialize vector of arrays to hold each cell's current dendrite state 
     std::vector<ArrayXXd> dendrite_states(n_neurons);
@@ -2957,32 +2971,36 @@ void network::BGT(
       // ... ls_lagged(i,j) = last_spike of pre-syn j, as seen by post-syn i, accounting for conduction lag
       ArrayXXi ls_lagged = lagged_last_spike(t, pre_syn_lags, last_spike_history, ls_buffer_size);
      
-      // Advance S: add 1 on spike arrival (onset only); hold S during spike width; decay after spike ends
+      // Advance both gating traces: add 1 on spike arrival (onset only); hold during the spike
+      // width; decay after the spike ends. Onset increments are identical for the two traces;
+      // only the decay rate differs (fast = distance-independent emitted conductance;
+      // slow = distance-stretched summation trace).
       // ... onset:  ls_lagged(i,j) == tau_onset(i,j)  [== tau_spike(j) - 1, first step of the arriving spike]
       // ... active: ls_lagged(i,j) > 0                [spike still ongoing as seen by this synapse]
-      // ... Accumulation above 1 is possible (supra-additive subthreshold effects from multiple spikes)
-      auto active = (ls_lagged > 0).eval();
-      S = active.select(
-          S + (ls_lagged == tau_onset).cast<double>(),
-          syn_decay * S
-        );
-      
-      // Scale supra-additive portion of S by tA (per-neuron):
-      //   tA = 0 → S capped at 1 (no supra-additive effect)
-      //   tA = 1 → S accumulates freely (same behavior as before)
-      //   0 < tA < 1 → excess above 1 is linearly attenuated
-      ArrayXXd S_excess = (S - 1.0).max(0.0);
-      S = (S - S_excess) + S_excess.colwise() * per_nrn.tA;
+      auto active     = (ls_lagged > 0).eval();
+      ArrayXXd onset  = (ls_lagged == tau_onset).cast<double>();
+      S_fast = active.select(S_fast + onset, syn_decay_fast * S_fast);
+      S_slow = active.select(S_slow + onset, syn_decay_slow * S_slow);
+     
+      // Emitted gating = linear fast conductance (base capped at 1) + tA-scaled supra-additive
+      // excess drawn from the SLOW trace. The slow trace's distance-stretched decay makes this
+      // excess strongest at distal synapses and absent near the soma.
+      //   tA = 0 → no supra-additive boost; tA = 1 → excess retained in full.
+      // When tau_syn_slow == tau_syn_fast and post_syn_L_norm ≡ 1, S_emit reduces exactly to
+      // the previous single-trace result S = min(S,1) + tA·(S−1)⁺.
+      ArrayXXd S_excess = (S_slow - 1.0).max(0.0);
+      ArrayXXd S_emit   = S_fast.min(1.0) + S_excess.colwise() * per_nrn.tA;
       
       // Compute leak current
       ArrayXd  I_leak   = per_nrn.g_leak * (v_sub.col(t - 1) - per_nrn.v_rest);
       
       /*
        * Dendritic computing model: 
-       *  1. Same-site, over-time supra-additive effect handled above via S update (lagged_last_spike + tau_onset):
-       *      S is incremented by 1 at each spike arrival (onset only), held during the spike width, then decays with syn_decay.
-       *      Dependence on distance from soma is built in via adjustment of tau_syn, so that the supra-additive
-       *      effect is strongest furthest from soma and gone near soma. 
+       *  1. Same-site, over-time supra-additive effect handled above via the S_slow trace:
+       *      S_fast and S_slow are each incremented by 1 at spike arrival (onset only) and held during the spike
+       *      width; S_fast then decays with the distance-independent syn_decay_fast (emitted conductance), while
+       *      S_slow decays with the distance-stretched syn_decay_slow. The supra-additive boost is the tA-scaled
+       *      excess of S_slow above 1, so it is strongest furthest from soma and gone near soma. 
        *  2. Different-site, same-time supra-additive effect: dendrite_states[i].row(ds_now(i)) stores g_syn*S (conductance
        *      × gating, NOT current), scaled by a distance-dependent supra-additive factor determined by the number of
        *      co-active synapses. per_nrn.tA is applied. 
@@ -3000,7 +3018,7 @@ void network::BGT(
       for (int i = 0; i < n_neurons; ++i) {
         
         // Get number of active synapses (based on conductance × gating; avoids missing synapses when v_soma == v_eq)
-        double n_syn_on = static_cast<double>(((g_syn * S).row(i) != 0).count());
+        double n_syn_on = static_cast<double>(((g_syn * S_emit).row(i) != 0).count());
         // Compute super-additive effect 
         double tAe      = per_nrn.tA(i) * n_syn_on > 1.0 ? (n_syn_on - 1.0) / static_cast<double>(n_neurons) : 0.0;
         // [Claude Sonnet 4.6, 2026-09-03] Use DC MET log-attenuation norm (post_syn_L_norm)
@@ -3008,7 +3026,7 @@ void network::BGT(
         auto   tAe_adj  = (post_syn_L_norm.row(i) * tAe + 1.0).eval();
         // Store synaptic conductance × gating (not current) in the dendrite buffer, with distance-adjusted supra-additive effect applied.
         // Driving force will be computed at retrieval time using the lagged, distance-attenuated local voltage.
-        dendrite_states[i].row(ds_now(i)) = (g_syn * S).row(i) * tAe_adj; 
+        dendrite_states[i].row(ds_now(i)) = (g_syn * S_emit).row(i) * tAe_adj; 
         
         // Scale calcium concentration by electrotonic distance to estimate calcium at synapse
         // [Claude Sonnet 4.6, 2026-09-03] post_syn_L_norm (MET) replaces geometric norm.

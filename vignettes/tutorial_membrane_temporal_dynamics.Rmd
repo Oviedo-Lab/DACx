@@ -174,7 +174,7 @@ modify.cell.type(
     g_syn                 = list(  # nS
       "spiny stellate" = 0.1,
       "PV"             = 0.1), 
-    tau_syn               = list(  # ms
+    tau_syn_fast          = list(  # ms
       "spiny stellate" = 2.0,   # Excitatory glutamate channels close quickly
       "PV"             = 6.0),  # Inhibitory GABA channels stay open longer
     # Neurite structure 
@@ -568,7 +568,7 @@ modify.cell.type(
   v_rest                = -70,    # mV
   v_bound               = 1.15,
   g_syn                 = list("spiny stellate" = 0.1, "PV" = 0.1),
-  tau_syn               = list("spiny stellate" = 2.0, "PV" = 6.0),
+  tau_syn_fast          = list("spiny stellate" = 2.0, "PV" = 6.0),
   axon_branch_count     = 20,
   dendrite_branch_count = 20,
   branch_independence   = 0.75,
