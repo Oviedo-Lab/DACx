@@ -2979,7 +2979,7 @@ void network::BGT(
       // ... active: ls_lagged(i,j) > 0                [spike still ongoing as seen by this synapse]
       auto active     = (ls_lagged > 0).eval();
       ArrayXXd onset  = (ls_lagged == tau_onset).cast<double>();
-      S_fast = active.select(S_fast + onset, syn_decay_fast * S_fast);
+      S_fast = active.select(S_fast + onset, syn_decay_fast * S_fast).min(1.0);
       S_slow = active.select(S_slow + onset, syn_decay_slow * S_slow);
      
       // Emitted gating = linear fast conductance (base capped at 1) + tA-scaled supra-additive
@@ -2989,7 +2989,7 @@ void network::BGT(
       // When tau_syn_slow == tau_syn_fast and post_syn_L_norm ≡ 1, S_emit reduces exactly to
       // the previous single-trace result S = min(S,1) + tA·(S−1)⁺.
       ArrayXXd S_excess = (S_slow - 1.0).max(0.0);
-      ArrayXXd S_emit   = S_fast.min(1.0) + S_excess.colwise() * per_nrn.tA;
+      ArrayXXd S_emit   = S_fast + S_excess.colwise() * per_nrn.tA;
       
       // Compute leak current
       ArrayXd  I_leak   = per_nrn.g_leak * (v_sub.col(t - 1) - per_nrn.v_rest);
@@ -3020,7 +3020,7 @@ void network::BGT(
         // Get number of active synapses (based on conductance × gating; avoids missing synapses when v_soma == v_eq)
         double n_syn_on = static_cast<double>(((g_syn * S_emit).row(i) != 0).count());
         // Compute super-additive effect 
-        double tAe      = per_nrn.tA(i) * n_syn_on > 1.0 ? (n_syn_on - 1.0) / static_cast<double>(n_neurons) : 0.0;
+        double tAe      = per_nrn.tA(i) * (n_syn_on > 1.0 ? (n_syn_on - 1.0) / static_cast<double>(n_neurons) : 0.0);
         // [Claude Sonnet 4.6, 2026-09-03] Use DC MET log-attenuation norm (post_syn_L_norm)
         // as the electrotonic distance proxy for Ta/tA effects, replacing geometric norm.
         auto   tAe_adj  = (post_syn_L_norm.row(i) * tAe + 1.0).eval();
