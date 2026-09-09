@@ -222,11 +222,19 @@ struct per_nrn_params {
     //   τ_m = R_m [kΩ·cm²] · C_m [µF/cm²] in ms.  Independent of boundary conditions.
     //   Replaces the heuristic post_syn_travel / dendrite_velocity lag.
     //
+    // post_syn_G_inf: characteristic admittance G∞ (nS) of the synapse segment.
+    //   G∞ = π·d_cm² / (4·R_i·λ_cm) for the segment from parent → synapse node,
+    //   converted to nS on storage (×1e9).  Identical value whether retrieved from
+    //   Pass 1 or Pass 2 (depends only on segment diameter and cell-type constants).
+    //   Soma synapses (no incoming cable segment): seeded with per_nrn.g_leak (nS).
+    //   Degenerate segments: inherit G∞ from the nearest valid proximal segment.
+    //
     // post_syn_arbor_idx / post_syn_node_idx: synapse location in the arbor tree.
     //   Set by find_synapse(); used by compute_MET_attenuation() to look up L_acc[node]
     //   and P_acc[node] after the two-pass recursion.  -1 = no synapse.
     ArrayXXd post_syn_L;          // DC MET centrifugal log-attenuation, soma → synapse (dimensionless)
     ArrayXXd post_syn_P;          // DC MET propagation delay, soma → synapse (ms)
+    ArrayXXd post_syn_G_inf;      // DC MET characteristic admittance G∞ (nS) of synapse segment
     ArrayXXi post_syn_arbor_idx;  // arbor index of synapse node; -1 = no synapse
     ArrayXXi post_syn_node_idx;   // node index within that arbor; -1 = no synapse
   };
@@ -388,7 +396,8 @@ class network {
     // BGT simulations 
     double integrate_along_arbor_to_soma(int node_idx, int arbor_idx, int cell_idx);
     // [Claude Sonnet 4.6, 2026-09-03] DC MET: two-pass cable recursion (Koch & Poggio 1985;
-    // Zador, Segev & Agmon-Snir 1995). Fills per_nrn.post_syn_L and per_nrn.post_syn_P.
+    // Zador, Segev & Agmon-Snir 1995). Fills per_nrn.post_syn_L, per_nrn.post_syn_P,
+    // and per_nrn.post_syn_G_inf.
     // Called once at the start of BGT() after all synapses are formed.
     void   compute_MET_attenuation();
     void   BGT(const NumericMatrix& I_stim_R, double dt, double v_initial);
@@ -1480,6 +1489,7 @@ void network::set_network_structure(
     //   post_syn_arbor_idx/node_idx = -1 (no synapse recorded yet).
     per_nrn.post_syn_L         = ArrayXXd::Constant(n_neurons, n_neurons, 0.0);
     per_nrn.post_syn_P         = ArrayXXd::Constant(n_neurons, n_neurons, 0.0);
+    per_nrn.post_syn_G_inf     = ArrayXXd::Constant(n_neurons, n_neurons, 0.0);
     per_nrn.post_syn_arbor_idx = ArrayXXi::Constant(n_neurons, n_neurons, -1);
     per_nrn.post_syn_node_idx  = ArrayXXi::Constant(n_neurons, n_neurons, -1);
     
@@ -2530,8 +2540,9 @@ double network::integrate_along_arbor_to_soma(
 // ─────────────────────────────────────────────────────────────────────────────
 // Computes the DC (steady-state, ω = 0) Morphoelectrotonic Transform (MET) for
 // every dendritic synapse in the network.  Fills:
-//   per_nrn.post_syn_L  – centrifugal log-attenuation L_ij (dimensionless)
-//   per_nrn.post_syn_P  – MET propagation delay P_ij (ms)
+//   per_nrn.post_syn_L      – centrifugal log-attenuation L_ij (dimensionless)
+//   per_nrn.post_syn_P      – MET propagation delay P_ij (ms)
+//   per_nrn.post_syn_G_inf  – characteristic admittance G∞ (nS) of synapse segment
 //
 // THEORY (Koch & Poggio 1985; Zador, Segev & Agmon-Snir 1995):
 //
@@ -2663,10 +2674,15 @@ void network::compute_MET_attenuation() {
         if (N < 2) continue;   // soma-only arbor; nothing to traverse
        
         // Per-node working arrays for this arbor
-        std::vector<double> G_load(N, 0.0);  // distal load conductance (S) aggregated from daughters
-        std::vector<double> G_in(N, 0.0);    // input conductance seen from proximal end (S)
-        std::vector<double> L_acc(N, 0.0);   // accumulated centrifugal log-attenuation from soma
-        std::vector<double> P_acc(N, 0.0);   // accumulated MET propagation delay from soma (ms)
+        std::vector<double> G_load(N, 0.0);     // distal load conductance (S) aggregated from daughters
+        std::vector<double> G_in(N, 0.0);       // input conductance seen from proximal end (S)
+        std::vector<double> L_acc(N, 0.0);      // accumulated centrifugal log-attenuation from soma
+        std::vector<double> P_acc(N, 0.0);      // accumulated MET propagation delay from soma (ms)
+        std::vector<double> G_inf_node(N, 0.0); // G∞ (nS) of the segment arriving at each node
+        // Soma node (index 0) has no incoming cable segment; seed with the cell's leak
+        // conductance (nS) so that soma synapses receive a meaningful admittance value
+        // rather than the zero sentinel.
+        G_inf_node[0] = per_nrn.g_leak[cell_idx];
         
         // ── Helper lambda: λ (µm) and G∞ (S) from mean segment diameter ──────────────────────
         // λ (space constant):
@@ -2762,8 +2778,9 @@ void network::compute_MET_attenuation() {
           
           if (l_µm < 1e-12) {
             // Zero-length segment: inherit parent values unchanged
-            L_acc[j] = L_acc[parent_j];
-            P_acc[j] = P_acc[parent_j];
+            L_acc[j]      = L_acc[parent_j];
+            P_acc[j]      = P_acc[parent_j];
+            G_inf_node[j] = G_inf_node[parent_j];
             continue;
           }
          
@@ -2780,8 +2797,9 @@ void network::compute_MET_attenuation() {
           // guard should never fire because the min_radius floor keeps d_µm
           // well above zero for all valid morphologies.
           if (G_inf < 1e-30 || lambda_µm < 1e-12) {
-            L_acc[j] = L_acc[parent_j];
-            P_acc[j] = P_acc[parent_j];
+            L_acc[j]      = L_acc[parent_j];
+            P_acc[j]      = P_acc[parent_j];
+            G_inf_node[j] = G_inf_node[parent_j];
             continue;
           }
          
@@ -2805,6 +2823,10 @@ void network::compute_MET_attenuation() {
           //   Thinner segments (smaller λ → larger L_seg per µm) accumulate more delay.
           const double dP = L_seg * tau_m / 2.0;
           P_acc[j] = P_acc[parent_j] + dP;
+         
+          // Record G∞ for this segment in nS (same value as computed in Pass 1; stored
+          // here for convenient retrieval by the synapse write-out loop below).
+          G_inf_node[j] = G_inf * 1e9;
         }
        
         // ── Write results for each synapse on this cell whose arbor matches arb ──────────────
@@ -2812,8 +2834,9 @@ void network::compute_MET_attenuation() {
           if (per_nrn.post_syn_arbor_idx(cell_idx, pre) == arb) {
             const int node = per_nrn.post_syn_node_idx(cell_idx, pre);
             if (node >= 0 && node < N) {
-              per_nrn.post_syn_L(cell_idx, pre) = L_acc[node];
-              per_nrn.post_syn_P(cell_idx, pre) = P_acc[node];
+              per_nrn.post_syn_L(cell_idx, pre)     = L_acc[node];
+              per_nrn.post_syn_P(cell_idx, pre)     = P_acc[node];
+              per_nrn.post_syn_G_inf(cell_idx, pre) = G_inf_node[node];
             }
           }
         }
@@ -2927,7 +2950,7 @@ void network::BGT(
     //
     // post_syn_L_norm: row-wise normalisation of L_ij to [0, 1].
     //   Used as a dimensionless electrotonic-distance proxy in the Ta/tA nonlinear terms
-    //   and in the local voltage blend v_local = v_soma·(1-d) + v_rest·d below.
+    //   and in the local voltage blend v_syn = v_soma·(1-d) + v_rest·d below.
     //   Grounded in cable theory rather than raw geometric path length.
     //
     // met_atten: true MET somatic efficacy factor exp(-L_ij) (Zador 1995 p. 1676).
@@ -3049,7 +3072,7 @@ void network::BGT(
           int    t_gen      = std::max(0, t - 1 - lag_j);
           // Local dendritic voltage approximated as a linear blend of soma voltage and v_rest,
           // weighted by normalised dendritic distance d (0 = soma, 1 = most distal):
-          //   v_local = v_soma * (1 - d) + v_rest * d
+          //   v_syn = v_soma * (1 - d) + v_rest * d
           // This follows passive-cable intuition: voltage attenuates toward rest with distance.
           double v_soma_gen = v_sub(i, t_gen);
           // [Claude Sonnet 4.6, 2026-09-03] Local dendritic voltage at the synapse, from
@@ -3070,8 +3093,13 @@ void network::BGT(
           // partner (voltage attenuation dend→soma) never enters this term, so post_syn_L's
           // centrifugal direction is the correct and sufficient quantity for both uses.
           double d          = 1.0 - met_atten(i, j);
-          double v_local    = v_soma_gen * (1.0 - d) + per_nrn.v_rest(i) * d;
-          double drive_j    = v_local - per_nrn.v_eq(i, j);
+          double v_syn_cable = v_soma_gen * (1.0 - d) + per_nrn.v_rest(i) * d;
+          double drive_cable_j    = v_syn_cable - per_nrn.v_eq(i, j);
+          double drive_eff = g_syn(i, j) / (g_syn(i, j) + per_nrn.post_syn_G_inf(i, j));
+          double v_syn_fast = S_fast(i, j) * drive_eff * drive_cable_j;
+          double v_syn_slow = S_excess(i, j) * per_nrn.tA(i) * drive_eff * drive_cable_j;
+          double v_syn = v_syn_cable + v_syn_fast + v_syn_slow;
+          double drive_j    = v_syn - per_nrn.v_eq(i, j);
           // [Claude Sonnet 4.6, 2026-09-03] Apply DC MET somatic efficacy factor exp(-L_ij).
           // met_atten(i,j) = exp(-post_syn_L(i,j)) converts dendritic synaptic current to
           // somatic equivalent (Zador 1995 p. 1676; Koch & Poggio 1985 Rule III derivation).
