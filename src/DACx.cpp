@@ -3098,7 +3098,7 @@ void network::BGT(
           double drive_eff = g_syn(i, j) / (g_syn(i, j) + per_nrn.post_syn_G_inf(i, j));
           double v_syn_fast = S_fast(i, j) * drive_eff * drive_cable_j;
           double v_syn_slow = S_excess(i, j) * per_nrn.tA(i) * drive_eff * drive_cable_j;
-          double v_syn = v_syn_cable + v_syn_fast + v_syn_slow;
+          double v_syn = v_syn_cable - (v_syn_fast + v_syn_slow);
           double drive_j    = v_syn - per_nrn.v_eq(i, j);
           // [Claude Sonnet 4.6, 2026-09-03] Apply DC MET somatic efficacy factor exp(-L_ij).
           // met_atten(i,j) = exp(-post_syn_L(i,j)) converts dendritic synaptic current to
