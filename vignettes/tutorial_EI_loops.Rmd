@@ -97,7 +97,6 @@ modify.cell.type(
     branch_independence   = 0.75, 
     branch_spread         = 0.75, 
     apical_target_layer   = "none",
-    dendrite_velocity     = 1e4,   # microns/ms, 1e4 = 10 m/s
     Ta                    = 0.0,
     tA                    = 0.0
   )
