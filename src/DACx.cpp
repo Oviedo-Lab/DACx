@@ -3096,9 +3096,17 @@ void network::BGT(
           double v_syn_cable = v_soma_gen * (1.0 - d) + per_nrn.v_rest(i) * d;
           double drive_cable_j    = v_syn_cable - per_nrn.v_eq(i, j);
           double drive_eff = g_syn(i, j) / (g_syn(i, j) + per_nrn.post_syn_G_inf(i, j));
-          double v_syn_fast = S_fast(i, j) * drive_eff * drive_cable_j;
-          double v_syn_slow = S_excess(i, j) * per_nrn.tA(i) * drive_eff * drive_cable_j;
-          double v_syn = v_syn_cable - (v_syn_fast + v_syn_slow);
+          // [Revised paper, eq. 26/28/29, 2026-09-11] Local potential is now the cable
+          // potential plus a SATURATING active term driven by combined pre-synaptic gating
+          // Sij and effective drive conductance Gij, rather than the previous linear sum of
+          // separate fast/slow potentials (which could push v_syn past v_eq for large Sij).
+          //   Sij       = S_emit(i,j) = S_fast(i,j) + tA(i)*S_excess(i,j)      (eq. 32)
+          //   Gij       = drive_eff = gij / (gij + G_inf_ki(j))                (eq. 29)
+          //   v_input   = (v_eq - v_cab) * (1 - exp(-Sij*Gij))                 (eq. 28)
+          //   v_syn     = v_cab + v_input                                     (eq. 26)
+          // As Sij*Gij -> infinity, v_syn saturates at v_eq rather than diverging.
+          double Sij_Gij = S_emit(i, j) * drive_eff;
+          double v_syn   = v_syn_cable - drive_cable_j * (1.0 - std::exp(-Sij_Gij));
           double drive_j    = v_syn - per_nrn.v_eq(i, j);
           // [Claude Sonnet 4.6, 2026-09-03] Apply DC MET somatic efficacy factor exp(-L_ij).
           // met_atten(i,j) = exp(-post_syn_L(i,j)) converts dendritic synaptic current to
