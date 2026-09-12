@@ -237,8 +237,8 @@ simulate_pair <- function(dt, n_steps, I_stim1, I_stim2, g_syn = g_syn12) {
 ## each moment, not yet integrating g's own feedback into the trace).
 ## exp(Lki) == 1 throughout: soma synapse, no cable attenuation (simplif. #1).
 dgdt_trace <- function(df, g_syn = g_syn12, Ginf = G_inf12, v_eq = v_eq12, S_floor = 1e-6) {
-  g_pre <- (g_syn + Ginf)^2 / Ginf                      # eq. 39 (constant while g fixed)
   S_safe <- pmax(df$S_emit, S_floor)
+  g_pre <- (S_safe * g_syn + Ginf)^2 / Ginf                      # eq. 39 (constant while g fixed)
   v_pre  <- S_safe * (v_eq - df$v_syn)                   # eq. 40 (uses local v_syn, i.e. v_cab
                                                           #  at retrieval; matches the script's
                                                           #  v_syn_cable == v2(t-1) here since d=0)
@@ -338,6 +338,9 @@ p_eff <- ggplot(align_df, aes(t_rel, I_syn_eff2, color = trial)) +
   labs(y = "I_eff_21 (pA)", x = "time since presynaptic spike (ms)",
        title = "I_eff_ij(t)  (\"I_eff_ij\" in the sketch)", color = NULL)
 
+library(patchwork)
+p_v / p_total / p_eff
+
 ## --- Plot B: the two candidate STDP curves, same x-axis (real Delta t) -----
 
 p_cost <- ggplot(stdp_sweep, aes(delta_t, cost_savings_mag)) +
@@ -355,6 +358,8 @@ p_dg <- ggplot(stdp_sweep, aes(delta_t, delta_g)) +
        y = "integrated \u0394g_ij (nS, whole run)",
        title = "(2) The REAL, trace-based Hebbian update (revised-paper eqs. 36-42)",
        subtitle = "dg/dt integrated using SIMULATED S_emit(t), v_syn(t), I_eff(t), I_total(t) -- no fixed eta/Hcab")
+
+p_cost / p_dg
 
 ## Run this script interactively and print/inspect:
 ##   (p_v / p_total / p_eff)               -- sketch-style trace comparison
